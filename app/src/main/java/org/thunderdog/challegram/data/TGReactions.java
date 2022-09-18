@@ -14,9 +14,7 @@ import org.drinkless.td.libcore.telegram.Client;
 import org.drinkless.td.libcore.telegram.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.chat.MessageView;
-import org.thunderdog.challegram.component.sticker.TGStickerObj;
 import org.thunderdog.challegram.loader.ComplexReceiver;
-import org.thunderdog.challegram.loader.ImageReceiver;
 import org.thunderdog.challegram.loader.gif.GifFile;
 import org.thunderdog.challegram.loader.gif.GifReceiver;
 import org.thunderdog.challegram.support.ViewSupport;
@@ -205,7 +203,10 @@ public class TGReactions {
       return;
     }
     for (TdApi.MessageReaction reaction : reactions) {
-      reactionsMapEntry.get(reaction.reaction).setCount(reaction.totalCount, reaction.isChosen, animated);
+      TGReactions.MessageReactionEntry entry = reactionsMapEntry.get(reaction.reaction);
+      if (entry != null) {
+        entry.setCount(reaction.totalCount, reaction.isChosen, animated);
+      }
     }
   }
 
@@ -237,7 +238,7 @@ public class TGReactions {
     for (TGReactions.MessageReactionEntry entry : reactionsListEntry) {
       Counter counter = entry.counter;
 
-      int bubbleWidth = (int) counter.getTargetWidth() + Screen.dp(36);   // bubble width
+      int bubbleWidth = entry.getBubbleTargetWidth();
       int nextLastLineWidth = lastLineWidth + bubbleWidth + (lastLineWidth > 0 ? padding : 0);
       if (nextLastLineWidth > maxWidth) {
         nextLastLineWidth = bubbleWidth;
@@ -872,6 +873,11 @@ public class TGReactions {
     public int getBubbleWidth () {
       int addW = Screen.dp((TGMessage.reactionsTextStyleProvider().getTextSizeInDp() + 1f) / 3f);
       return (int) (counter.getWidth() + getReactionImageSize() + addW);
+    }
+
+    public int getBubbleTargetWidth () {
+      int addW = Screen.dp((TGMessage.reactionsTextStyleProvider().getTextSizeInDp() + 1f) / 3f);
+      return (int) (counter.getTargetWidth() + getReactionImageSize() + addW);
     }
 
     public int getBubbleHeight () {
