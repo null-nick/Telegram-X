@@ -140,7 +140,6 @@ import org.thunderdog.challegram.data.TGMessageSticker;
 import org.thunderdog.challegram.data.TGRecord;
 import org.thunderdog.challegram.data.TGSwitchInline;
 import org.thunderdog.challegram.data.ThreadInfo;
-import org.thunderdog.challegram.emoji.Emoji;
 import org.thunderdog.challegram.filegen.PhotoGenerationInfo;
 import org.thunderdog.challegram.filegen.VideoGenerationInfo;
 import org.thunderdog.challegram.helper.BotHelper;
@@ -207,9 +206,9 @@ import org.thunderdog.challegram.unsorted.Test;
 import org.thunderdog.challegram.util.CancellableResultHandler;
 import org.thunderdog.challegram.util.HapticMenuHelper;
 import org.thunderdog.challegram.util.OptionDelegate;
+import org.thunderdog.challegram.util.SenderPickerDelegate;
 import org.thunderdog.challegram.util.StringList;
 import org.thunderdog.challegram.util.Unlockable;
-import org.thunderdog.challegram.util.SenderPickerDelegate;
 import org.thunderdog.challegram.v.HeaderEditText;
 import org.thunderdog.challegram.v.MessagesLayoutManager;
 import org.thunderdog.challegram.v.MessagesRecyclerView;
@@ -223,12 +222,12 @@ import org.thunderdog.challegram.widget.NoScrollTextView;
 import org.thunderdog.challegram.widget.PopupLayout;
 import org.thunderdog.challegram.widget.ProgressComponentView;
 import org.thunderdog.challegram.widget.RippleRevealView;
-import org.thunderdog.challegram.widget.rtl.RtlViewPager;
 import org.thunderdog.challegram.widget.SendButton;
 import org.thunderdog.challegram.widget.SeparatorView;
 import org.thunderdog.challegram.widget.TripleAvatarView;
 import org.thunderdog.challegram.widget.ViewPager;
 import org.thunderdog.challegram.widget.WallpaperParametersView;
+import org.thunderdog.challegram.widget.rtl.RtlViewPager;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -245,6 +244,7 @@ import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.android.widget.AnimatedFrameLayout;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.ArrayUtils;
+import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.collection.IntList;
@@ -255,7 +255,6 @@ import me.vkryl.core.lambda.Future;
 import me.vkryl.core.lambda.FutureLong;
 import me.vkryl.core.lambda.RunnableBool;
 import me.vkryl.core.lambda.RunnableData;
-import me.vkryl.core.BitwiseUtils;
 import me.vkryl.td.ChatId;
 import me.vkryl.td.MessageId;
 import me.vkryl.td.Td;
@@ -3310,6 +3309,12 @@ public class MessagesController extends ViewController<MessagesController.Argume
             StringList strings = new StringList(count);
             IntList icons = new IntList(count);
 
+            if (inputView.canClearTextFormat()) {
+              ids.append(R.id.btn_plain);
+              strings.append(R.string.TextFormatClear);
+              icons.append(R.drawable.baseline_format_clear_24);
+            }
+
             ids.append(R.id.btn_bold);
             strings.append(R.string.TextFormatBold);
             icons.append(R.drawable.baseline_format_bold_24);
@@ -4188,7 +4193,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       msg.checkAvailableReactions(() -> {
         if (withReactions && msg.canBeReacted() && msg.getMessageAvailableReactions().length > 0) {
           Options messageOptions = getOptions(StringUtils.isEmpty(text) ? null : text, ids, options, null, icons);
-          showMessageOptions(messageOptions, selectedMessage);
+          showMessageOptions(messageOptions, msg);
         } else {
           PopupLayout popupLayout = showOptions(StringUtils.isEmpty(text) ? null : text, ids, options, null, icons);
           patchReadReceiptsOptions(popupLayout, msg, disableViewCounter);
@@ -5465,7 +5470,12 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   public void showActionJoinChatButton () {
-    showActionButton(R.string.JoinChat, ACTION_JOIN_CHAT);
+    TdApi.Supergroup supergroup = tdlib.chatToSupergroup(getChatId());
+    if (supergroup != null && supergroup.joinByRequest && !TD.isAdmin(supergroup.status)) {
+      showActionButton(supergroup.isChannel ? R.string.RequestJoinChannel : R.string.RequestJoinGroup, ACTION_JOIN_CHAT);
+    } else {
+      showActionButton(R.string.JoinChat, ACTION_JOIN_CHAT);
+    }
   }
 
   public void showActionUnblockButton () {
@@ -5620,7 +5630,18 @@ public class MessagesController extends ViewController<MessagesController.Argume
         break;
       }
       case ACTION_JOIN_CHAT: {
-        tdlib.client().send(new TdApi.AddChatMember(chat.id, tdlib.myUserId(), 0), tdlib.okHandler());
+        tdlib.client().send(new TdApi.AddChatMember(chat.id, tdlib.myUserId(), 0), result -> {
+          if (result.getConstructor() == TdApi.Error.CONSTRUCTOR) {
+            runOnUiThreadOptional(() -> {
+              if (isFocused()) {
+                context
+                  .tooltipManager()
+                  .builder(actionButton)
+                  .show(this, tdlib, R.drawable.baseline_error_24, TD.toErrorString(result));
+              }
+            });
+          }
+        });
         break;
       }
       case ACTION_UNBAN_USER: {

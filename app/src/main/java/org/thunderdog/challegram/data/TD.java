@@ -3339,11 +3339,13 @@ public class TD {
   public static final int PREVIEW_FLAG_ALLOW_CAPTIONS = 1;
   public static final int PREVIEW_FLAG_FORCE_MEDIA_TYPE = 1 << 1;
 
+  @Deprecated
   private static String buildShortPreview (Tdlib tdlib, @Nullable TdApi.Message m, boolean allowCaptions, boolean multiLine, @Nullable RunnableBool translatable) {
     String str = buildShortPreviewImpl(tdlib, m, allowCaptions ? PREVIEW_FLAG_ALLOW_CAPTIONS : 0, translatable);
     return StringUtils.isEmpty(str) || multiLine ? str : Strings.translateNewLinesToSpaces(str);
   }
 
+  @Deprecated
   public static String buildShortPreview (Tdlib tdlib, @Nullable TdApi.Message m, boolean allowCaptions) {
     return buildShortPreview(tdlib, m, allowCaptions, false, null);
   }
@@ -3368,6 +3370,10 @@ public class TD {
     }
   }
 
+  /**
+   * TODO Support properly all missing cases in {@link #getContentPreview(Tdlib, long, TdApi.Message, boolean, boolean)} and remove this method.
+   */
+  @Deprecated
   private static String buildShortPreviewImpl (Tdlib tdlib, @Nullable TdApi.Message m, int flags, @Nullable RunnableBool isTranslatable) {
     if (m == null || m.content == null) {
       U.set(isTranslatable, true);
@@ -3383,6 +3389,10 @@ public class TD {
       case TdApi.MessageText.CONSTRUCTOR: {
         U.set(isTranslatable, false);
         return ((TdApi.MessageText) m.content).text.text;
+      }
+      case TdApi.MessageAnimatedEmoji.CONSTRUCTOR: {
+        U.set(isTranslatable, false);
+        return ((TdApi.MessageAnimatedEmoji) m.content).emoji;
       }
       case TdApi.MessageAnimation.CONSTRUCTOR: {
         String caption = ((TdApi.MessageAnimation) m.content).caption.text;
@@ -3779,6 +3789,20 @@ public class TD {
         TdApi.MessagePaymentSuccessful successful = (TdApi.MessagePaymentSuccessful) m.content;
         return Lang.getString(R.string.PaymentSuccessfullyPaidNoItem, CurrencyUtils.buildAmount(successful.currency, successful.totalAmount), tdlib.chatTitle(m.chatId));
       }
+      case TdApi.MessageGiftedPremium.CONSTRUCTOR: {
+        U.set(isTranslatable, true);
+        TdApi.MessageGiftedPremium giftedPremium = (TdApi.MessageGiftedPremium) m.content;
+        if (m.isOutgoing) {
+          return Lang.plural(R.string.YouGiftedPremium, giftedPremium.monthCount, CurrencyUtils.buildAmount(giftedPremium.currency, giftedPremium.amount));
+        } else {
+          return Lang.plural(R.string.GiftedPremium, giftedPremium.monthCount, tdlib.senderName(m.senderId, true), CurrencyUtils.buildAmount(giftedPremium.currency, giftedPremium.amount));
+        }
+      }
+      case TdApi.MessageWebAppDataSent.CONSTRUCTOR: {
+        U.set(isTranslatable, true);
+        TdApi.MessageWebAppDataSent webAppDataSent = (TdApi.MessageWebAppDataSent) m.content;
+        return Lang.getString(R.string.BotDataSent, webAppDataSent.buttonText);
+      }
       case TdApi.MessageCustomServiceAction.CONSTRUCTOR: {
         U.set(isTranslatable, false);
         return ((TdApi.MessageCustomServiceAction) m.content).text;
@@ -3791,9 +3815,18 @@ public class TD {
         U.set(isTranslatable, true);
         return Lang.getString(R.string.UnsupportedMessageType);
       }
+      // Unsupported in this method
+      case TdApi.MessageChatSetTheme.CONSTRUCTOR:
+      case TdApi.MessageInviteVideoChatParticipants.CONSTRUCTOR:
+      case TdApi.MessageProximityAlertTriggered.CONSTRUCTOR:
+      case TdApi.MessageVideoChatEnded.CONSTRUCTOR:
+      case TdApi.MessageVideoChatScheduled.CONSTRUCTOR:
+      case TdApi.MessageVideoChatStarted.CONSTRUCTOR:
+        break;
       // Bots only. Unused
       case TdApi.MessagePassportDataReceived.CONSTRUCTOR:
       case TdApi.MessagePaymentSuccessfulBot.CONSTRUCTOR:
+      case TdApi.MessageWebAppDataReceived.CONSTRUCTOR:
         break;
     }
     U.set(isTranslatable, false);
@@ -5124,6 +5157,38 @@ public class TD {
   private static final String SPOILER_REPLACEMENT_CHAR = "▒";
   private static final int SPOILER_BACKGROUND_COLOR = 0xffa9a9a9;
 
+  public static boolean canConvertToSpan (TdApi.TextEntityType type) {
+    if (type == null) {
+      return false;
+    }
+    switch (type.getConstructor()) {
+      case TdApi.TextEntityTypeBold.CONSTRUCTOR:
+      case TdApi.TextEntityTypeItalic.CONSTRUCTOR:
+      case TdApi.TextEntityTypeCode.CONSTRUCTOR:
+      case TdApi.TextEntityTypePreCode.CONSTRUCTOR:
+      case TdApi.TextEntityTypePre.CONSTRUCTOR:
+      case TdApi.TextEntityTypeTextUrl.CONSTRUCTOR:
+      case TdApi.TextEntityTypeStrikethrough.CONSTRUCTOR:
+      case TdApi.TextEntityTypeUnderline.CONSTRUCTOR:
+      case TdApi.TextEntityTypeSpoiler.CONSTRUCTOR:
+      case TdApi.TextEntityTypeMentionName.CONSTRUCTOR:
+      case TdApi.TextEntityTypeCustomEmoji.CONSTRUCTOR:
+        return true;
+      // auto-detected entities
+      case TdApi.TextEntityTypeBankCardNumber.CONSTRUCTOR:
+      case TdApi.TextEntityTypeBotCommand.CONSTRUCTOR:
+      case TdApi.TextEntityTypeCashtag.CONSTRUCTOR:
+      case TdApi.TextEntityTypeEmailAddress.CONSTRUCTOR:
+      case TdApi.TextEntityTypeHashtag.CONSTRUCTOR:
+      case TdApi.TextEntityTypeMediaTimestamp.CONSTRUCTOR:
+      case TdApi.TextEntityTypeMention.CONSTRUCTOR:
+      case TdApi.TextEntityTypePhoneNumber.CONSTRUCTOR:
+      case TdApi.TextEntityTypeUrl.CONSTRUCTOR:
+        break;
+    }
+    return false;
+  }
+
   public static CharacterStyle toSpan (TdApi.TextEntityType type, boolean allowInternal) {
     if (type == null)
       return null;
@@ -5263,6 +5328,42 @@ public class TD {
       }
     }
     return false;
+  }
+
+  public static CharacterStyle cloneSpan (CharacterStyle span) {
+    if (span instanceof CustomTypefaceSpan) {
+      CustomTypefaceSpan customTypefaceSpan = (CustomTypefaceSpan) span;
+      return new CustomTypefaceSpan(customTypefaceSpan);
+    }
+    if (span instanceof URLSpan) {
+      URLSpan urlSpan = (URLSpan) span;
+      return new URLSpan(urlSpan.getURL());
+    }
+    if (span instanceof StyleSpan) {
+      StyleSpan styleSpan = (StyleSpan) span;
+      return new StyleSpan(styleSpan.getStyle());
+    }
+    if (span instanceof TypefaceSpan) {
+      TypefaceSpan typefaceSpan = (TypefaceSpan) span;
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        Typeface typeface = typefaceSpan.getTypeface();
+        if (typeface != null) {
+          return new TypefaceSpan(typeface);
+        }
+      }
+      return new TypefaceSpan(typefaceSpan.getFamily());
+    }
+    if (span instanceof BackgroundColorSpan) {
+      BackgroundColorSpan backgroundColorSpan = (BackgroundColorSpan) span;
+      return new BackgroundColorSpan(backgroundColorSpan.getBackgroundColor());
+    }
+    if (span instanceof StrikethroughSpan) {
+      return new StrikethroughSpan();
+    }
+    if (span instanceof UnderlineSpan) {
+      return new UnderlineSpan();
+    }
+    throw new UnsupportedOperationException(span.toString());
   }
 
   public static boolean canConvertToEntityType (CharacterStyle span) {
@@ -6466,10 +6567,17 @@ public class TD {
         else
           return new ContentPreview(EMOJI_GROUP, 0, Lang.getString(isOutgoing ? R.string.ChatContentGroupName_outgoing : R.string.ChatContentGroupName, Td.getText(formattedArgument)), true);
       case TdApi.MessageChatSetTheme.CONSTRUCTOR:
-        if (isOutgoing)
-          return new ContentPreview(EMOJI_THEME, 0, toFormattedText(Lang.getStringBold(R.string.ChatContentThemeSet_outgoing, formattedArgument.text), true));
-        else
-          return new ContentPreview(EMOJI_THEME, 0, toFormattedText(Lang.getStringBold(R.string.ChatContentThemeSet, formattedArgument.text), true));
+        if (StringUtils.isEmpty(formattedArgument.text)) {
+          if (isOutgoing)
+            return new ContentPreview(EMOJI_THEME, R.string.ChatContentThemeDisabled_outgoing);
+          else
+            return new ContentPreview(EMOJI_THEME, R.string.ChatContentThemeDisabled);
+        } else {
+          if (isOutgoing)
+            return new ContentPreview(EMOJI_THEME, 0, toFormattedText(Lang.getStringBold(R.string.ChatContentThemeSet_outgoing, formattedArgument.text), true));
+          else
+            return new ContentPreview(EMOJI_THEME, 0, toFormattedText(Lang.getStringBold(R.string.ChatContentThemeSet, formattedArgument.text), true));
+        }
       case TdApi.MessageChatSetTtl.CONSTRUCTOR: {
         if (arg1 > 0) {
           final int secondsRes, minutesRes, hoursRes, daysRes, weeksRes, monthsRes;
