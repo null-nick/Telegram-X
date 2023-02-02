@@ -175,7 +175,7 @@ dependencies {
   implementation(project(":vkryl:android"))
   implementation(project(":vkryl:td"))
   // AndroidX: https://developer.android.com/jetpack/androidx/releases/
-  implementation("androidx.activity:activity:1.5.1")
+  implementation("androidx.activity:activity:1.6.1")
   implementation("androidx.palette:palette:1.0.0")
   implementation("androidx.recyclerview:recyclerview:1.2.1")
   implementation("androidx.viewpager:viewpager:1.0.0")
@@ -186,9 +186,9 @@ dependencies {
   implementation("androidx.interpolator:interpolator:1.0.0")
   implementation("androidx.gridlayout:gridlayout:1.0.0")
   // CameraX: https://developer.android.com/jetpack/androidx/releases/camera
-  implementation("androidx.camera:camera-camera2:1.1.0")
-  implementation("androidx.camera:camera-lifecycle:1.1.0")
-  implementation("androidx.camera:camera-view:1.1.0")
+  implementation("androidx.camera:camera-camera2:1.2.1")
+  implementation("androidx.camera:camera-lifecycle:1.2.1")
+  implementation("androidx.camera:camera-view:1.2.1")
   // Google Play Services: https://developers.google.com/android/guides/releases
   implementation("com.google.android.gms:play-services-base:17.6.0")
   implementation("com.google.android.gms:play-services-basement:17.6.0")
@@ -204,7 +204,7 @@ dependencies {
   // Play In-App Updates: https://developer.android.com/reference/com/google/android/play/core/release-notes-in_app_updates
   implementation("com.google.android.play:app-update:2.0.1")
   // ExoPlayer: https://github.com/google/ExoPlayer/blob/release-v2/RELEASENOTES.md
-  implementation("com.google.android.exoplayer:exoplayer-core:2.18.1")
+  implementation("com.google.android.exoplayer:exoplayer-core:2.18.2")
   // The Checker Framework: https://checkerframework.org/CHANGELOG.md
   compileOnly("org.checkerframework:checker-qual:3.29.0")
   // OkHttp: https://github.com/square/okhttp/blob/master/CHANGELOG.md
