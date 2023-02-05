@@ -16,8 +16,8 @@ package org.thunderdog.challegram.widget;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.drawable.Drawable;
 import android.graphics.Path;
+import android.graphics.drawable.Drawable;
 import android.text.TextUtils;
 import android.util.TypedValue;
 import android.view.View;
@@ -344,7 +344,7 @@ public class DoubleTextView extends RelativeLayout implements RtlCheckListener, 
       float realTitleLength = titleView.getPaint().measureText(titleView.getText(), 0, titleView.getText().length());
 
       float badgeOffset = realTitleLength > titleView.getWidth() ? titleView.getWidth() : realTitleLength;
-      badgeOffset += imageReceiver.getWidth() + Screen.dp(18f);
+      badgeOffset += getWidth() + Screen.dp(18f);
 
       float addedIconsWidth = 0;
       Drawable d;
