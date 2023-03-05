@@ -4057,7 +4057,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
       return false;
     synchronized (dataLock) {
       if (diceEmoji != null) {
-        return ArrayUtils.contains(diceEmoji, emoji);
+        return ArrayUtils.contains(diceEmoji, text);
       }
     }
     return false;
