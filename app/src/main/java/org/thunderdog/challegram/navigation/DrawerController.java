@@ -940,7 +940,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
   }
 
   @Override
-  public void onProxyConfigurationChanged (int proxyId, @Nullable String server, int port, @Nullable TdApi.ProxyType type, String description, boolean isCurrent, boolean isNewAdd) {
+  public void onProxyConfigurationChanged (int proxyId, @Nullable TdApi.InternalLinkTypeProxy proxy, String description, boolean isCurrent, boolean isNewAdd) {
     if (!isCurrent) {
       return;
     }
@@ -1092,7 +1092,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
     });
 
     ViewController<?> c = UI.getCurrentStackItem(context());
-    View view = c != null ? c.get() : null;
+    View view = c != null ? c.getValue() : null;
     if (view != null && view instanceof ContentFrameLayout) {
       currentView = (ContentFrameLayout) view;
     } else {
@@ -1227,7 +1227,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
   }
 
   private float getScreenWidth () {
-    return context.navigation().get().getMeasuredWidth();
+    return context.navigation().getValue().getMeasuredWidth();
   }
 
   public void translate (int lastScrollX) {

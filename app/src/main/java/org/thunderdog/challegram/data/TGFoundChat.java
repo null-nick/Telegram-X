@@ -116,7 +116,7 @@ public class TGFoundChat {
   }
 
   public boolean needForceUsername () {
-    return BitwiseUtils.getFlag(flags, FLAG_FORCE_USERNAME);
+    return BitwiseUtils.hasFlag(flags, FLAG_FORCE_USERNAME);
   }
 
   public TGFoundChat setForcedSubtitle (String forcedSubtitle) {

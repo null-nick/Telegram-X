@@ -458,7 +458,8 @@ public class UI {
     String string = TD.toErrorString(obj);
     if (string != null) {
       Log.critical("TDLib Error: %s", Log.generateException(2), string);
-      if (TD.errorCode(obj) != 401) {
+      int errorCode = TD.errorCode(obj);
+      if (errorCode != 401 && !(errorCode == 500 && "Client is closed".equals(TD.errorText(obj)))) {
         showToast(string, Toast.LENGTH_SHORT);
       }
     }
@@ -695,6 +696,13 @@ public class UI {
     getAppHandler().navigateDelayed(controller, delay);
   }
 
+  public static void execute (Runnable r) {
+    if (inUiThread()) {
+      r.run();
+    } else {
+      post(r);
+    }
+  }
   public static void post (Runnable r) {
     getAppHandler().post(r);
   }

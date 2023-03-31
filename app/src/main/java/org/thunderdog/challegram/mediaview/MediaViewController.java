@@ -1576,9 +1576,13 @@ public class MediaViewController extends ViewController<MediaViewController.Args
     switch (id) {
       case R.id.btn_saveToGallery: {
         TdApi.File file = item.getTargetFile();
-        if (TD.isFileLoadedAndExists(file)) {
-          U.copyToGallery(context, file.local.path, item.isAnimatedAvatar() || item.isGifType() ? U.TYPE_GIF : item.isVideo() ? U.TYPE_VIDEO : U.TYPE_PHOTO);
-        }
+        tdlib.files().isFileLoadedAndExists(file, isLoadedAndExists -> {
+          if (isLoadedAndExists) {
+            runOnUiThreadOptional(() -> {
+              U.copyToGallery(context, file.local.path, item.isAnimatedAvatar() || item.isGifType() ? U.TYPE_GIF : item.isVideo() ? U.TYPE_VIDEO : U.TYPE_PHOTO);
+            });
+          }
+        });
         break;
       }
       case R.id.btn_saveGif: {
@@ -8094,7 +8098,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
   // Etc
 
   public void open () {
-    get();
+    getValue();
     popupView.showAnimatedPopupView(contentView, this);
   }
 
@@ -8419,15 +8423,32 @@ public class MediaViewController extends ViewController<MediaViewController.Args
 
     TdApi.SearchMessagesFilter filter = null;
     switch (msg.content.getConstructor()) {
+      case TdApi.MessagePhoto.CONSTRUCTOR: {
+        filter = new TdApi.SearchMessagesFilterPhotoAndVideo();
+        break;
+      }
+      case TdApi.MessageChatChangePhoto.CONSTRUCTOR: {
+        filter = new TdApi.SearchMessagesFilterChatPhoto();
+        break;
+      }
       case TdApi.MessageVideo.CONSTRUCTOR: {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.ICE_CREAM_SANDWICH) {
           TdApi.Video video = ((TdApi.MessageVideo) msg.content).video;
           UI.openFile(messageContainer.controller(), null, new File(video.video.local.path), "video/mp4", TD.getViewCount(msg.interactionInfo));
         }
+        filter = new TdApi.SearchMessagesFilterPhotoAndVideo();
         break;
       }
       case TdApi.MessageAnimation.CONSTRUCTOR: {
         filter = new TdApi.SearchMessagesFilterAnimation();
+        break;
+      }
+      case TdApi.MessageText.CONSTRUCTOR: {
+        filter = new TdApi.SearchMessagesFilterUrl();
+        break;
+      }
+      case TdApi.MessageDocument.CONSTRUCTOR: {
+        filter = new TdApi.SearchMessagesFilterDocument();
         break;
       }
     }
