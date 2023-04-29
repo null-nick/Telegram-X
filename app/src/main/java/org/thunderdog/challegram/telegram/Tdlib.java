@@ -1450,11 +1450,14 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
       }
       boolean haveMarch2023ChangeLog = false;
       if (checkVersion(prevVersion, APP_RELEASE_VERSION_2023_MARCH, test)) {
-        makeUpdateText(0, 25, 6, APP_RELEASE_VERSION_2023_MARCH, "https://telegra.ph/Telegram-X-03-08", functions, updates, true);
+        makeUpdateText(0, 25, 6, APP_RELEASE_VERSION_2023_MARCH, "https://telegra.ph/Telegram-X-03-08", functions, updates, false);
         haveMarch2023ChangeLog = true;
       }
       if (checkVersion(prevVersion, APP_RELEASE_VERSION_2023_MARCH_2, test) && !haveMarch2023ChangeLog) {
-        makeUpdateText(0, 25, 6, APP_RELEASE_VERSION_2023_MARCH_2, "https://t.me/tgx_android/305", functions, updates, true);
+        makeUpdateText(0, 25, 6, APP_RELEASE_VERSION_2023_MARCH_2, "https://t.me/tgx_android/305", functions, updates, false);
+      }
+      if (checkVersion(prevVersion, APP_RELEASE_VERSION_2023_APRIL, test)) {
+        makeUpdateText(0, 25, 6, APP_RELEASE_VERSION_2023_APRIL, "https://telegra.ph/Telegram-X-04-02", functions, updates, true);
       }
       if (!updates.isEmpty()) {
         incrementReferenceCount(REFERENCE_TYPE_JOB); // starting task
@@ -1512,6 +1515,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
 
   private static final int APP_RELEASE_VERSION_2023_MARCH = 1605; // Dozens of stuff. 8 March, 2023: https://telegra.ph/Telegram-X-03-08
   private static final int APP_RELEASE_VERSION_2023_MARCH_2 = 1615; // Bugfixes to the previous release. 15 March, 2023: https://t.me/tgx_android/305
+  private static final int APP_RELEASE_VERSION_2023_APRIL = 1624; // Emoji 15.0, more recent stickers & more + critical TDLIb upgrade. 2 April, 2023: https://telegra.ph/Telegram-X-04-02
 
   // Startup
 
@@ -3217,10 +3221,10 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
     }
   }
 
-  public TdApi.ChatFilterInfo chatFilterInfo (int chatFilterId) {
+  public TdApi.ChatFolderInfo chatFilterInfo (int chatFilterId) {
     synchronized (dataLock) {
-      if (chatFilters != null) {
-        for (TdApi.ChatFilterInfo filter : chatFilters) {
+      if (chatFolders != null) {
+        for (TdApi.ChatFolderInfo filter : chatFolders) {
           if (filter.id == chatFilterId)
             return filter;
         }
@@ -3237,7 +3241,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
         case TdApi.ChatListMain.CONSTRUCTOR:
         case TdApi.ChatListArchive.CONSTRUCTOR:
           break;
-        case TdApi.ChatListFilter.CONSTRUCTOR:
+        case TdApi.ChatListFolder.CONSTRUCTOR:
           return false;
       }
     }
@@ -3249,7 +3253,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
             return !isSelfChat(chat.id) && !isServiceNotificationsChat(chat.id);
           case TdApi.ChatListArchive.CONSTRUCTOR:
             return true; // Already archived
-          case TdApi.ChatListFilter.CONSTRUCTOR:
+          case TdApi.ChatListFolder.CONSTRUCTOR:
             break;
         }
       }
@@ -7525,12 +7529,12 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
     listeners.updateChatAvailableReactions(update);
   }
 
-  private TdApi.ChatFilterInfo[] chatFilters;
+  private TdApi.ChatFolderInfo[] chatFolders;
 
   @TdlibThread
-  private void updateChatFilters (TdApi.UpdateChatFilters update) {
+  private void updateChatFilters (TdApi.UpdateChatFolders update) {
     synchronized (dataLock) {
-      this.chatFilters = update.chatFilters;
+      this.chatFolders = update.chatFolders;
     }
     listeners.updateChatFilters(update);
   }
@@ -7926,6 +7930,13 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
     listeners.updatePrivacySettingRules(update.setting, update.rules);
   }
 
+  // Updates: ADD MEMBERS PRIVACY
+
+  @TdlibThread
+  private void updateAddChatMembersPrivacyForbidden (TdApi.UpdateAddChatMembersPrivacyForbidden update) {
+    // TODO show alert
+  }
+
   // Updates: CHAT ACTION
 
   @TdlibThread
@@ -8258,6 +8269,20 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
         chatThemes.put(theme.name, theme);
       }
     }
+  }
+
+  @TdlibThread
+  private void updateChatBackground (TdApi.UpdateChatBackground update) {
+    final TdApi.Chat chat;
+    synchronized (dataLock) {
+      chat = chats.get(update.chatId);
+      if (TdlibUtils.assertChat(update.chatId, chat, update)) {
+        return;
+      }
+      chat.background = update.background;
+    }
+
+    listeners.updateChatBackground(update);
   }
 
   @AnyThread
@@ -8900,8 +8925,8 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
         updateChatMessageAutoDeleteTime((TdApi.UpdateChatMessageAutoDeleteTime) update);
         break;
       }
-      case TdApi.UpdateChatFilters.CONSTRUCTOR: {
-        updateChatFilters((TdApi.UpdateChatFilters) update);
+      case TdApi.UpdateChatFolders.CONSTRUCTOR: {
+        updateChatFilters((TdApi.UpdateChatFolders) update);
         break;
       }
       case TdApi.UpdateChatPosition.CONSTRUCTOR: {
@@ -9030,6 +9055,10 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
       }
       case TdApi.UpdateUserPrivacySettingRules.CONSTRUCTOR: {
         updatePrivacySettingRules((TdApi.UpdateUserPrivacySettingRules) update);
+        break;
+      }
+      case TdApi.UpdateAddChatMembersPrivacyForbidden.CONSTRUCTOR: {
+        updateAddChatMembersPrivacyForbidden((TdApi.UpdateAddChatMembersPrivacyForbidden) update);
         break;
       }
 
@@ -9182,6 +9211,10 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener {
       }
       case TdApi.UpdateChatThemes.CONSTRUCTOR: {
         updateChatThemes((TdApi.UpdateChatThemes) update);
+        break;
+      }
+      case TdApi.UpdateChatBackground.CONSTRUCTOR: {
+        updateChatBackground((TdApi.UpdateChatBackground) update);
         break;
       }
 
