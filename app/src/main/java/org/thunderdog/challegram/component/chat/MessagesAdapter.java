@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,14 +22,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.data.TGMessage;
 import org.thunderdog.challegram.data.TGMessageBotInfo;
-import org.thunderdog.challegram.data.TGMessageChat;
 import org.thunderdog.challegram.data.TGMessageMedia;
 import org.thunderdog.challegram.data.TGMessagePoll;
+import org.thunderdog.challegram.data.ThreadInfo;
 import org.thunderdog.challegram.mediaview.data.MediaItem;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.v.MessagesRecyclerView;
@@ -68,17 +68,11 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesHolder> {
     }
   }
 
-  public void invalidateServiceMessages () {
+  public void checkAllMessages () {
     if (items != null) {
       for (TGMessage message : items) {
-        if (message instanceof TGMessageChat) {
-          message.invalidate();
-        }
+        message.checkHighlightedText();
       }
-    }
-    MessagesRecyclerView recyclerView = manager.controller().getMessagesView();
-    if (recyclerView != null) {
-      recyclerView.invalidate();
     }
   }
 
@@ -426,6 +420,20 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesHolder> {
     return false;
   }
 
+  public int indexOfMessageWithUnreadSeparator () {
+    if (items == null) {
+      return -1;
+    }
+    int i = 0;
+    for (TGMessage item : items) {
+      if (item.hasUnreadBadge()) {
+        return i;
+      }
+      i++;
+    }
+    return -1;
+  }
+
   public boolean addMessage (TGMessage message, boolean top, boolean needScrollToBottom) {
     if (manager.needRemoveDuplicates() && indexOfMessageContainer(message.getId()) != -1)
       return false;
@@ -488,7 +496,12 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesHolder> {
       if ((!needScrollToBottom || message.isOld()) && !message.isOutgoing() && message.checkIsUnread(false) && !hasUnreadSeparator()) {
         TdApi.Chat chat = message.tdlib().chat(message.getChatId());
         if (chat != null) {
-          message.setShowUnreadBadge(chat.unreadCount > 0);
+          ThreadInfo messageThread = message.messagesController().getMessageThread();
+          if (messageThread != null) {
+            message.setShowUnreadBadge(messageThread.hasUnreadMessages(chat));
+          } else {
+            message.setShowUnreadBadge(chat.unreadCount > 0);
+          }
         }
       }
     }
@@ -602,7 +615,12 @@ public class MessagesAdapter extends RecyclerView.Adapter<MessagesHolder> {
           if (!message.isOutgoing() /*&& (message.isOld() || )*/ && message.checkIsUnread(false)) {
             TdApi.Chat chat = message.tdlib().chat(message.getChatId());
             if (chat != null) {
-              message.setShowUnreadBadge(chat.unreadCount > 0);
+              ThreadInfo messageThread = message.messagesController().getMessageThread();
+              if (messageThread != null) {
+                message.setShowUnreadBadge(messageThread.hasUnreadMessages(chat));
+              } else {
+                message.setShowUnreadBadge(chat.unreadCount > 0);
+              }
             }
             break;
           }

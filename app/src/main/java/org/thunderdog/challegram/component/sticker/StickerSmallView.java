@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,9 +25,10 @@ import android.view.animation.OvershootInterpolator;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.config.Config;
+import org.thunderdog.challegram.data.TGReaction;
 import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.loader.ImageReceiver;
 import org.thunderdog.challegram.loader.gif.GifFile;
@@ -40,23 +41,34 @@ import me.vkryl.android.ViewUtils;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.lambda.CancellableRunnable;
 import me.vkryl.core.lambda.Destroyable;
+import me.vkryl.td.Td;
 
 public class StickerSmallView extends View implements FactorAnimator.Target, Destroyable {
   public static final float PADDING = 8f;
   private static final Interpolator OVERSHOOT_INTERPOLATOR = new OvershootInterpolator(3.2f);
 
-  private final ImageReceiver imageReceiver;
-  private final GifReceiver gifReceiver;
-  private final FactorAnimator animator;
+  private ImageReceiver imageReceiver;
+  private GifReceiver gifReceiver;
+  private FactorAnimator animator;
   private @Nullable TGStickerObj sticker;
   private Path contour;
   private Tdlib tdlib;
+  private int padding;
 
   public StickerSmallView (Context context) {
     super(context);
     this.imageReceiver = new ImageReceiver(this, 0);
     this.gifReceiver = new GifReceiver(this);
     this.animator = new FactorAnimator(0, this, OVERSHOOT_INTERPOLATOR, 230l);
+    this.padding = Screen.dp(PADDING);
+  }
+
+  public StickerSmallView (Context context, int padding) {
+    super(context);
+    this.imageReceiver = new ImageReceiver(this, 0);
+    this.gifReceiver = new GifReceiver(this);
+    this.animator = new FactorAnimator(0, this, OVERSHOOT_INTERPOLATOR, 230l);
+    this.padding = padding;
   }
 
   public void init (Tdlib tdlib) {
@@ -64,6 +76,11 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
   }
 
   private boolean isAnimation;
+
+  public void setPadding (int padding) {
+    this.padding = padding;
+    measureReceivers();
+  }
 
   public void setSticker (@Nullable TGStickerObj sticker) {
     this.sticker = sticker;
@@ -153,7 +170,10 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
       //noinspection SuspiciousNameCombination
       super.onMeasure(widthMeasureSpec, widthMeasureSpec);
     }
-    int padding = Screen.dp(PADDING);
+    measureReceivers();
+  }
+
+  private void measureReceivers () {
     int width = getMeasuredWidth();
     int height = getMeasuredHeight();
     imageReceiver.setBounds(padding, padding + getPaddingTop(), width - padding, height - getPaddingBottom() - padding);
@@ -163,12 +183,13 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
 
   @Override
   protected void onDraw (Canvas c) {
-    boolean saved = factor != 0f;
+    float originalScale = sticker != null ? sticker.getDisplayScale() : 1f;
+    boolean saved = originalScale != 1f || factor != 0f;
     if (saved) {
       c.save();
-      float scale = MIN_SCALE + (1f - MIN_SCALE) * (1f - factor);
-      int cx = getMeasuredWidth() / 2;
-      int cy = getPaddingTop() + (getMeasuredHeight() - getPaddingBottom() - getPaddingBottom()) / 2;
+      float scale = originalScale * (MIN_SCALE + (1f - MIN_SCALE) * (1f - factor));
+      int cx = imageReceiver.centerX();
+      int cy = imageReceiver.centerY();
       c.scale(scale, scale, cx, cy);
     }
     if (isAnimation) {
@@ -184,6 +205,9 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
         imageReceiver.drawPlaceholderContour(c, contour);
       }
       imageReceiver.draw(c);
+    }
+    if (Config.DEBUG_STICKER_OUTLINES) {
+      imageReceiver.drawPlaceholderContour(c, contour);
     }
     if (saved) {
       c.restore();
@@ -219,7 +243,7 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
   }
 
   public interface StickerMovementCallback {
-    boolean onStickerClick (StickerSmallView view, View clickView, TGStickerObj sticker, boolean isMenuClick, boolean forceDisableNotification, @Nullable TdApi.MessageSchedulingState schedulingState);
+    boolean onStickerClick (StickerSmallView view, View clickView, TGStickerObj sticker, boolean isMenuClick, TdApi.MessageSendOptions sendOptions);
     long getStickerOutputChatId ();
     void setStickerPressed (StickerSmallView view, TGStickerObj sticker, boolean isPressed);
     boolean canFindChildViewUnder (StickerSmallView view, int recyclerX, int recyclerY);
@@ -229,6 +253,11 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
     boolean needsLongDelay (StickerSmallView view);
     int getStickersListTop ();
     int getViewportHeight ();
+    default boolean needShowButtons () { return true; }
+    default int getStickerViewLeft (StickerSmallView v) { return -1; }
+    default int getStickerViewTop (StickerSmallView v) { return -1; }
+    default StickerSmallView getStickerViewUnder (StickerSmallView v, int x, int y) { return null; }
+    default TGReaction getReactionForPreview (StickerSmallView v) { return null; }
   }
 
   private @Nullable StickerMovementCallback callback;
@@ -255,14 +284,14 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
         closePreview(e);
         if (clicked && callback != null && sticker != null) {
           ViewUtils.onClick(this);
-          callback.onStickerClick(this, this, sticker, false, false, null);
+          callback.onStickerClick(this, this, sticker, false, Td.newSendOptions());
         }
         return true;
       }
       case MotionEvent.ACTION_MOVE: {
         if (previewOpened) {
-          int x = getLeft() + (int) e.getX();
-          int y = getTop() + (int) e.getY();
+          int x = getRealLeft() + (int) e.getX();
+          int y = getRealTop() + (int) e.getY();
           onFingerMovement(e, x, y);
         } else if (previewScheduled && Math.max(Math.abs(startX - e.getX()), Math.abs(startY - e.getY())) > Screen.getTouchSlop()) {
           cancelDelayedPreview();
@@ -314,13 +343,13 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
   }
 
   private void processMenuTouchEvent (MotionEvent e) {
-    View target = this;
+    StickerSmallView target = this;
     int i = 0;
-    int deltaY = target.getTop();
+    int deltaY = getRealTop(target);
     if (callback != null) {
       deltaY += callback.getStickersListTop();
     }
-    int deltaX = target.getLeft();
+    int deltaX = getRealLeft(target);
     e.offsetLocation(deltaX, deltaY);
     ((BaseActivity) getContext()).dispatchStickerMenuTouchEvent(e);
   }
@@ -335,8 +364,15 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
         processMenuTouchEvent(e);
       }
     } else {
-      View view = callback == null || callback.canFindChildViewUnder(this, x, y) ? ((RecyclerView) getParent()).findChildViewUnder(x, y) : null;
+      View view = null;
+      if (callback != null) {
+        view = callback.getStickerViewUnder(this, x, y);
+      }
+      if (view == null) {
+        view = callback == null || callback.canFindChildViewUnder(this, x, y) ? ((RecyclerView) getParent()).findChildViewUnder(x, y) : null;
+      }
       if (view instanceof StickerSmallView) {
+        StickerSmallView stickerSmallView = (StickerSmallView) view;
         TGStickerObj sticker = ((StickerSmallView) view).getSticker();
         if (sticker != null && !sticker.isEmpty() && !sticker.equals(currentSticker)) {
           ignoreNextStickerChanges = false;
@@ -344,14 +380,28 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
             callback.setStickerPressed(this, currentSticker, false);
           }
           currentSticker = sticker;
-          ((BaseActivity) getContext()).replaceStickerPreview(sticker, view.getLeft() + view.getMeasuredWidth() / 2, view.getTop() + view.getPaddingTop() + (view.getMeasuredHeight() - view.getPaddingBottom() - view.getPaddingTop()) / 2 + (callback != null ? callback.getStickersListTop() : 0));
+          boolean replaced = false;
+          if (callback != null) {
+            TGReaction reaction = callback.getReactionForPreview(stickerSmallView);
+            if (reaction != null) {
+              ((BaseActivity) getContext()).replaceReactionPreview(reaction, getRealLeft(stickerSmallView) + view.getMeasuredWidth() / 2, getRealTop(stickerSmallView) + view.getPaddingTop() + (view.getMeasuredHeight() - view.getPaddingBottom() - view.getPaddingTop()) / 2 + (callback != null ? callback.getStickersListTop() : 0));
+              replaced = true;
+            }
+          }
+          if (!replaced) {
+            ((BaseActivity) getContext()).replaceStickerPreview(sticker, getRealLeft(stickerSmallView) + view.getMeasuredWidth() / 2, getRealTop(stickerSmallView) + view.getPaddingTop() + (view.getMeasuredHeight() - view.getPaddingBottom() - view.getPaddingTop()) / 2 + (callback != null ? callback.getStickersListTop() : 0));
+          }
+          boolean needShowButtons = true;
           boolean needLongDelay = false;
           if (callback != null) {
             callback.onStickerPreviewChanged(this, sticker);
             callback.setStickerPressed(this, sticker, true);
             needLongDelay = callback.needsLongDelay(this);
+            needShowButtons = callback.needShowButtons();
           }
-          scheduleButtons(this, sticker, needLongDelay, true);
+          if (needShowButtons) {
+            scheduleButtons(this, sticker, needLongDelay, true);
+          }
           if (Config.USE_STICKER_VIBRATE) {
             UI.forceVibrate(this, false);
           }
@@ -387,21 +437,62 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
     setStickerPressed(true);
     currentSticker = sticker;
 
+    boolean needShowButtons = true;
     boolean needLongDelay = false;
     if (callback != null) {
       callback.onStickerPreviewOpened(this, sticker);
       needLongDelay = callback.needsLongDelay(this);
+      needShowButtons = callback.needShowButtons();
     }
-    scheduleButtons(this, sticker, needLongDelay, false);
+    if (needShowButtons) {
+      scheduleButtons(this, sticker, needLongDelay, false);
+    }
 
     UI.forceVibrate(this, true);
 
     int width = getMeasuredWidth();
     int height = getMeasuredHeight() - getPaddingBottom() - getPaddingTop();
-    int left = getLeft();
-    int top = getTop() + getPaddingTop();
+    int left = getRealLeft();
+    int top = getRealTop() + getPaddingTop();
+
+    if (callback != null) {
+      TGReaction reaction = callback.getReactionForPreview(this);
+      if (reaction != null) {
+        boolean disableEmoji = isSuggestion || emojiDisabled;
+        reaction.withEffectAnimation(effectAnimation -> {
+          ((BaseActivity) getContext()).openReactionPreview(tdlib, this, reaction, effectAnimation, left + width / 2, top + height / 2 + (callback != null ? callback.getStickersListTop() : 0), Math.min(width, height) - Screen.dp(PADDING) * 2, callback.getViewportHeight(), disableEmoji);
+        });
+        return;
+      }
+    }
 
     ((BaseActivity) getContext()).openStickerPreview(tdlib, this, sticker, left + width / 2, top + height / 2 + (callback != null ? callback.getStickersListTop() : 0), Math.min(width, height) - Screen.dp(PADDING) * 2, callback.getViewportHeight(), isSuggestion || emojiDisabled);
+  }
+
+  private int getRealLeft () {
+    return getRealLeft(this);
+  }
+
+  private int getRealLeft (StickerSmallView v) {
+    int left = getLeft();
+    if (callback != null) {
+      int newLeft = callback.getStickerViewLeft(v);
+      if (newLeft != -1) left = newLeft;
+    }
+    return left;
+  }
+
+  private int getRealTop () {
+    return getRealTop(this);
+  }
+
+  private int getRealTop (StickerSmallView v) {
+    int top = getTop();
+    if (callback != null) {
+      int newTop = callback.getStickerViewTop(v);
+      if (newTop != -1) top = newTop;
+    }
+    return top;
   }
 
   public @Nullable TGStickerObj getSticker () {
@@ -415,8 +506,8 @@ public class StickerSmallView extends View implements FactorAnimator.Target, Des
     }
   }
 
-  public boolean onSendSticker (View view, TGStickerObj sticker, boolean forceDisableNotification, TdApi.MessageSchedulingState schedulingState) {
-    return callback != null && callback.onStickerClick(this, view, sticker, true, forceDisableNotification, schedulingState);
+  public boolean onSendSticker (View view, TGStickerObj sticker, TdApi.MessageSendOptions sendOptions) {
+    return callback != null && callback.onStickerClick(this, view, sticker, true, sendOptions);
   }
 
   public long getStickerOutputChatId () {

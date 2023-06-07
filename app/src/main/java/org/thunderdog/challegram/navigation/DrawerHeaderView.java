@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.FillingDrawable;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.dialogs.ChatView;
@@ -39,6 +39,7 @@ import org.thunderdog.challegram.telegram.TGLegacyManager;
 import org.thunderdog.challegram.telegram.TdlibAccount;
 import org.thunderdog.challegram.telegram.TdlibBadgeCounter;
 import org.thunderdog.challegram.telegram.TdlibManager;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
@@ -100,21 +101,21 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
 
     TGLegacyManager.instance().addEmojiListener(this);
 
-    ViewUtils.setBackground(this, new FillingDrawable(R.id.theme_color_headerBackground) {
+    ViewUtils.setBackground(this, new FillingDrawable(ColorId.headerBackground) {
       @Override
       protected int getFillingColor () {
-        return ColorUtils.compositeColor(super.getFillingColor(), Theme.getColor(R.id.theme_color_drawer));
+        return ColorUtils.compositeColor(super.getFillingColor(), Theme.getColor(ColorId.drawer));
       }
     });
   }
 
   @Override
-  public void onEmojiPartLoaded () {
+  public void onEmojiUpdated (boolean isPackSwitch) {
     invalidate();
   }
 
   private int getTextColor (float factor) {
-    return ColorUtils.fromToArgb(ColorUtils.compositeColor(Theme.headerTextColor(), Theme.getColor(R.id.theme_color_drawerText)), Theme.getColor(R.id.theme_color_white), factor);
+    return ColorUtils.fromToArgb(ColorUtils.compositeColor(Theme.headerTextColor(), Theme.getColor(ColorId.drawerText)), Theme.getColor(ColorId.white), factor);
   }
 
   // Clicks
@@ -308,7 +309,7 @@ public class DrawerHeaderView extends View implements Destroyable, GlobalAccount
       int cy = startCy + (int) ((float) (targetCy - startCy) * avatarFactor);
 
       if (drawMode == DRAW_MODE_IMAGES || drawMode == DRAW_MODE_REGULAR) {
-        final int cornerRadius = (int) ((float) startRadius * (1f - avatarFactor));
+        final int cornerRadius = (int) ((float) startRadius * (1f - avatarFactor) * Theme.avatarRadiusDefault());
         final int avatarAlpha = (int) (255f * avatarAlphaFactor);
 
         int left = cx - radius;

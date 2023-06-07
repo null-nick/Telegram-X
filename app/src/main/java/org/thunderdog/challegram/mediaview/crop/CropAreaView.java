@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ import android.view.View;
 import androidx.annotation.Nullable;
 
 import org.thunderdog.challegram.BaseActivity;
-import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
@@ -256,7 +256,7 @@ public class CropAreaView extends View implements FactorAnimator.Target {
 
     calculateAreaRect(srcRect, dstRect);
 
-    int overlayColor = Theme.getColor(R.id.theme_color_transparentEditor);
+    int overlayColor = Theme.getColor(ColorId.transparentEditor);
     if (activeFactor < 1f) {
       overlayColor = Color.argb((int) (Color.alpha(overlayColor) * (1 + 0.8f * (1f - activeFactor))), 0, 0, 0);
     }

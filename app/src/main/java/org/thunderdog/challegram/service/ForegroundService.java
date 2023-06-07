@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@ import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Context;
 import android.content.Intent;
+import android.os.Build;
 import android.os.IBinder;
 
 import androidx.annotation.DrawableRes;
@@ -26,6 +27,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
+import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.MainActivity;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.TDLib;
@@ -33,6 +35,7 @@ import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.telegram.TdlibAccount;
 import org.thunderdog.challegram.telegram.TdlibNotificationManager;
+import org.thunderdog.challegram.tool.Intents;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -174,7 +177,7 @@ public class ForegroundService extends Service {
     NotificationCompat.Builder b = new NotificationCompat.Builder(this, channelId)
       .setSmallIcon(iconRes)
       .setContentTitle(title)
-      .setContentIntent(PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), 0));
+      .setContentIntent(PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class), Intents.mutabilityFlags(false)));
     if (!StringUtils.isEmpty(text)) {
       b.setContentText(text);
     }
@@ -187,7 +190,7 @@ public class ForegroundService extends Service {
     return null;
   }
 
-  public static void startForegroundTask (@NonNull Context context, @NonNull CharSequence task, @Nullable CharSequence text, @NonNull String channelId, @DrawableRes int iconRes, long pushId, int accountId) {
+  public static boolean startForegroundTask (@NonNull Context context, @NonNull CharSequence task, @Nullable CharSequence text, @NonNull String channelId, @DrawableRes int iconRes, long pushId, int accountId) {
     if (StringUtils.isEmpty(channelId))
       throw new IllegalArgumentException(channelId);
     Intent intent = new Intent(context, ForegroundService.class);
@@ -200,16 +203,32 @@ public class ForegroundService extends Service {
       intent.putExtra(EXTRA_ICON_RES, iconRes);
     intent.putExtra(EXTRA_PUSH_ID, pushId);
     intent.putExtra(EXTRA_ACCOUNT_ID, accountId);
-
-    ContextCompat.startForegroundService(context, intent);
+    return startForegroundService(context, intent, pushId, accountId);
   }
 
-  public static void stopForegroundTask (@NonNull Context context, long pushId, int accountId) {
+  public static boolean stopForegroundTask (@NonNull Context context, long pushId, int accountId) {
     Intent intent = new Intent(context, ForegroundService.class);
     intent.setAction(ACTION_STOP);
     intent.putExtra(EXTRA_PUSH_ID, pushId);
     intent.putExtra(EXTRA_ACCOUNT_ID, accountId);
+    return startForegroundService(context, intent, pushId, accountId);
+  }
 
-    ContextCompat.startForegroundService(context, intent);
+  public static boolean startForegroundService (Context context, Intent intent, long pushId, int accountId) {
+    try {
+      ContextCompat.startForegroundService(context, intent);
+      TDLib.Tag.notifications(pushId, accountId, "startForegroundService(%s) executed successfully (SDK %d)", intent.getAction(), Build.VERSION.SDK_INT);
+      return true;
+    } catch (Throwable t) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        // caution: do not import to avoid crashes on pre-S
+        if (t instanceof android.app.ForegroundServiceStartNotAllowedException) {
+          TDLib.Tag.notifications(pushId, accountId, "startForegroundService(%s) failed due to system settings restrictions (SDK %d):\n%s", intent.getAction(), Build.VERSION.SDK_INT, Log.toString(t));
+          return false;
+        }
+      }
+      TDLib.Tag.notifications(pushId, accountId, "startForegroundService(%s) failed due to error (SDK %d):\n%s", intent.getAction(), Build.VERSION.SDK_INT, Log.toString(t));
+      return false;
+    }
   }
 }

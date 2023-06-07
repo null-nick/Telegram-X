@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,9 +23,10 @@ import androidx.annotation.IntRange;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.collection.SparseArrayCompat;
+import androidx.core.os.CancellationSignal;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.config.Config;
@@ -47,7 +48,9 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
+import me.vkryl.core.lambda.RunnableBool;
 import me.vkryl.core.lambda.RunnableData;
 import me.vkryl.core.reference.ReferenceIntMap;
 import me.vkryl.core.reference.ReferenceList;
@@ -154,20 +157,36 @@ public class TdlibFilesManager implements GlobalConnectionListener {
     }
   }
 
-  public Runnable downloadFileSync (@NonNull final TdApi.File file, final long timeoutMs, final @Nullable RunnableData<TdApi.File> after, final @Nullable RunnableData<TdApi.File> fileUpdateListener) {
+  @Retention(RetentionPolicy.SOURCE)
+  @IntDef({
+    DownloadState.PENDING,
+    DownloadState.DOWNLOADED,
+    DownloadState.TIMEOUT,
+    DownloadState.CANCELED
+  })
+  public @interface DownloadState {
+    int
+      PENDING = 0,
+      DOWNLOADED = 1,
+      TIMEOUT = 2,
+      CANCELED = 3;
+  }
+
+  public Runnable downloadFileSync (@NonNull final TdApi.File file, final long timeoutMs, final @Nullable RunnableData<TdApi.File> after, final @Nullable RunnableData<TdApi.File> fileUpdateListener, @Nullable CancellationSignal cancellationSignal) {
     if (TD.isFileLoaded(file)) {
       return null;
     }
     final CountDownLatch latch = timeoutMs >= 0 ? new CountDownLatch(1) : null;
-    final int[] signal = new int[1]; // 1 = done, 2 = timeout, 3 = cancelled
+    final AtomicInteger state = new AtomicInteger(DownloadState.PENDING);
     final FileUpdateListener listener = new FileUpdateListener() {
       @Override
       public void onUpdateFile (TdApi.UpdateFile updateFile) {
-        synchronized (signal) {
-          if (signal[0] == 3) {
+        synchronized (state) {
+          int currentState = state.get();
+          if (currentState == DownloadState.CANCELED) {
             return;
           }
-          if (signal[0] == 2) {
+          if (currentState == DownloadState.TIMEOUT) {
             if (after != null && updateFile.file.local.isDownloadingCompleted) {
               after.runWithData(updateFile.file);
             } else if (fileUpdateListener != null) {
@@ -177,7 +196,7 @@ public class TdlibFilesManager implements GlobalConnectionListener {
           }
           Td.copyTo(updateFile.file, file);
           if (updateFile.file.local.isDownloadingCompleted) {
-            signal[0] = 1;
+            state.set(DownloadState.DOWNLOADED);
             if (latch != null) {
               latch.countDown();
             }
@@ -194,6 +213,17 @@ public class TdlibFilesManager implements GlobalConnectionListener {
     };
     tdlib.listeners().addFileListener(file.id, listener);
     addCloudReference(file, listener, false);
+    Runnable onCancel =  () -> {
+      synchronized (state) {
+        if (state.compareAndSet(DownloadState.PENDING, DownloadState.CANCELED)) {
+          removeCloudReference(file, listener);
+          tdlib.listeners().removeFileListener(file.id, listener);
+        }
+      }
+    };
+    if (cancellationSignal != null) {
+      cancellationSignal.setOnCancelListener(onCancel::run);
+    }
     if (latch != null) {
       try {
         if (timeoutMs > 0) {
@@ -204,28 +234,17 @@ public class TdlibFilesManager implements GlobalConnectionListener {
       } catch (InterruptedException e) {
         Log.i(e);
       }
-      synchronized (signal) {
-        if (signal[0] == 0) {
+      synchronized (state) {
+        if (state.compareAndSet(DownloadState.PENDING, after != null ? DownloadState.TIMEOUT : DownloadState.CANCELED)) {
           if (after == null) {
-            signal[0] = 3; // canceled, because nothing left to do
             removeCloudReference(file, listener);
             tdlib.listeners().removeFileListener(file.id, listener);
-          } else {
-            signal[0] = 2; // timeout
           }
         }
       }
       return null;
     } else {
-      return () -> {
-        synchronized (signal) {
-          if (signal[0] == 0) {
-            signal[0] = 3; // canceled, because nothing left to do
-            removeCloudReference(file, listener);
-            tdlib.listeners().removeFileListener(file.id, listener);
-          }
-        }
-      };
+      return onCancel;
     }
   }
 
@@ -509,8 +528,17 @@ public class TdlibFilesManager implements GlobalConnectionListener {
   }
 
   public void downloadFile (@NonNull TdApi.File file) {
-    downloadFile(file, 1, 0, 0, null);
+    downloadFile(file, DEFAULT_DOWNLOAD_PRIORITY, 0, 0, null);
   }
+
+  public void isFileLoadedAndExists (TdApi.File file, RunnableBool after) {
+    tdlib.runOnTdlibThread(() -> {
+      boolean loadedAndExists = TD.isFileLoadedAndExists(file);
+      after.runWithBool(loadedAndExists);
+    });
+  }
+
+  public static final int DEFAULT_DOWNLOAD_PRIORITY = 1;
 
   // Cancellation
 
@@ -599,9 +627,14 @@ public class TdlibFilesManager implements GlobalConnectionListener {
     synchronized (this) {
       int pendingOperation = pendingOperations.get(update.file.id);
 
-      if (pendingOperation != OPERATION_NONE && !update.file.remote.isUploadingActive && !update.file.local.isDownloadingActive && !update.file.remote.isUploadingCompleted && !update.file.local.isDownloadingCompleted) {
-        removePendingOperation(update.file.id);
-        notifyFileState(update.file.id, STATE_PAUSED, null);
+      if (pendingOperation != OPERATION_NONE) {
+        if (!update.file.remote.isUploadingActive && !update.file.local.isDownloadingActive && !update.file.remote.isUploadingCompleted && !update.file.local.isDownloadingCompleted) {
+          removePendingOperation(update.file.id);
+          notifyFileState(update.file.id, STATE_PAUSED, null);
+        }
+      } else if (update.file.local.isDownloadingActive) {
+        pendingOperations.put(update.file.id, OPERATION_DOWNLOAD);
+        notifyFileState(update.file.id, STATE_IN_PROGRESS, null);
       }
 
       final Iterator<SimpleListener> list = simpleListeners.iterator(update.file.id);

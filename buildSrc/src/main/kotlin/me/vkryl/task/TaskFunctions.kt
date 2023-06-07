@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,11 +23,18 @@ import kotlin.contracts.InvocationKind
 import kotlin.contracts.contract
 
 @ExperimentalContracts
-fun writeToFile(path: String, mkdirs: Boolean = true, block: (Writer) -> Unit) {
+fun writeToFile(path: String, mkdirs: Boolean = true, isRelativePath: Boolean = true, block: (Writer) -> Unit) {
   contract {
     callsInPlace(block, InvocationKind.EXACTLY_ONCE)
   }
-  val file = File(path)
+
+  val isWindows = System.getProperty("os.name").startsWith("Windows")
+  val file = if (isRelativePath && isWindows) {
+    File("${System.getProperty("user.dir")}${File.separator}$path")
+  } else {
+    File(path)
+  }
+
   if (!file.parentFile.exists()) {
     if (mkdirs) {
       if (!file.parentFile.mkdirs())
@@ -55,9 +62,22 @@ fun writeToFile(path: String, mkdirs: Boolean = true, block: (Writer) -> Unit) {
 
   if (file.exists()) {
     if (!areFileContentsIdentical(file, outFile)) {
+      if (isWindows) {
+        Thread.sleep(300)
+        System.gc()
+      }
       copyOrReplace(outFile, file)
     }
-    outFile.delete()
+    if (!outFile.delete() && outFile.exists()) {
+      // Give time to unlock the file and try again
+      for(i in 0..7) {
+        Thread.sleep(300)
+        System.gc()
+        if (outFile.delete()) return
+      }
+
+      error("Could not delete temp file: ${outFile.absolutePath}")
+    }
   } else {
     outFile.renameTo(file)
   }
@@ -111,13 +131,15 @@ fun editFile(path: String, block: (String) -> String) {
 }
 
 fun areFileContentsIdentical(a: File, b: File): Boolean {
+  val areIdentical: Boolean
   FileChannel.open(a.toPath(), StandardOpenOption.READ).use { fileChannelA ->
     FileChannel.open(b.toPath(), StandardOpenOption.READ).use { fileChannelB ->
       val mapA = fileChannelA.map(FileChannel.MapMode.READ_ONLY, 0, fileChannelA.size())
       val mapB = fileChannelB.map(FileChannel.MapMode.READ_ONLY, 0, fileChannelB.size())
-      return mapA == mapB
+      areIdentical = mapA == mapB
     }
   }
+  return areIdentical
 }
 
 fun String.camelCaseToUpperCase(): String {
@@ -144,7 +166,7 @@ fun String.stripUnderscoresWithCamelCase (): String {
     when {
       c == '_' -> nextUpperCase = true
       nextUpperCase -> {
-        upperCase.append(c.toUpperCase())
+        upperCase.append(c.uppercaseChar())
         nextUpperCase = false
       }
       else -> upperCase.append(c)
@@ -161,16 +183,16 @@ fun String.normalizeArgbHex(): String {
     3 -> {
       val b = StringBuilder(8).append("ff")
       for (c in hex) {
-        val l = c.toLowerCase()
+        val l = c.lowercaseChar()
         b.append(l).append(l)
       }
       return b.toString()
     }
     4 -> {
-      val r = hex[0].toLowerCase()
-      val g = hex[1].toLowerCase()
-      val b = hex[2].toLowerCase()
-      val a = hex[3].toLowerCase()
+      val r = hex[0].lowercaseChar()
+      val g = hex[1].lowercaseChar()
+      val b = hex[2].lowercaseChar()
+      val a = hex[3].lowercaseChar()
       return StringBuilder(8)
         .append(a).append(a)
         .append(r).append(r)
@@ -178,10 +200,10 @@ fun String.normalizeArgbHex(): String {
         .append(b).append(b).toString()
     }
     6 -> {
-      return "ff${hex.toLowerCase(Locale.US)}"
+      return "ff${hex.lowercase(Locale.US)}"
     }
     8 -> {
-      return hex.substring(6, 8).toLowerCase(Locale.US) + hex.substring(0, 6).toLowerCase(Locale.US)
+      return hex.substring(6, 8).lowercase(Locale.US) + hex.substring(0, 6).lowercase(Locale.US)
     }
     else -> error("Invalid color: $this")
   }

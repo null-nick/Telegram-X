@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,12 +19,14 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.InlineResult;
 import org.thunderdog.challegram.data.InlineResultCommon;
 import org.thunderdog.challegram.data.InlineResultMultiline;
+import org.thunderdog.challegram.mediaview.MediaViewThumbLocation;
+import org.thunderdog.challegram.mediaview.data.MediaItem;
 import org.thunderdog.challegram.player.TGPlayerController;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibUi;
@@ -34,6 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import me.vkryl.td.MessageId;
+import me.vkryl.td.Td;
 
 public class SharedCommonController extends SharedBaseController<InlineResult<?>> implements View.OnClickListener, TGPlayerController.TrackChangeListener, TGPlayerController.PlayListBuilder {
   public SharedCommonController (Context context, Tdlib tdlib) {
@@ -294,28 +297,42 @@ public class SharedCommonController extends SharedBaseController<InlineResult<?>
     final InlineResult<?> c = (InlineResult<?>) item.getData();
 
     alternateParent.showOptions(null, new int[]{R.id.btn_showInChat, R.id.btn_share, R.id.btn_delete}, new String[]{Lang.getString(R.string.ShowInChat), Lang.getString(R.string.Share), Lang.getString(R.string.Delete)}, new int[]{OPTION_COLOR_NORMAL, OPTION_COLOR_NORMAL, OPTION_COLOR_RED}, new int[] {R.drawable.baseline_visibility_24, R.drawable.baseline_forward_24, R.drawable.baseline_delete_24}, (itemView, id) -> {
-      switch (id) {
-        case R.id.btn_showInChat: {
-          alternateParent.closeSearchModeByBackPress(false);
-          tdlib.ui().openMessage(SharedCommonController.this, c.getMessage(), new TdlibUi.UrlOpenParameters().tooltip(context().tooltipManager().builder(v)));
-          break;
-        }
-        case R.id.btn_share: {
-          ShareController share = new ShareController(context, tdlib);
-          share.setArguments(new ShareController.Args(c.getMessage()).setAllowCopyLink(true));
-          share.show();
-          break;
-        }
-        case R.id.btn_delete: {
-          tdlib.ui().showDeleteOptions(alternateParent, new TdApi.Message[] {c.getMessage()}, () -> {
-            // setInMediaSelectMode(false);
-          });
-          break;
-        }
+      if (id == R.id.btn_showInChat) {
+        alternateParent.closeSearchModeByBackPress(false);
+        tdlib.ui().openMessage(SharedCommonController.this, c.getMessage(), new TdlibUi.UrlOpenParameters().tooltip(context().tooltipManager().builder(v)));
+      } else if (id == R.id.btn_share) {
+        ShareController share = new ShareController(context, tdlib);
+        share.setArguments(new ShareController.Args(c.getMessage()).setAllowCopyLink(true));
+        share.show();
+      } else if (id == R.id.btn_delete) {
+        tdlib.ui().showDeleteOptions(alternateParent, new TdApi.Message[] {c.getMessage()}, () -> {
+          // setInMediaSelectMode(false);
+        });
       }
       return true;
     });
 
     return true;
+  }
+
+  // Media viewer
+
+  @Override
+  protected MediaItem toMediaItem (int index, InlineResult<?> item, @Nullable TdApi.SearchMessagesFilter filter) {
+    TdApi.Message message = item.getMessage();
+    if (message != null && Td.matchesFilter(message, filter)) {
+      return MediaItem.valueOf(context, tdlib, message);
+    }
+    return null;
+  }
+
+  @Override
+  protected boolean setThumbLocation (MediaViewThumbLocation location, View view, MediaItem mediaItem) {
+    int index = indexOfMessage(mediaItem.getSourceMessageId());
+    if (index == -1) {
+      return false;
+    }
+    InlineResult<?> item = data.get(index);
+    return item.setThumbLocation(location, view, index, mediaItem);
   }
 }

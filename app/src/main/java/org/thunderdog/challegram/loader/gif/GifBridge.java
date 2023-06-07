@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,10 +16,12 @@ package org.thunderdog.challegram.loader.gif;
 
 import android.view.View;
 
+import androidx.annotation.AnyThread;
 import androidx.annotation.Keep;
+import androidx.annotation.UiThread;
 import androidx.collection.ArraySet;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.N;
 import org.thunderdog.challegram.telegram.Tdlib;
@@ -47,18 +49,24 @@ public class GifBridge {
   private final HashMap<String, GifRecord> records = new HashMap<>();
   private final HashMap<Integer, ArrayList<GifRecord>> fileIdToRecordList = new HashMap<>();
   private final ArrayList<GifRecord> playingRoundVideos = new ArrayList<>();
-  private int lastUsedThread;
-  private final GifThread[] threads;
+  // TODO: rework to executors
+  private int lastUsedThread, lastUsedEmojiThread;
+  private final GifThread[] threads, emojiThreads;
   private final GifThread[] lottieThreads;
 
   private GifBridge () {
     N.gifInit();
     thread = new GifBridgeThread();
+    // TODO: rework to executors
     threads = new GifThread[THREAD_POOL_SIZE];
     for (int i = 0; i < threads.length; i++) {
       threads[i] = new GifThread(i);
     }
-    lottieThreads = new GifThread[2];
+    emojiThreads = new GifThread[THREAD_POOL_SIZE];
+    for (int i = 0; i < emojiThreads.length; i++) {
+      emojiThreads[i] = new GifThread(i);
+    }
+    lottieThreads = new GifThread[3];
     for (int i = 0; i < lottieThreads.length; i++) {
       lottieThreads[i] = new GifThread(i);
     }
@@ -66,12 +74,20 @@ public class GifBridge {
 
   private GifThread obtainFrameThread (GifFile file) {
     if (file.getGifType() == GifFile.TYPE_TG_LOTTIE) {
-      return lottieThreads[file.needOptimize() ? 1 : 0];
+      return lottieThreads[file.getOptimizationMode()];
     } else {
-      if (++lastUsedThread == THREAD_POOL_SIZE) {
-        lastUsedThread = 0;
+      // TODO rework to executors
+      if (file.getOptimizationMode() == GifFile.OptimizationMode.EMOJI) {
+        if (++lastUsedEmojiThread == THREAD_POOL_SIZE) {
+          lastUsedEmojiThread = 0;
+        }
+        return emojiThreads[lastUsedEmojiThread];
+      } else {
+        if (++lastUsedThread == THREAD_POOL_SIZE) {
+          lastUsedThread = 0;
+        }
+        return threads[lastUsedThread];
       }
-      return threads[lastUsedThread];
     }
   }
 
@@ -232,7 +248,7 @@ public class GifBridge {
   }
 
   // GifBridge thread
-  boolean scheduleNextFrame (GifActor actor, int fileId, int delay, boolean force) {
+  boolean scheduleNextFrame (GifActor actor, int fileId, long delay, boolean force) {
     return thread.scheduleNextFrame(actor, fileId, delay, force);
   }
 
@@ -241,8 +257,8 @@ public class GifBridge {
   }
 
   // Decoder thread
-  void nextFrameReady (GifActor actor) {
-    thread.nextFrameReady(actor);
+  void nextFrameReady (GifActor actor, boolean restarted) {
+    thread.nextFrameReady(actor, restarted);
   }
 
   // Decoder thread
@@ -264,19 +280,22 @@ public class GifBridge {
     }
   }
 
-  void dispatchGifFrameChanged (GifFile file, GifState gif) {
-    GifReceiver.getHandler().onFrame(file, gif);
+  @AnyThread
+  void dispatchGifFrameChanged (GifFile file, GifState gif, boolean isRestart) {
+    GifReceiver.getHandler().post(() -> {
+      onGifFrameDeadlineReached(file, gif, isRestart);
+    });
   }
 
-  void onGifFrameChanged (GifFile file, GifState gif) {
+  @UiThread
+  void onGifFrameDeadlineReached (GifFile file, GifState gif, boolean isRestart) {
     synchronized (records) {
-      gif.setCanApplyNext();
-
-      GifRecord record = records.get(file.toString());
-
-      if (record != null) {
-        for (GifWatcherReference reference : record.getWatchers()) {
-          reference.gifFrameChanged(file);
+      if (gif.setCanApplyNext()) {
+        GifRecord record = records.get(file.toString());
+        if (record != null) {
+          for (GifWatcherReference reference : record.getWatchers()) {
+            reference.gifFrameChanged(file, isRestart);
+          }
         }
       }
     }

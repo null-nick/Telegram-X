@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.dialogs.ChatView;
 import org.thunderdog.challegram.core.Lang;
@@ -36,8 +36,8 @@ import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.tool.DrawAlgorithms;
 import org.thunderdog.challegram.tool.Fonts;
 import org.thunderdog.challegram.tool.Paints;
@@ -50,6 +50,7 @@ import org.thunderdog.challegram.util.text.TextColorSets;
 import org.thunderdog.challegram.util.text.TextEntity;
 import org.thunderdog.challegram.util.text.TextStyleProvider;
 import org.thunderdog.challegram.util.text.TextWrapper;
+import org.thunderdog.challegram.widget.PageBlockView;
 
 import java.util.ArrayList;
 import java.util.Calendar;
@@ -86,7 +87,7 @@ public class PageBlockRichText extends PageBlock {
   private static final float TEXT_SIZE_CAPTION = 14f;
   private static final float TEXT_SIZE_CREDIT = 12f;
 
-  private @ThemeColorId int backgroundColorId = R.id.theme_color_filling;
+  private @ColorId int backgroundColorId = ColorId.filling;
   private boolean isFullyRtl;
   private boolean needQuote;
   private float textHorizontalOffset = TEXT_HORIZONTAL_OFFSET;
@@ -214,7 +215,7 @@ public class PageBlockRichText extends PageBlock {
   public PageBlockRichText (ViewController<?> context, TdApi.PageBlockPreformatted preformatted, @Nullable TdlibUi.UrlOpenParameters openParameters) {
     super(context, preformatted);
     setText(preformatted.text, getPreformattedProvider(), TextColorSets.InstantView.NORMAL, Text.FLAG_ARTICLE, openParameters);
-    this.backgroundColorId = R.id.theme_color_iv_preBlockBackground;
+    this.backgroundColorId = ColorId.iv_preBlockBackground;
     this.textHorizontalOffset = TEXT_HORIZONTAL_OFFSET_PRE_BLOCK;
   }
 
@@ -264,7 +265,7 @@ public class PageBlockRichText extends PageBlock {
     this.paddingTop = this.paddingBottom = 16f;
     setText(new TdApi.RichTextBold(new TdApi.RichTextPlain(chatLink.title)), getParagraphProvider(), isOverlay ? TextColorSets.InstantView.CHAT_LINK_OVERLAY : TextColorSets.InstantView.NORMAL, openParameters);
     this.forceBackground = isOverlay;
-    this.backgroundColorId = isOverlay ? R.id.theme_color_iv_chatLinkOverlayBackground : R.id.theme_color_iv_chatLinkBackground;
+    this.backgroundColorId = isOverlay ? ColorId.iv_chatLinkOverlayBackground : ColorId.iv_chatLinkBackground;
     this.clickHelper = new ClickHelper(new ClickHelper.Delegate() {
       @Override
       public boolean needClickAt (View view, float x, float y) {
@@ -312,10 +313,12 @@ public class PageBlockRichText extends PageBlock {
       int avatarSize = (getComputedHeight() - Screen.dp(8f) * 2);
       avatarFile = context.tdlib().chatAvatar(chat.id);
       avatarPlaceholder = context.tdlib().chatPlaceholder(chat, false, Screen.px(avatarSize / 2f), null);
-      invalidateContent();
+      currentViews.invalidateContent(this);
 
       CharSequence text = context.tdlib().status().chatStatus(chat);
-      subtitle = new TextWrapper(text.toString(), getCreditProvider(), this.text.getTextColorSet(), TextEntity.valueOf(context.tdlib(), text.toString(), TD.toEntities(text, false), openParameters)).setMaxLines(1);
+      subtitle = new TextWrapper(text.toString(), getCreditProvider(), this.text.getTextColorSet())
+        .setEntities(TextEntity.valueOf(context.tdlib(), text.toString(), TD.toEntities(text, false), openParameters), null)
+        .setMaxLines(1);
       subtitle.prepare(getMaxWidth() - getTextPaddingLeft() - getTextPaddingRight() - (needQuote ? Screen.dp(QUOTE_OFFSET) : 0) - avatarSize);
       if (currentViews.hasAnyTargetToInvalidate() && context.isAttachedToNavigationController() && SystemClock.uptimeMillis() - time > 50) {
         subtitleVisible = new BoolAnimator(0, (id, factor, fraction, callee) -> {
@@ -397,7 +400,7 @@ public class PageBlockRichText extends PageBlock {
 
   private ImageFile avatarMiniThumbnail, avatarPreview, avatarFull;
   private boolean needAvatar;
-  private @ThemeColorId
+  private @ColorId
   int avatarPlaceholderColorId;
 
   public PageBlockRichText (ViewController<?> context, TdApi.PageBlockEmbeddedPost embeddedPost, @Nullable TdlibUi.UrlOpenParameters openParameters) {
@@ -460,7 +463,17 @@ public class PageBlockRichText extends PageBlock {
   }
 
   private void setText (TdApi.RichText richText, TextStyleProvider textStyleProvider, TextColorSet colorSet, int flags, @Nullable  TdlibUi.UrlOpenParameters openParameters) {
-    this.text = TextWrapper.parseRichText(context, context instanceof Text.ClickCallback ? (Text.ClickCallback) context : null, richText, textStyleProvider, colorSet, openParameters);
+    this.text = TextWrapper.parseRichText(context, context instanceof Text.ClickCallback ? (Text.ClickCallback) context : null, richText, textStyleProvider, colorSet, openParameters, (wrapper, text, specificMedia) -> {
+      if (this.text == wrapper) {
+        for (View view : currentViews) {
+          if (view instanceof PageBlockView) {
+            if (!text.invalidateMediaContent(((PageBlockView) view).getIconReceiver(), specificMedia)) {
+              ((PageBlockView) view).invalidateIconsContent(this);
+            }
+          }
+        }
+      }
+    });
     this.text.setViewProvider(currentViews);
     if (flags != 0) {
       this.text.addTextFlags(flags);
@@ -475,7 +488,7 @@ public class PageBlockRichText extends PageBlock {
   @Override
   public void requestIcons (ComplexReceiver receiver) {
     if (text != null) {
-      text.requestIcons(receiver);
+      text.requestMedia(receiver);
     } else {
       receiver.clear();
     }
@@ -593,7 +606,7 @@ public class PageBlockRichText extends PageBlock {
       }
 
       if (needQuote) {
-        final int lineColor = Theme.getColor(R.id.theme_color_iv_blockQuoteLine);
+        final int lineColor = Theme.getColor(ColorId.iv_blockQuoteLine);
         RectF rectF = Paints.getRectF();
         int lineWidth = Screen.dp(3f);
         int linePadding = Screen.dp(8f) / 2;
@@ -635,8 +648,8 @@ public class PageBlockRichText extends PageBlock {
       if (detailsOpened != null) {
         int iconLeft = textLeft - Screen.dp(18f);
         int iconTop = textTop + text.getLineCenterY();
-        DrawAlgorithms.drawCollapse(c, iconLeft, iconTop, Theme.getColor(R.id.theme_color_iv_icon), detailsOpened.getFloatValue(), 0f);
-        c.drawRect(0, view.getMeasuredHeight() - Screen.separatorSize(), viewWidth, view.getMeasuredHeight(), Paints.fillingPaint(Theme.getColor(R.id.theme_color_iv_separator)));
+        DrawAlgorithms.drawCollapse(c, iconLeft, iconTop, Theme.getColor(ColorId.iv_icon), detailsOpened.getFloatValue(), 0f);
+        c.drawRect(0, view.getMeasuredHeight() - Screen.separatorSize(), viewWidth, view.getMeasuredHeight(), Paints.fillingPaint(Theme.getColor(ColorId.iv_separator)));
       }
 
       if (subtitle != null) {

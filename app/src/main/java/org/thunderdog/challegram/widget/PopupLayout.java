@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,6 +19,7 @@ import android.animation.AnimatorListenerAdapter;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Canvas;
+import android.os.Build;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
@@ -53,6 +54,7 @@ import org.thunderdog.challegram.util.SensitiveContentContainer;
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.android.widget.FrameLayoutFix;
+import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.ColorUtils;
 import me.vkryl.core.lambda.Destroyable;
 
@@ -261,13 +263,46 @@ public class PopupLayout extends RootFrameLayout implements FactorAnimator.Targe
     }
   }
 
-  public static void patchPopupWindow (PopupWindow popupWindow) {
-    View container = popupWindow.getContentView().getRootView();
-    Context context = popupWindow.getContentView().getContext();
-    WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);
+  private static boolean patchPopupWindow (View container, boolean needFullScreen, boolean disallowScreenshots) {
     WindowManager.LayoutParams p = (WindowManager.LayoutParams) container.getLayoutParams();
-    p.flags |= WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS;
-    wm.updateViewLayout(container, p);
+    int newFlags = p.flags;
+    newFlags = BitwiseUtils.setFlag(newFlags, WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS, needFullScreen);
+    newFlags = BitwiseUtils.setFlag(newFlags, WindowManager.LayoutParams.FLAG_SECURE, disallowScreenshots);
+    if (p.flags != newFlags) {
+      p.flags = newFlags;
+      return true;
+    }
+    return false;
+  }
+
+  public void checkWindowFlags () {
+    if (isHidden || isDismissed || windowAnchorView == null || isTemporarilyHidden)
+      return;
+    if (window != null) {
+      View rootView = window.getContentView().getRootView();
+      ViewGroup.LayoutParams layoutParams = rootView.getLayoutParams();
+      boolean disallowScreenShots = shouldDisallowScreenshots();
+      if (!(layoutParams instanceof WindowManager.LayoutParams)) {
+        // TODO: analyze in what situations container parameters become `android.widget.FrameLayout$LayoutParams`
+        // after that, uncomment code below, if it's caused by root view, not by window detachment
+        /*int windowFlags =
+          (needFullScreen ? WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS : 0) |
+          (disallowScreenShots ? WindowManager.LayoutParams.FLAG_SECURE : 0);
+        if (windowFlags != 0) {
+          final BaseActivity context = UI.getContext(getContext());
+          WindowManager.LayoutParams newParams = new WindowManager.LayoutParams();
+          newParams.flags = windowFlags;
+          // WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);?
+          context.getWindowManager().updateViewLayout(rootView, newParams);
+        }*/
+        return;
+      }
+      if (patchPopupWindow(rootView, needFullScreen, disallowScreenShots)) {
+        final BaseActivity context = UI.getContext(getContext());
+        // WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);?
+        context.getWindowManager().updateViewLayout(rootView, rootView.getLayoutParams());
+      }
+    }
   }
 
   private void showSystemWindow (View anchorView) {
@@ -290,8 +325,16 @@ public class PopupLayout extends RootFrameLayout implements FactorAnimator.Targe
         try {
           window.showAtLocation(windowAnchorView = anchorView, Gravity.NO_GRAVITY, 0, 0);
           window.setBackgroundDrawable(new RootDrawable(UI.getContext(getContext())));
-          if (needFullScreen) {
-            patchPopupWindow(window);
+          View rootView = window.getContentView().getRootView();
+          boolean updated = patchPopupWindow(rootView, needFullScreen, shouldDisallowScreenshots());
+          if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            WindowManager.LayoutParams lp = (WindowManager.LayoutParams) rootView.getLayoutParams();
+            lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES;
+            updated = true;
+          }
+          if (updated) {
+            // WindowManager wm = (WindowManager) context.getSystemService(Context.WINDOW_SERVICE);?
+            context.getWindowManager().updateViewLayout(rootView, rootView.getLayoutParams());
           }
           return;
         } catch (Throwable t) {
@@ -468,6 +511,7 @@ public class PopupLayout extends RootFrameLayout implements FactorAnimator.Targe
       ((ViewGroup) menuWrap.getParent()).removeView(menuWrap);
     }
 
+    final boolean anchorCenter = menuWrap.getAnchorMode() == MenuMoreWrap.ANCHOR_MODE_CENTER;
     final boolean anchorRight = menuWrap.getAnchorMode() == MenuMoreWrap.ANCHOR_MODE_RIGHT;
     final int padding = Screen.dp(8f);
     final int itemsWidth = menuWrap.getItemsWidth();
@@ -586,7 +630,7 @@ public class PopupLayout extends RootFrameLayout implements FactorAnimator.Targe
 
   @Override
   protected View getMeasureTarget () {
-    return boundController != null ? boundController.get() : this;
+    return boundController != null ? boundController.getValue() : this;
   }
 
   private static final int ANIMATION_TYPE_NONE = -1;
@@ -630,6 +674,10 @@ public class PopupLayout extends RootFrameLayout implements FactorAnimator.Targe
           }
 
           if (animationType == ANIMATION_TYPE_MORE_SCALE) {
+            if (menuWrap.getAnchorMode() == MenuMoreWrap.ANCHOR_MODE_CENTER) {
+              final int itemsWidth = menuWrap.getItemsWidth();
+              menuWrap.setPivotX(itemsWidth / 2f);
+            }
             menuWrap.scaleIn(listener);
             return;
           }

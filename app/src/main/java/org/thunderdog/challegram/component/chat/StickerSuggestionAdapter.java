@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,13 +24,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.component.sticker.StickerSmallView;
 import org.thunderdog.challegram.component.sticker.TGStickerObj;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Screen;
 
@@ -41,7 +42,7 @@ import me.vkryl.android.widget.FrameLayoutFix;
 
 public class StickerSuggestionAdapter extends RecyclerView.Adapter<StickerSuggestionAdapter.StickerSuggestionHolder> implements StickerSmallView.StickerMovementCallback {
   public interface Callback {
-    boolean onSendStickerSuggestion (View view, TGStickerObj sticker, boolean forceDisableNotification, @Nullable TdApi.MessageSchedulingState schedulingState);
+    boolean onSendStickerSuggestion (View view, TGStickerObj sticker, TdApi.MessageSendOptions sendOptions);
     int getStickerSuggestionsTop ();
     int getStickerSuggestionPreviewViewportHeight ();
     long getStickerSuggestionsChatId ();
@@ -142,8 +143,8 @@ public class StickerSuggestionAdapter extends RecyclerView.Adapter<StickerSugges
   }
 
   @Override
-  public boolean onStickerClick (StickerSmallView view, View clickView, TGStickerObj sticker, boolean isMenuClick, boolean forceDisableNotification, @Nullable TdApi.MessageSchedulingState schedulingState) {
-    return callback.onSendStickerSuggestion(clickView, sticker, forceDisableNotification, schedulingState);
+  public boolean onStickerClick (StickerSmallView view, View clickView, TGStickerObj sticker, boolean isMenuClick, TdApi.MessageSendOptions sendOptions) {
+    return callback.onSendStickerSuggestion(clickView, sticker, sendOptions);
   }
 
   @Override
@@ -231,7 +232,7 @@ public class StickerSuggestionAdapter extends RecyclerView.Adapter<StickerSugges
           FrameLayoutFix contentView = new FrameLayoutFix(context);
           contentView.setLayoutParams(new RecyclerView.LayoutParams(Screen.dp(34f), ViewGroup.LayoutParams.MATCH_PARENT));
 
-          Drawable drawable = Theme.filteredDrawable(R.drawable.stickers_back_left, R.id.theme_color_overlayFilling, themeProvider);
+          Drawable drawable = Theme.filteredDrawable(R.drawable.stickers_back_left, ColorId.overlayFilling, themeProvider);
 
           View view = new View(context);
           ViewUtils.setBackground(view, drawable);
@@ -247,7 +248,7 @@ public class StickerSuggestionAdapter extends RecyclerView.Adapter<StickerSugges
           FrameLayoutFix contentView = new FrameLayoutFix(context);
           contentView.setLayoutParams(new RecyclerView.LayoutParams(Screen.dp(34f), ViewGroup.LayoutParams.MATCH_PARENT));
 
-          Drawable drawable = Theme.filteredDrawable(R.drawable.stickers_back_right, R.id.theme_color_overlayFilling, themeProvider);
+          Drawable drawable = Theme.filteredDrawable(R.drawable.stickers_back_right, ColorId.overlayFilling, themeProvider);
 
           View view = new View(context);
           ViewUtils.setBackground(view, drawable);
@@ -264,7 +265,7 @@ public class StickerSuggestionAdapter extends RecyclerView.Adapter<StickerSugges
           stickerView.init(tdlib);
           stickerView.setStickerMovementCallback(callback);
 
-          Drawable drawable = Theme.filteredDrawable(R.drawable.stickers_back_center, R.id.theme_color_overlayFilling, themeProvider);
+          Drawable drawable = Theme.filteredDrawable(R.drawable.stickers_back_center, ColorId.overlayFilling, themeProvider);
 
           ViewUtils.setBackground(stickerView, drawable);
           if (themeProvider != null) {

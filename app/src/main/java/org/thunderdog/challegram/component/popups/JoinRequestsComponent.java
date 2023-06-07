@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,8 +19,8 @@ import android.view.View;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.attach.CustomItemAnimator;
@@ -136,16 +136,12 @@ public class JoinRequestsComponent implements TGLegacyManager.EmojiLoadListener,
     }
 
     controller.showOptions(msg, new int[]{R.id.btn_approveChatRequest, R.id.btn_declineChatRequest, R.id.btn_openChat}, new String[]{Lang.getString(isChannel ? R.string.InviteLinkActionAcceptChannel : R.string.InviteLinkActionAccept), Lang.getString(R.string.InviteLinkActionDeclineAction), Lang.getString(R.string.InviteLinkActionWrite)}, new int[] { ViewController.OPTION_COLOR_BLUE, ViewController.OPTION_COLOR_RED, ViewController.OPTION_COLOR_NORMAL }, new int[]{R.drawable.baseline_person_add_24, R.drawable.baseline_delete_24, R.drawable.baseline_person_24}, (itemView2, id2) -> {
-      switch (id2) {
-        case R.id.btn_approveChatRequest:
-          acceptRequest(user);
-          break;
-        case R.id.btn_openChat:
-          openProfile(user);
-          break;
-        case R.id.btn_declineChatRequest:
-          declineRequest(user);
-          break;
+      if (id2 == R.id.btn_approveChatRequest) {
+        acceptRequest(user);
+      } else if (id2 == R.id.btn_openChat) {
+        openProfile(user);
+      } else if (id2 == R.id.btn_declineChatRequest) {
+        declineRequest(user);
       }
 
       return true;
@@ -161,7 +157,7 @@ public class JoinRequestsComponent implements TGLegacyManager.EmojiLoadListener,
       @Override
       protected void setEmbedSticker (ListItem item, int position, EmbeddableStickerView userView, boolean isUpdate) {
         TdApi.Sticker sticker = (TdApi.Sticker) item.getData();
-        userView.setSticker(new TGStickerObj(tdlib(), sticker, UTYAN_EMOJI, sticker.type));
+        userView.setSticker(new TGStickerObj(tdlib(), sticker, UTYAN_EMOJI, sticker.fullType));
         userView.setCaptionText(Strings.buildMarkdown(controller, Lang.getString(isChannel ? R.string.InviteLinkRequestsHintChannel : R.string.InviteLinkRequestsHint, "tg://need_update_for_some_feature"), (view, span, clickedText) -> {
           ChatLinksController linksController = new ChatLinksController(context(), tdlib());
           linksController.setArguments(new ChatLinksController.Args(chatId, tdlib().myUserId(), null, null, tdlib().chatStatus(chatId).getConstructor() == TdApi.ChatMemberStatusCreator.CONSTRUCTOR));
@@ -174,7 +170,7 @@ public class JoinRequestsComponent implements TGLegacyManager.EmojiLoadListener,
       protected void setJoinRequest (ListItem item, int position, DoubleTextViewWithIcon group, boolean isUpdate) {
         TGUser user = joinRequests.get((isBottomSheet || isSeparateLink || inSearchMode()) ? position : position - 3);
         group.setTag(user);
-        group.text().setAvatar(user.getAvatar(), user.getAvatarPlaceholderMetadata());
+        group.text().setSenderAvatar(tdlib(), user.getSenderId());
         group.text().setText(user.getName(), user.getStatus());
         group.text().setIcon(R.drawable.baseline_person_add_16, (v) -> acceptRequest(user));
         group.icon().setImageResource(R.drawable.baseline_close_24);
@@ -414,7 +410,7 @@ public class JoinRequestsComponent implements TGLegacyManager.EmojiLoadListener,
   }
 
   @Override
-  public void onEmojiPartLoaded () {
+  public void onEmojiUpdated (boolean isPackSwitch) {
     adapter.updateAllValuedSettingsById(R.id.user);
   }
 }

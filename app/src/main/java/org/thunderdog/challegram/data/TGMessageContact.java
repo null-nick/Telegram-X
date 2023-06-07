@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@ import android.graphics.Canvas;
 import android.text.TextUtils;
 import android.view.MotionEvent;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.component.chat.MessageView;
 import org.thunderdog.challegram.component.chat.MessagesManager;
@@ -26,8 +26,8 @@ import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.loader.ImageReceiver;
 import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.telegram.TdlibCache;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Strings;
@@ -44,7 +44,7 @@ public class TGMessageContact extends TGMessage implements TdlibCache.UserDataCh
   private TdApi.User user;
 
   private ImageFile avatar;
-  private @ThemeColorId
+  private @ColorId
   int avatarColorId;
   private Letters letters;
 
@@ -88,7 +88,7 @@ public class TGMessageContact extends TGMessage implements TdlibCache.UserDataCh
         TGMessageContact.this.user = user;
         buildAvatar();
         // buildName();
-        invalidateContent();
+        invalidateContent(this);
         invalidate();
       }
     });

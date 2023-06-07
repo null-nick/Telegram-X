@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,29 +23,35 @@ import android.widget.ImageView;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.data.TGWebPage;
+import org.thunderdog.challegram.loader.ComplexReceiver;
 import org.thunderdog.challegram.loader.DoubleImageReceiver;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.Views;
 
+import me.vkryl.android.util.InvalidateContentProvider;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.lambda.Destroyable;
 import me.vkryl.td.Td;
 
-public class ReplyView extends FrameLayoutFix implements View.OnClickListener, Destroyable {
+public class ReplyView extends FrameLayoutFix implements View.OnClickListener, Destroyable, InvalidateContentProvider {
   private int startX;
   private int startY;
 
-  private DoubleImageReceiver receiver;
+  private final DoubleImageReceiver receiver;
+  private final ComplexReceiver textMediaReceiver;
+
   private ReplyComponent reply;
   private Callback callback;
 
@@ -58,9 +64,14 @@ public class ReplyView extends FrameLayoutFix implements View.OnClickListener, D
     startY = Screen.dp(7f);
 
     receiver = new DoubleImageReceiver(this, 0);
+    textMediaReceiver = new ComplexReceiver(this, Config.MAX_ANIMATED_EMOJI_REFRESH_RATE);
 
     reply = new ReplyComponent(tdlib);
     reply.setCurrentView(this);
+  }
+
+  public ComplexReceiver getTextMediaReceiver () {
+    return textMediaReceiver;
   }
 
   @Override
@@ -86,13 +97,18 @@ public class ReplyView extends FrameLayoutFix implements View.OnClickListener, D
     }
   }
 
-  public void invalidateReceiver () {
-    reply.requestPreview(receiver);
+  @Override
+  public boolean invalidateContent (Object cause) {
+    if (reply == cause) {
+      reply.requestPreview(receiver, textMediaReceiver);
+      return true;
+    }
+    return false;
   }
 
   @Override
   protected void onDraw (Canvas c) {
-    reply.draw(c, startX, startY, getMeasuredWidth() - startX, reply.width(false), receiver, Lang.rtl());
+    reply.draw(c, startX, startY, getMeasuredWidth() - startX, reply.width(false), receiver, textMediaReceiver, Lang.rtl());
   }
 
   ImageView closeView;
@@ -115,7 +131,7 @@ public class ReplyView extends FrameLayoutFix implements View.OnClickListener, D
     closeView = new ImageView(getContext());
     closeView.setImageResource(R.drawable.baseline_close_24);
     closeView.setColorFilter(Theme.iconColor());
-    themeProvider.addThemeFilterListener(closeView, R.id.theme_color_icon);
+    themeProvider.addThemeFilterListener(closeView, ColorId.icon);
     closeView.setScaleType(ImageView.ScaleType.CENTER);
     closeView.setLayoutParams(params);
     closeView.setOnClickListener(this);
@@ -177,13 +193,15 @@ public class ReplyView extends FrameLayoutFix implements View.OnClickListener, D
     invalidate();
   }
 
-  public void destroy () {
-    receiver.destroy();
+  public void clear () {
+    receiver.clear();
+    textMediaReceiver.clear();
   }
 
   @Override
   public void performDestroy () {
-    destroy();
+    receiver.destroy();
+    textMediaReceiver.performDestroy();
     reply.performDestroy();
   }
 

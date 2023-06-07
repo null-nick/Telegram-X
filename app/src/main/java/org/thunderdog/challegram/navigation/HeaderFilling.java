@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,7 +28,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
@@ -41,6 +41,7 @@ import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibCache;
 import org.thunderdog.challegram.telegram.TdlibContext;
 import org.thunderdog.challegram.telegram.TdlibManager;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.DrawAlgorithms;
 import org.thunderdog.challegram.tool.Drawables;
@@ -62,11 +63,11 @@ import java.util.concurrent.TimeUnit;
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.android.util.ClickHelper;
+import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.ColorUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.lambda.Destroyable;
-import me.vkryl.core.BitwiseUtils;
 
 public class HeaderFilling extends Drawable implements TGLegacyAudioManager.PlayListener, FactorAnimator.Target, CallManager.CurrentCallListener, TdlibCache.CallStateChangeListener, Runnable, TGPlayerController.TrackChangeListener, TGPlayerController.TrackListener, ClickHelper.Delegate, Destroyable, TGLegacyManager.EmojiLoadListener {
   private HeaderView headerView; // Header that holds the filling
@@ -145,7 +146,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
   }
 
   @Override
-  public void onEmojiPartLoaded () {
+  public void onEmojiUpdated (boolean isPackSwitch) {
     invalidateOngoingBar();
   }
 
@@ -306,6 +307,10 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
     this.color = color;
   }
 
+  public int getColor () {
+    return color;
+  }
+
   private float radiusFactor;
   private int radiusColor;
 
@@ -390,7 +395,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
     /*if (needStatusBar) {
       final int offset = getTopOffset();
       if (navigationController == null && offset > 0) {
-        c.drawRect(0, 0, width, offset, Paints.fillingPaint(Theme.getColor(R.id.theme_color_statusBar)));
+        c.drawRect(0, 0, width, offset, Paints.fillingPaint(Theme.getColor(ColorId.statusBar)));
       }
     }*/
   }
@@ -604,7 +609,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
 
     c.drawRect(0, playerTop, rectWidth, playerBottom, Paints.fillingPaint(playerFillingColor));
     if (seekFactor != 0f) {
-      c.drawRect(0, playerBottom - (Screen.dp(1f) + 1), (int) (width * seekFactor), playerBottom, Paints.fillingPaint(ColorUtils.alphaColor(dropShadowAlpha, Theme.getColor(R.id.theme_color_headerBarCallActive))));
+      c.drawRect(0, playerBottom - (Screen.dp(1f) + 1), (int) (width * seekFactor), playerBottom, Paints.fillingPaint(ColorUtils.alphaColor(dropShadowAlpha, Theme.getColor(ColorId.headerBarCallActive))));
     }
 
     TdApi.File file = TD.getFile(playingMessage);
@@ -985,7 +990,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
   }
 
   private void drawOngoingCall (Canvas c, int playerTop, float rectWidth, int playerBottom) {
-    final int backgroundColor = ColorUtils.fromToArgb(Theme.getColor(R.id.theme_color_headerBarCallMuted), ColorUtils.fromToArgb(Theme.getColor(R.id.theme_color_headerBarCallActive), Theme.getColor(R.id.theme_color_headerBarCallIncoming), callIncomingFactor), (1f - callMuteFactor) * callActiveFactor);
+    final int backgroundColor = ColorUtils.fromToArgb(Theme.getColor(ColorId.headerBarCallMuted), ColorUtils.fromToArgb(Theme.getColor(ColorId.headerBarCallActive), Theme.getColor(ColorId.headerBarCallIncoming), callIncomingFactor), (1f - callMuteFactor) * callActiveFactor);
     if (restoreRect && restorePixels > 0) {
       c.drawRect(rectWidth, playerTop, width, playerBottom, Paints.fillingPaint(backgroundColor));
     }
@@ -1035,7 +1040,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
   private FactorAnimator barShowAnimator;
 
   private void setShowOngoingSection (int section, boolean isShowing, boolean needRebuild, boolean force) {
-    if (BitwiseUtils.getFlag(ongoingSections, section) != isShowing) {
+    if (BitwiseUtils.hasFlag(ongoingSections, section) != isShowing) {
       this.ongoingSections = BitwiseUtils.setFlag(ongoingSections, section, isShowing);
       if (isShowing) {
         if (canBuildSection(section)) {
@@ -1175,10 +1180,10 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
 
   @Override
   public boolean needLongPress (float x, float y) {
-    if (BitwiseUtils.getFlag(ongoingSections, SECTION_CALL)) {
+    if (BitwiseUtils.hasFlag(ongoingSections, SECTION_CALL)) {
       return false;
     }
-    if (BitwiseUtils.getFlag(ongoingSections, SECTION_AUDIO)) {
+    if (BitwiseUtils.hasFlag(ongoingSections, SECTION_AUDIO)) {
       int endX = width - Screen.dp(52f);
       return x <= endX && x >= endX - Screen.dp(24f);
     }
@@ -1219,11 +1224,11 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
     switch (index) {
       case 0: { // play/pause or mute/unute
         performSoundFeedback();
-        if (BitwiseUtils.getFlag(ongoingSections, SECTION_CALL)) {
+        if (BitwiseUtils.hasFlag(ongoingSections, SECTION_CALL)) {
           if (isCallActive && !isCallPendingIncoming) {
             toggleCallMute();
           }
-        } else if (BitwiseUtils.getFlag(ongoingSections, SECTION_AUDIO)) {
+        } else if (BitwiseUtils.hasFlag(ongoingSections, SECTION_AUDIO)) {
           if (!playPause()) {
             openPlayer();
           }
@@ -1231,10 +1236,10 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
         return true;
       }
       case 1: {
-        if (BitwiseUtils.getFlag(ongoingSections, SECTION_CALL)) {
+        if (BitwiseUtils.hasFlag(ongoingSections, SECTION_CALL)) {
           return false;
         }
-        if (BitwiseUtils.getFlag(ongoingSections, SECTION_AUDIO)) {
+        if (BitwiseUtils.hasFlag(ongoingSections, SECTION_AUDIO)) {
           TdlibManager.instance().player().playNextMessageInQueue();
           return true;
         }
@@ -1249,7 +1254,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
       // Do nothing
     } else*/
    performSoundFeedback();
-   if (BitwiseUtils.getFlag(ongoingSections, SECTION_CALL)) {
+   if (BitwiseUtils.hasFlag(ongoingSections, SECTION_CALL)) {
       if (isCallActive) {
         if (call != null && headerView != null) {
           if (isCallPendingIncoming) {
@@ -1259,7 +1264,7 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
           }
         }
       }
-    } else if (BitwiseUtils.getFlag(ongoingSections, SECTION_AUDIO)) {
+    } else if (BitwiseUtils.hasFlag(ongoingSections, SECTION_AUDIO)) {
       TdlibManager.instance().player().stopPlayback(true);
     }
   }
@@ -1269,9 +1274,9 @@ public class HeaderFilling extends Drawable implements TGLegacyAudioManager.Play
       openLiveLocationList();
     } else*/
     performSoundFeedback();
-    if (BitwiseUtils.getFlag(ongoingSections, SECTION_CALL)) {
+    if (BitwiseUtils.hasFlag(ongoingSections, SECTION_CALL)) {
       openCall();
-    } else if (BitwiseUtils.getFlag(ongoingSections, SECTION_AUDIO)) {
+    } else if (BitwiseUtils.hasFlag(ongoingSections, SECTION_AUDIO)) {
       openPlayer();
     }
   }

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,14 +30,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.telegram.TdlibDelegate;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.ThemeId;
 import org.thunderdog.challegram.unsorted.Settings;
 import org.thunderdog.challegram.util.CustomTypefaceSpan;
@@ -211,6 +211,38 @@ public class Strings {
   /*public static String random (String... elems) {
     return elems[(int) (Math.random() * (double) (elems.length - 1))];
   }*/
+
+  public interface Modifier<T> {
+    T modify (T item);
+  }
+
+  public static <T> String join (CharSequence delimiter, T[] tokens, Modifier<T> itemModifier) {
+    StringBuilder sb = new StringBuilder();
+    boolean firstTime = true;
+    for (T token : tokens) {
+      if (firstTime) {
+        firstTime = false;
+      } else {
+        sb.append(delimiter);
+      }
+      sb.append(itemModifier.modify(token));
+    }
+    return sb.toString();
+  }
+
+  public static <T> String join (CharSequence delimiter, Iterable<T> tokens, Modifier<T> itemModifier) {
+    StringBuilder sb = new StringBuilder();
+    boolean firstTime = true;
+    for (T token : tokens) {
+      if (firstTime) {
+        firstTime = false;
+      } else {
+        sb.append(delimiter);
+      }
+      sb.append(itemModifier.modify(token));
+    }
+    return sb.toString();
+  }
 
   public static String join (CharSequence delimiter, Iterable<?> tokens) {
     StringBuilder sb = new StringBuilder();
@@ -428,14 +460,17 @@ public class Strings {
     return letters == null || StringUtils.isEmpty(letters.text);
   }
 
+  @Deprecated
   public static boolean findWord (String text, String word) {
     return highlightWords(text, word, 0, null) != text;
   }
 
+  @Deprecated
   public static CharSequence highlightWords (String text, String highlight, int startIndex, @Nullable char[] special) {
     return highlightWords(text, highlight, startIndex, special, 0);
   }
 
+  @Deprecated
   public static void forceHighlightSpansThemeId (CharSequence text, @ThemeId int forceThemeId) {
     CustomTypefaceSpan[] args = null;
     if (text instanceof Spannable) {
@@ -450,7 +485,8 @@ public class Strings {
     }
   }
 
-  public static CharSequence highlightWords (String text, String highlight, int startIndex, @Nullable char[] special, @ThemeId int forceThemeId) {
+  @Deprecated
+  private static CharSequence highlightWords (String text, String highlight, int startIndex, @Nullable char[] special, @ThemeId int forceThemeId) {
     if (StringUtils.isEmpty(text) || StringUtils.isEmpty(highlight)) {
       return text;
     }
@@ -496,7 +532,7 @@ public class Strings {
         if (b == null) {
           b = Spannable.Factory.getInstance().newSpannable(text);
         }
-        b.setSpan(new CustomTypefaceSpan(null, R.id.theme_color_textSearchQueryHighlight).setForceThemeId(forceThemeId), startIndex, startIndex + foundToken.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        b.setSpan(new CustomTypefaceSpan(null, ColorId.textSearchQueryHighlight).setForceThemeId(forceThemeId), startIndex, startIndex + foundToken.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
       }
       int i = Text.indexOfSplitter(text, startIndex, special);
       startIndex = i != -1 ? i + 1 : end;
@@ -650,7 +686,7 @@ public class Strings {
     return replaceBoldTokens(input, 0);
   }
 
-  public static CharSequence replaceBoldTokens (final String input, @ThemeColorId int colorId) {
+  public static CharSequence replaceBoldTokens (final String input, @ColorId int colorId) {
     String token = "**";
     int tokenLen = token.length();
 
@@ -953,7 +989,7 @@ public class Strings {
     return Lang.getString(stringRes, (allowFloat ? Lang.formatNumber(value) : Strings.buildCounter((long) value)));
   }
 
-  public static CharSequence setSpanColorId (CharSequence str, @ThemeColorId int colorId) {
+  public static CharSequence setSpanColorId (CharSequence str, @ColorId int colorId) {
     if (str instanceof Spannable) {
       CustomTypefaceSpan[] spans = ((Spannable) str).getSpans(0, str.length(), CustomTypefaceSpan.class);
       if (spans != null && spans.length > 0) {

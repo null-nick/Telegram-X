@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,6 +30,7 @@ import android.os.Build;
 import android.view.View;
 
 import androidx.annotation.FloatRange;
+import androidx.annotation.Nullable;
 
 import org.drinkmore.Tracer;
 import org.thunderdog.challegram.Log;
@@ -52,12 +53,13 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
   private ImageFile file, cachedFile;
   private final WatcherReference reference;
 
-  private View view;
+  private final @Nullable View view;
+  private ReceiverUpdateListener updateListener;
   private Bitmap bitmap;
   private float alpha = 1f, progress;
 
   private boolean isDetached, needProgress, animationDisabled;
-  private int radius;
+  private float radius;
 
   private int left, top, right, bottom;
 
@@ -97,6 +99,11 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
   }
 
   @Override
+  public void setUpdateListener (ReceiverUpdateListener listener) {
+    this.updateListener = listener;
+  }
+
+  @Override
   public void invalidate () {
     if (view != null) {
       /*if (drawRegion.isEmpty()) {
@@ -104,11 +111,17 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
       }*/
       view.invalidate(drawRegion.left, drawRegion.top, drawRegion.right, drawRegion.bottom);
     }
+    if (updateListener != null) {
+      updateListener.onRequestInvalidate(this);
+    }
   }
 
   public void invalidateFully () {
     if (view != null) {
       view.invalidate();
+    }
+    if (updateListener != null) {
+      updateListener.onRequestInvalidate(this);
     }
   }
 
@@ -168,7 +181,23 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
     }
     sourceWidth = getCroppedWidth(sourceWidth);
     sourceHeight = getCroppedHeight(sourceHeight);
-    float ratio = Math.min((float) getWidth() / (float) sourceWidth, (float) getHeight() / (float) sourceHeight);
+    float widthRatio = (float) getWidth() / (float) sourceWidth;
+    float heightRatio = (float) getHeight() / (float) sourceHeight;
+    float ratio;
+    if (file != null) {
+      switch (file.getScaleType()) {
+        case ImageFile.CENTER_CROP:
+          ratio = Math.max(widthRatio, heightRatio);
+          break;
+        case ImageFile.FIT_CENTER:
+          ratio = Math.min(widthRatio, heightRatio);
+          break;
+        default:
+          return getWidth();
+      }
+    } else {
+      ratio = Math.min(widthRatio, heightRatio);
+    }
     sourceWidth *= ratio;
     sourceHeight *= ratio;
     return sourceWidth;
@@ -197,7 +226,23 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
     }
     sourceWidth = getCroppedWidth(sourceWidth);
     sourceHeight = getCroppedHeight(sourceHeight);
-    float ratio = Math.min((float) getWidth() / (float) sourceWidth, (float) getHeight() / (float) sourceHeight);
+    float widthRatio = (float) getWidth() / (float) sourceWidth;
+    float heightRatio = (float) getHeight() / (float) sourceHeight;
+    float ratio;
+    if (file != null) {
+      switch (file.getScaleType()) {
+        case ImageFile.CENTER_CROP:
+          ratio = Math.max(widthRatio, heightRatio);
+          break;
+        case ImageFile.FIT_CENTER:
+          ratio = Math.min(widthRatio, heightRatio);
+          break;
+        default:
+          return getWidth();
+      }
+    } else {
+      ratio = Math.min(widthRatio, heightRatio);
+    }
     sourceWidth *= ratio;
     sourceHeight *= ratio;
     return sourceHeight;
@@ -271,7 +316,7 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
   }
 
   @Override
-  public void setRadius (int radius) {
+  public void setRadius (float radius) {
     if (this.radius != radius) {
       this.radius = radius;
 
@@ -337,15 +382,7 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
     }
   }
 
-  public int centerX () {
-    return (int) ((float) (left + right) * .5f);
-  }
-
-  public int centerY () {
-    return (int) ((float) (bottom + top) * .5f);
-  }
-
-  public int getRadius () {
+  public float getRadius () {
     return radius;
   }
 
@@ -582,14 +619,6 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
     }
   }
 
-  public int getCenterX () {
-    return (left + right) / 2;
-  }
-
-  public int getCenterY () {
-    return (top + bottom) / 2;
-  }
-
   public int getLeft () {
     return left;
   }
@@ -604,14 +633,6 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
 
   public int getBottom () {
     return bottom;
-  }
-
-  public int getWidth () {
-    return right - left;
-  }
-
-  public int getHeight () {
-    return bottom - top;
   }
 
   public void setAlpha (@FloatRange(from = 0.0, to = 1.0) float alpha) {

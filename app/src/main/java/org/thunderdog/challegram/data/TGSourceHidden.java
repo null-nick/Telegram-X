@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@ package org.thunderdog.challegram.data;
 
 import android.view.View;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
-import org.thunderdog.challegram.loader.ImageFile;
+import org.thunderdog.challegram.loader.AvatarReceiver;
 import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.util.text.Text;
@@ -32,12 +32,14 @@ public class TGSourceHidden extends TGSource {
     super(msg);
     this.name = forward.senderName;
     this.isImported = false;
+    this.isReady = true;
   }
 
   public TGSourceHidden (TGMessage msg, TdApi.MessageForwardOriginMessageImport messageImport) {
     super(msg);
     this.name = messageImport.senderName;
     this.isImported = true;
+    this.isReady = true;
   }
 
   @Override
@@ -61,15 +63,21 @@ public class TGSourceHidden extends TGSource {
   }
 
   @Override
-  public ImageFile getAvatar () {
-    return null;
+  public int getAuthorNameColorId () {
+    return TD.getNameColorId(TD.getColorIdForName(name));
+  }
+
+  @Override
+  public void requestAvatar (AvatarReceiver receiver) {
+    receiver.requestPlaceholder(msg.tdlib,
+      new AvatarPlaceholder.Metadata(
+        TD.getColorIdForName(name),
+        isImported ? null : TD.getLetters(name),
+        isImported ? R.drawable.baseline_phone_24 : 0, 0
+      ), AvatarReceiver.Options.NONE
+    );
   }
 
   @Override
   public void destroy () { }
-
-  @Override
-  public AvatarPlaceholder.Metadata getAvatarPlaceholderMetadata () {
-    return new AvatarPlaceholder.Metadata(TD.getColorIdForName(name), isImported ? null : TD.getLetters(name), isImported ? R.drawable.baseline_phone_24 : 0, 0);
-  }
 }

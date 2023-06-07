@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,6 @@
  */
 package org.thunderdog.challegram.helper;
 
-import android.Manifest;
 import android.content.Context;
 import android.content.res.Resources;
 import android.location.Location;
@@ -29,8 +28,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.N;
@@ -51,8 +50,8 @@ import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.emoji.Emoji;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.player.TGPlayerController;
+import org.thunderdog.challegram.telegram.RightId;
 import org.thunderdog.challegram.telegram.Tdlib;
-import org.thunderdog.challegram.tool.EmojiData;
 import org.thunderdog.challegram.tool.Intents;
 import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
@@ -68,6 +67,7 @@ import me.vkryl.android.LocaleUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.lambda.CancellableRunnable;
 import me.vkryl.td.ChatId;
+import me.vkryl.td.Td;
 
 public class InlineSearchContext implements LocationHelper.LocationChangeListener, InlineResultsWrap.LoadMoreCallback {
   public static final int WARNING_OK = 0;
@@ -131,15 +131,17 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
   private boolean canHandlePositionChange;
   private int lastHandledPosition;
   private int lastKnownCursorPosition;
+  private ViewController<?> boundController;
 
-  public InlineSearchContext (BaseActivity context, Tdlib tdlib, @NonNull Callback callback) {
+  public InlineSearchContext (BaseActivity context, Tdlib tdlib, @NonNull Callback callback, ViewController<?> boundController) {
     this.context = context;
+    this.boundController = boundController;
     this.locationTracker = new LocationHelper(context, this, true, false);
     this.locationTracker.setPermissionRequester((skipAlert, onCancel, handler) -> {
       if (skipAlert) {
         context.requestLocationPermission(false, true, handler);
       } else {
-        ModernOptions.showLocationAlert(context, getInlineUsername(), onCancel, () -> {
+        ModernOptions.showLocationAlert(boundController, getInlineUsername(), onCancel, () -> {
           context.requestLocationPermission(false, true, handler);
         });
       }
@@ -148,6 +150,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
     this.tdlib = tdlib;
     this.callback = callback;
     this.currentText = "";
+    this.currentCs = "";
   }
 
   public void setIsCaption (boolean isCaption) {
@@ -213,6 +216,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
       return;
     }
     this.currentText = newText;
+    this.currentCs = newCs;
     this.canHandlePositionChange = false;
     cancelPendingQueries();
 
@@ -224,7 +228,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
 
       // Do nothing with empty text
       setCurrentMode(MODE_NONE);
-    } else if (EmojiData.isEmojiString(newCs)) {
+    } else if (Emoji.instance().isSingleEmoji(newCs, false)) {
       probablyHasWebPagePreview = false;
       clearInlineMode();
 
@@ -441,11 +445,12 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
         }
       }
     };
+    final long chatId = callback.provideInlineSearchChatId();
     TdApi.Function<?> function;
     if (more) {
-      function = new TdApi.SearchStickers(emoji, 1000);
+      function = new TdApi.SearchStickers(new TdApi.StickerTypeRegular(), emoji, 1000);
     } else {
-      function = new TdApi.GetStickers(emoji, 1000);
+      function = new TdApi.GetStickers(new TdApi.StickerTypeRegular(), emoji, 1000, chatId);
     }
     tdlib.client().send(function, stickerRequest);
   }
@@ -454,7 +459,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
   private void displayStickers (TdApi.Sticker[] stickers, String foundByEmoji, boolean isMore) {
     ArrayList<TGStickerObj> list = new ArrayList<>(stickers.length);
     for (TdApi.Sticker sticker : stickers) {
-      list.add(new TGStickerObj(tdlib, sticker, foundByEmoji, sticker.type));
+      list.add(new TGStickerObj(tdlib, sticker, foundByEmoji, sticker.fullType));
     }
     callback.showInlineStickers(list, isMore);
   }
@@ -479,7 +484,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
 
       if (user != null) {
         if (user.type.getConstructor() == TdApi.UserTypeBot.CONSTRUCTOR && ((TdApi.UserTypeBot) user.type).isInline) {
-          if (tdlib.showRestriction(callback.provideInlineSearchChat(), R.id.right_sendStickersAndGifs, R.string.ChatDisabledBots, R.string.ChatRestrictedBots, R.string.ChatRestrictedBotsUntil)) {
+          if (tdlib.showRestriction(callback.provideInlineSearchChat(), RightId.SEND_OTHER_MESSAGES, R.string.ChatDisabledBots, R.string.ChatRestrictedBots, R.string.ChatRestrictedBotsUntil)) {
             searchOther(cursorPosition);
           } else {
             applyInlineBot(user);
@@ -501,7 +506,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
             if (user != null && user.type.getConstructor() == TdApi.UserTypeBot.CONSTRUCTOR && ((TdApi.UserTypeBot) user.type).isInline) {
               tdlib.ui().post(() -> {
                 String currentUsername = getInlineUsername();
-                if (!isCancelled() && currentUsername != null && username.toLowerCase().equals(currentUsername.toLowerCase()) && user.username != null && user.username.toLowerCase().equals(currentUsername.toLowerCase())) {
+                if (!isCancelled() && username.equalsIgnoreCase(currentUsername) && Td.findUsername(user, currentUsername)) {
                   applyInlineBot(user);
                 }
               });
@@ -517,7 +522,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
       if (allowInlineLocation) {
         searchInlineResultsLocated(inlineQuery, inlineQuery != null && inlineQuery.isEmpty(), false);
       } else {
-        searchInlineResults(inlineBot.username, inlineQuery, null, false);
+        searchInlineResults(Td.primaryUsername(inlineBot.usernames), inlineQuery, null, false);
       }
     } else {
       searchOther(cursorPosition);
@@ -528,9 +533,12 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
     this.inlineBot = user;
     this.allowInlineLocation = ((TdApi.UserTypeBot) user.type).needLocation && Settings.instance().allowLocationForBot(inlineBot.id);
     String username = getInlineUsername();
-    callback.showInlinePlaceholder(username != null ? username : user.username, ((TdApi.UserTypeBot) user.type).inlineQueryPlaceholder);
+    if (username == null) {
+      username = Td.primaryUsername(user);
+    }
+    callback.showInlinePlaceholder(username, ((TdApi.UserTypeBot) user.type).inlineQueryPlaceholder);
     setCurrentMode(MODE_INLINE_SEARCH);
-    requestLocationForInlineBot(currentText.substring(user.username.length() + 2), true);
+    requestLocationForInlineBot(currentText.substring(username.length() + 2), true);
   }
 
   private void clearInlineMode () {
@@ -558,7 +566,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
           if (!requested[0]) {
             requested[0] = true;
             if (currentInlineUsername != null && currentInlineUsername.equals(getInlineUsername())) {
-              searchInlineResults(inlineBot.username, currentText.substring(currentInlineUsername.length() + 2), null, firstQuery);
+              searchInlineResults(Td.primaryUsername(inlineBot), currentText.substring(currentInlineUsername.length() + 2), null, firstQuery);
             }
           }
         };
@@ -574,10 +582,10 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
           }
         };
 
-        ModernOptions.showLocationAlert(context, currentInlineUsername, onCancel, onConfirm);
+        ModernOptions.showLocationAlert(boundController, currentInlineUsername, onCancel, onConfirm);
       }
     } else {
-      searchInlineResults(inlineBot.username, inlineQuery, null, firstQuery);
+      searchInlineResults(Td.primaryUsername(inlineBot), inlineQuery, null, firstQuery);
     }
   }
 
@@ -593,7 +601,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
   @Override
   public void onLocationResult (LocationHelper context, @NonNull String arg, @Nullable Location location) {
     if (currentText.equals(arg)) {
-      searchInlineResults(inlineBot.username, getInlineQuery(), location, false);
+      searchInlineResults(Td.primaryUsername(inlineBot), getInlineQuery(), location, false);
     }
   }
 
@@ -601,12 +609,12 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
   public void onLocationRequestFailed (LocationHelper context, int errorCode, @NonNull String arg, @Nullable Location savedLocation) {
     String inlineQuery = getInlineQuery();
 
-    if (errorCode == LocationHelper.ERROR_CODE_PERMISSION && (inlineQuery == null || inlineQuery.isEmpty()) && !U.shouldShowPermissionRationale(Manifest.permission.ACCESS_FINE_LOCATION)) {
+    if (errorCode == LocationHelper.ERROR_CODE_PERMISSION && (inlineQuery == null || inlineQuery.isEmpty()) && !this.context.permissions().shouldShowAccessLocationRationale()) {
       Intents.openPermissionSettings();
     }
 
     if (currentText.equals(arg)) {
-      searchInlineResults(inlineBot.username, inlineQuery, savedLocation, false);
+      searchInlineResults(Td.primaryUsername(inlineBot), inlineQuery, savedLocation, false);
     }
   }
 
@@ -676,10 +684,12 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
     }
   }
 
-  private static ArrayList<InlineResult<?>> parseInlineResults (BaseActivity context, Tdlib tdlib, long inlineBotUserId, String inlineQuery, TdApi.InlineQueryResults results, @Nullable String switchPmText, @Nullable String switchPmParameter, TdApi.GetInlineQueryResults queryResults, String inlineNextOffset) {
-    final ArrayList<InlineResult<?>> items = new ArrayList<>(results.results.length + (switchPmText != null && !switchPmText.isEmpty() ? 1 : 0));
-    if (switchPmText != null && !switchPmText.isEmpty()) {
-      items.add(new InlineResultButton(context, tdlib, inlineBotUserId, switchPmText, switchPmParameter));
+  private static ArrayList<InlineResult<?>> parseInlineResults (BaseActivity context, Tdlib tdlib, long inlineBotUserId, String inlineQuery, TdApi.InlineQueryResults results, TdApi.GetInlineQueryResults queryResults, String inlineNextOffset, boolean isMore) {
+    // TODO support other button types
+    boolean hasButton = !isMore && results.button != null && results.button.type.getConstructor() == TdApi.InlineQueryResultsButtonTypeStartBot.CONSTRUCTOR;
+    final ArrayList<InlineResult<?>> items = new ArrayList<>(results.results.length + (hasButton ? 1 : 0));
+    if (hasButton) {
+      items.add(new InlineResultButton(context, tdlib, inlineBotUserId, results.button));
     }
     TGPlayerController.PlayListBuilder builder = new CommonPlayListBuilder(items, queryResults, inlineNextOffset);
     for (TdApi.InlineQueryResult result : results.results) {
@@ -708,7 +718,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
           case TdApi.InlineQueryResults.CONSTRUCTOR: {
             final TdApi.InlineQueryResults results = (TdApi.InlineQueryResults) object;
             final long elapsed = SystemClock.uptimeMillis() - queryStartTime;
-            final ArrayList<InlineResult<?>> inlineResults = parseInlineResults(context, tdlib, inlineBot != null ? inlineBot.id : 0, inlineQuery, results, results.switchPmText, results.switchPmParameter, function, results.nextOffset);
+            final ArrayList<InlineResult<?>> inlineResults = parseInlineResults(context, tdlib, inlineBot != null ? inlineBot.id : 0, inlineQuery, results, function, results.nextOffset, false);
             tdlib.ui().postDelayed(() -> {
               if (!isCancelled() && getInlineUsername() != null) {
                 showInlineResults(inlineQuery, location, results.nextOffset, inlineResults);
@@ -765,7 +775,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
         switch (object.getConstructor()) {
           case TdApi.InlineQueryResults.CONSTRUCTOR: {
             final TdApi.InlineQueryResults results = (TdApi.InlineQueryResults) object;
-            final ArrayList<InlineResult<?>> inlineResults = parseInlineResults(context, tdlib, inlineBot != null ? inlineBot.id : 0, queryFinal, results, null, null, query, results.nextOffset);
+            final ArrayList<InlineResult<?>> inlineResults = parseInlineResults(context, tdlib, inlineBot != null ? inlineBot.id : 0, queryFinal, results, query, results.nextOffset, true);
             tdlib.ui().post(() -> {
               if (!isCancelled() && currentNextOffset != null && lastNextOffset.equals(currentNextOffset)) {
                 cancelInlineQueryMoreRequest();
@@ -1281,7 +1291,7 @@ public class InlineSearchContext implements LocationHelper.LocationChangeListene
             case 'S': // :S
             case 'O': // :O
               query = null;
-            break;
+              break;
           }
         }
         final ArrayList<InlineResult<?>> inlineResults;

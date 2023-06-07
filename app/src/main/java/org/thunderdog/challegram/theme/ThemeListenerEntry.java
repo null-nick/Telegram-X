@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ public class ThemeListenerEntry {
   public @interface EntryMode {}
 
   private final @EntryMode int mode;
-  private @ThemeColorId
+  private @ColorId
   int targetColor;
   private final WeakReference<Object> target;
 
@@ -84,7 +84,7 @@ public class ThemeListenerEntry {
     this.flags = BitwiseUtils.setFlag(flags, FLAG_SUBTITLE, isSubtitle);
   }
 
-  public ThemeListenerEntry (@EntryMode int mode, @ThemeColorId int targetColor, Object target) {
+  public ThemeListenerEntry (@EntryMode int mode, @ColorId int targetColor, Object target) {
     this.mode = mode;
     this.targetColor = targetColor;
     this.target = new WeakReference<>(target);
@@ -95,7 +95,7 @@ public class ThemeListenerEntry {
     return this;
   }
 
-  public void setTargetColorId (@ThemeColorId int colorId) {
+  public void setTargetColorId (@ColorId int colorId) {
     this.targetColor = colorId;
   }
 

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ import androidx.annotation.Nullable;
 
 import com.otaliastudios.transcoder.internal.utils.Logger;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.BaseThread;
 import org.thunderdog.challegram.telegram.TdlibManager;
@@ -43,10 +43,11 @@ import java.util.List;
 import java.util.Locale;
 
 import me.vkryl.android.SdkVersion;
+import me.vkryl.core.BitwiseUtils;
+import me.vkryl.core.FileUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.lambda.RunnableData;
 import me.vkryl.core.reference.ReferenceList;
-import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.util.Blob;
 
 public class Log {
@@ -65,12 +66,12 @@ public class Log {
    * @return Log storage directory. @null in case of error
    */
   public static @Nullable File getLogDir () {
-    File file = new File(UI.getAppContext().getFilesDir(), "logs");
-    if (!file.exists() && !file.mkdir()) {
-      android.util.Log.e(LOG_TAG, "Couldn't open logs directory: " + file.getAbsolutePath());
+    File logsDirectory = new File(UI.getAppContext().getFilesDir(), "logs");
+    if (!FileUtils.createDirectory(logsDirectory)) {
+      android.util.Log.e(LOG_TAG, "Couldn't open logs directory: " + logsDirectory.getAbsolutePath());
       return null;
     }
-    return file;
+    return logsDirectory;
   }
 
   /**
@@ -224,8 +225,8 @@ public class Log {
     }
   }
 
-  private static void deleteAllImpl (LogFiles list, @Nullable RunnableData<LogFiles> after, @Nullable RunnableData<LogFiles> onProgress) {
-    final int count = list.files.size();
+  private static void deleteAllImpl (@Nullable LogFiles list, @Nullable RunnableData<LogFiles> after, @Nullable RunnableData<LogFiles> onProgress) {
+    final int count = list != null ? list.files.size() : 0;
     for (int i = count - 1; i >= 0; i--) {
       File file = list.files.get(i);
       long size = file.length();
@@ -406,7 +407,6 @@ public class Log {
     TAG_YOUTUBE,
     TAG_CAMERA,
     TAG_EMOJI,
-
     TAG_TDLIB_FILES,
     TAG_TDLIB_OPTIONS
   };
@@ -455,7 +455,7 @@ public class Log {
         tags = TAG_NDK | TAG_CRASH;
       } else {
         settings = prefs.getInt(Settings.KEY_LOG_SETTINGS, 0);
-        level = prefs.getInt(Settings.KEY_LOG_LEVEL, Log.LEVEL_WARNING);
+        level = prefs.getInt(Settings.KEY_LOG_LEVEL, Log.LEVEL_ASSERT);
         long defaultTags = Log.TAG_CRASH | Log.TAG_FCM | Log.TAG_ACCOUNTS;
         if (Config.DEBUG_GALAXY_TAB_2) {
           defaultTags |= Log.TAG_INTRO;

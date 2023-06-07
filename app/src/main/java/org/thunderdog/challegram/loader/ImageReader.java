@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,6 @@ import android.os.Build;
 import android.os.OperationCanceledException;
 import android.os.SystemClock;
 import android.provider.MediaStore;
-import android.util.Size;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -165,7 +164,7 @@ public class ImageReader {
     listener.onImageLoaded(bitmap != null, bitmap);
   }
 
-  private static Bitmap readImage (ImageFile file, String path) {
+  public static Bitmap readImage (ImageFile file, String path) {
     boolean needSquare = file.needDecodeSquare();
 
     ImageFile exifFile;
@@ -519,12 +518,16 @@ public class ImageReader {
         }
       }
       if (!U.isValidBitmap(bitmap)) {
-        bitmap = MediaStore.Video.Thumbnails.getThumbnail(UI.getAppContext().getContentResolver(), imageId, MediaStore.Images.Thumbnails.MINI_KIND, opts);
+        try {
+          bitmap = MediaStore.Video.Thumbnails.getThumbnail(UI.getAppContext().getContentResolver(), imageId, MediaStore.Images.Thumbnails.MINI_KIND, opts);
+        } catch (Throwable t) {
+          t.printStackTrace();
+        }
       }
     } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
       Uri uri = ContentUris.withAppendedId(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, imageId);
       try {
-        bitmap = UI.getAppContext().getContentResolver().loadThumbnail(uri, new Size(512, 512), actor.getCancellationSignal());
+        bitmap = UI.getAppContext().getContentResolver().loadThumbnail(uri, new android.util.Size(512, 512), actor.getCancellationSignal());
       } catch (OperationCanceledException | IOException e) {
         bitmap = null;
       }
@@ -565,10 +568,16 @@ public class ImageReader {
         }
       }
     } else {
-      bitmap = MediaStore.Images.Thumbnails.getThumbnail(UI.getAppContext().getContentResolver(), imageId, MediaStore.Images.Thumbnails.MINI_KIND, opts);
+      try {
+        bitmap = MediaStore.Images.Thumbnails.getThumbnail(UI.getAppContext().getContentResolver(), imageId, MediaStore.Images.Thumbnails.MINI_KIND, opts);
+      } catch (Throwable t) {
+        t.printStackTrace();
+        bitmap = null;
+      }
     }
-    if (bitmap == null)
+    if (!U.isValidBitmap(bitmap) && !file.isVideo()) {
       bitmap = decodeFile(file.getFilePath(), opts);
+    }
 
     if (bitmap != null) {
       if (!file.isWebp() && file.shouldUseBlur() && file.needBlur()) {
@@ -632,6 +641,50 @@ public class ImageReader {
       Log.e("Error decoding file", t);
     }
     return null;
+  }
+
+  public static Bitmap decodeVideoFrame (String path, int maxSize) {
+    int[] metadata = new int[4];
+    long ptr = N.createDecoder(path, metadata, 0);
+    if (ptr == 0)
+      return null;
+    int rotation = U.getVideoRotation(path);
+    int width = metadata[0];
+    int height = metadata[1];
+    boolean error = (width <= 0 || height <= 0);
+    boolean ok = false;
+    Bitmap bitmap = null;
+    if (!error) {
+      try {
+        bitmap = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+        int ret = N.getVideoFrame(ptr, bitmap, metadata);
+        ok = ret == 1 && !N.isVideoBroken(ptr);
+      } catch (Throwable t) {
+        Log.i("Unable to read video frame", t);
+      }
+    }
+    N.destroyDecoder(ptr);
+    if (ok) {
+      try {
+        if (maxSize < Math.max(bitmap.getWidth(), bitmap.getHeight())) {
+          bitmap = resizeBitmap(bitmap, maxSize, maxSize, false, true, true);
+        }
+        if (rotation != 0) {
+          bitmap = TdlibFileGenerationManager.rotateBitmap(bitmap, rotation);
+        }
+        if (U.isValidBitmap(bitmap)) {
+          return bitmap;
+        }
+      } catch (Throwable t) {
+        Log.i("Unable to post-process video frame", t);
+      }
+    }
+    U.recycle(bitmap);
+    return null;
+  }
+
+  public static Bitmap decodeVideoFrame (String path, int width, int height, int maxSize) {
+    return decodeVideoFrame(path, maxSize);
   }
 
   public static Bitmap decodeLottieFrame (String path, int maxSize) {

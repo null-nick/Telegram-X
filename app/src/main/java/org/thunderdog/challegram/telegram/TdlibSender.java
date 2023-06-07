@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,28 +14,31 @@ package org.thunderdog.challegram.telegram;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.component.chat.MessagesManager;
 import org.thunderdog.challegram.data.AvatarPlaceholder;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.util.text.Letters;
 
-import me.vkryl.core.StringUtils;
 import me.vkryl.core.BitwiseUtils;
 import me.vkryl.td.ChatId;
+import me.vkryl.td.Td;
+import me.vkryl.td.TdConstants;
 
 public class TdlibSender {
   private static final int FLAG_BOT = 1;
   private static final int FLAG_SERVICE_ACCOUNT = 1 << 1;
   private static final int FLAG_SCAM = 1 << 2;
   private static final int FLAG_FAKE = 1 << 3;
+  private static final int FLAG_DEMO = 1 << 4;
 
   private final Tdlib tdlib;
   private final long inChatId;
   private final TdApi.MessageSender sender;
 
-  private final String name, nameShort, username;
+  private final String name, nameShort;
+  private final TdApi.Usernames usernames;
   private final TdApi.ChatPhotoInfo photo;
   private final Letters letters;
   private final AvatarPlaceholder.Metadata placeholderMetadata;
@@ -50,7 +53,7 @@ public class TdlibSender {
     this.inChatId = inChatId;
     this.sender = sender;
 
-    int flags = 0;
+    int flags = BitwiseUtils.setFlag(0, FLAG_DEMO, isDemo);
     switch (sender.getConstructor()) {
       case TdApi.MessageSenderChat.CONSTRUCTOR: {
         final long chatId = ((TdApi.MessageSenderChat) sender).chatId;
@@ -58,7 +61,7 @@ public class TdlibSender {
 
         this.name = tdlib.chatTitle(chat, false);
         this.nameShort = tdlib.chatTitle(chat, false, true);
-        this.username = tdlib.chatUsername(chat);
+        this.usernames = tdlib.chatUsernames(chat);
         this.photo = chat != null ? chat.photo : null;
         this.letters = tdlib.chatLetters(chat);
         this.placeholderMetadata = tdlib.chatPlaceholderMetadata(chatId, chat, false);
@@ -77,8 +80,8 @@ public class TdlibSender {
 
         this.name = TD.getUserName(userId, user);
         this.nameShort = TD.getUserSingleName(userId, user);
-        this.username = user != null && !StringUtils.isEmpty(user.username) ? user.username : null;
-        this.photo = profilePhoto != null ? new TdApi.ChatPhotoInfo(profilePhoto.small, profilePhoto.big, profilePhoto.minithumbnail, profilePhoto.hasAnimation) : null;
+        this.usernames = user != null ? user.usernames : null;
+        this.photo = profilePhoto != null ? new TdApi.ChatPhotoInfo(profilePhoto.small, profilePhoto.big, profilePhoto.minithumbnail, profilePhoto.hasAnimation, profilePhoto.isPersonal) : null;
         this.letters = TD.getLetters(user);
         this.placeholderMetadata = tdlib.cache().userPlaceholderMetadata(userId, user, false);
 
@@ -96,6 +99,10 @@ public class TdlibSender {
     this.flags = flags;
   }
 
+  public TdApi.MessageSender toSender () {
+    return sender;
+  }
+
   public boolean isUser () {
     return sender.getConstructor() == TdApi.MessageSenderUser.CONSTRUCTOR;
   }
@@ -106,6 +113,14 @@ public class TdlibSender {
 
   public boolean isAnonymousGroupAdmin () {
     return isChat() && inChatId == getChatId() && !tdlib.isChannel(getChatId());
+  }
+
+  public boolean isDemo () {
+    return BitwiseUtils.hasFlag(flags, FLAG_DEMO);
+  }
+
+  public boolean isSameSender (@Nullable TdlibSender sender) {
+    return sender != null && Td.equalsTo(this.sender, sender.sender);
   }
 
   public boolean isSelf () {
@@ -132,8 +147,14 @@ public class TdlibSender {
     return nameShort;
   }
 
+  @Nullable
+  public TdApi.Usernames getUsernames () {
+    return usernames;
+  }
+
+  @Nullable
   public String getUsername () {
-    return username;
+    return Td.primaryUsername(usernames);
   }
 
   public TdApi.ChatPhotoInfo getPhoto () {
@@ -168,23 +189,38 @@ public class TdlibSender {
 
   // flags
 
+  public boolean isServiceChannelBot () {
+    return getUserId() == TdConstants.TELEGRAM_CHANNEL_BOT_ACCOUNT_ID;
+  }
+
   public boolean isBot () {
-    return BitwiseUtils.getFlag(flags, FLAG_BOT);
+    return BitwiseUtils.hasFlag(flags, FLAG_BOT);
   }
 
   public boolean isServiceAccount () {
-    return BitwiseUtils.getFlag(flags, FLAG_SERVICE_ACCOUNT);
+    return BitwiseUtils.hasFlag(flags, FLAG_SERVICE_ACCOUNT);
   }
 
   public boolean isScam () {
-    return BitwiseUtils.getFlag(flags, FLAG_SCAM);
+    return BitwiseUtils.hasFlag(flags, FLAG_SCAM);
   }
 
   public boolean isFake () {
-    return BitwiseUtils.getFlag(flags, FLAG_FAKE);
+    return BitwiseUtils.hasFlag(flags, FLAG_FAKE);
   }
 
   public boolean hasChatMark () {
     return isScam() || isFake();
+  }
+
+  // Creators
+
+  public static TdlibSender[] valueOfUserIds (Tdlib tdlib, long inChatId, long[] userIds) {
+    TdlibSender[] senders = new TdlibSender[userIds.length];
+    for (int i = 0; i < userIds.length; i++) {
+      long userId = userIds[i];
+      senders[i] = new TdlibSender(tdlib, inChatId, new TdApi.MessageSenderUser(userId));
+    }
+    return senders;
   }
 }

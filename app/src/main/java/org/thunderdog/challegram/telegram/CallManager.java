@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,12 +21,13 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
+import android.os.CancellationSignal;
 import android.os.Looper;
 import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
@@ -75,6 +76,8 @@ public class CallManager implements GlobalCallListener {
     listeners.remove(listener);
   }
 
+  private CancellationSignal serviceCancellationSignal;
+
   private void setCurrentCall (final Tdlib tdlib, @Nullable final TdApi.Call call) {
     if (currentCall == null && call == null) {
       return;
@@ -86,11 +89,16 @@ public class CallManager implements GlobalCallListener {
       if (currentCallAcknowledged) {
         notifyCallListeners();
       }
+      if (serviceCancellationSignal != null) {
+        serviceCancellationSignal.cancel();
+        serviceCancellationSignal = null;
+      }
       if (call != null) {
         Intent intent = new Intent(UI.getAppContext(), TGCallService.class);
         intent.putExtra("account_id", tdlib.id());
         intent.putExtra("call_id", call.id);
-        UI.startService(intent, UI.getUiState() != UI.STATE_RESUMED, true);
+        serviceCancellationSignal = new CancellationSignal();
+        UI.startService(intent, UI.getUiState() != UI.STATE_RESUMED, true, serviceCancellationSignal);
 
         navigateToCallController(currentCallTdlib, currentCall);
       }
@@ -282,8 +290,8 @@ debugCall id:long debug:string = Ok;
       if (UI.getAppContext().checkSelfPermission(Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
         BaseActivity activity = UI.getUiContext();
         if (activity != null) {
-          activity.requestMicPermissionForCall((code, granted) -> {
-            if (granted) {
+          activity.requestMicPermissionForCall((code, permissions, grantResults, grantCount) -> {
+            if (grantCount == permissions.length) {
               if (makeCallContext != null) {
                 makeCall(makeCallContext, userId, null, false);
               } else {

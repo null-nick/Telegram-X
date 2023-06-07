@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,12 +32,11 @@ import android.view.ViewGroup;
 import android.view.animation.OvershootInterpolator;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
@@ -47,9 +46,9 @@ import org.thunderdog.challegram.emoji.Emoji;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.service.TGCallService;
 import org.thunderdog.challegram.support.ViewSupport;
-import org.thunderdog.challegram.telegram.TGLegacyManager;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibCache;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.DrawAlgorithms;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Fonts;
@@ -61,7 +60,8 @@ import org.thunderdog.challegram.util.CustomTypefaceSpan;
 import org.thunderdog.challegram.voip.VoIPController;
 import org.thunderdog.challegram.voip.gui.CallSettings;
 import org.thunderdog.challegram.widget.AvatarView;
-import org.thunderdog.challegram.widget.NoScrollTextView;
+import org.thunderdog.challegram.widget.EmojiTextView;
+import org.thunderdog.challegram.widget.TextView;
 import org.thunderdog.challegram.widget.voip.CallControlsLayout;
 
 import me.vkryl.android.AnimatorUtils;
@@ -75,7 +75,7 @@ import me.vkryl.core.ColorUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
 
-public class CallController extends ViewController<CallController.Arguments> implements TdlibCache.UserDataChangeListener, TdlibCache.CallStateChangeListener, View.OnClickListener, FactorAnimator.Target, Runnable, TGLegacyManager.EmojiLoadListener, CallControlsLayout.CallControlCallback {
+public class CallController extends ViewController<CallController.Arguments> implements TdlibCache.UserDataChangeListener, TdlibCache.CallStateChangeListener, View.OnClickListener, FactorAnimator.Target, Runnable, CallControlsLayout.CallControlCallback {
   private static final boolean DEBUG_FADE_BRANDING = true;
 
   private static class ButtonView extends View implements FactorAnimator.Target {
@@ -319,7 +319,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
         updateEmojiPosition();
       }
     };
-    ViewSupport.setThemedBackground(contentView, R.id.theme_color_headerBackground, this);
+    ViewSupport.setThemedBackground(contentView, ColorId.headerBackground, this);
 
     avatarView = new AvatarView(context) {
       private final Drawable topShadow = ScrimUtil.makeCubicGradientScrimDrawable(0xff000000, 2, Gravity.TOP, false);
@@ -371,7 +371,8 @@ public class CallController extends ViewController<CallController.Arguments> imp
     params.topMargin = Screen.dp(76f);
     params.leftMargin = params.rightMargin = Screen.dp(18f);
 
-    nameView = new NoScrollTextView(context);
+    nameView = new EmojiTextView(context);
+    nameView.setScrollDisabled(true);
     nameView.setSingleLine(true);
     nameView.setTextColor(0xffffffff);
     nameView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 40);
@@ -385,7 +386,8 @@ public class CallController extends ViewController<CallController.Arguments> imp
     params.topMargin = Screen.dp(136f);
     params.leftMargin = params.rightMargin = Screen.dp(18f);
 
-    stateView = new NoScrollTextView(context);
+    stateView = new TextView(context);
+    stateView.setScrollDisabled(true);
     // stateView.setSingleLine(true);
     stateView.setMaxLines(2);
     stateView.setLineSpacing(Screen.dp(3f), 1f);
@@ -422,7 +424,8 @@ public class CallController extends ViewController<CallController.Arguments> imp
     lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     lp.leftMargin = Screen.dp(9f);
 
-    TextView brandView = new NoScrollTextView(context);
+    TextView brandView = new TextView(context);
+    brandView.setScrollDisabled(true);
     brandView.setSingleLine(true);
     brandView.setTextColor(0xffffffff);
     brandView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 14);
@@ -440,7 +443,8 @@ public class CallController extends ViewController<CallController.Arguments> imp
             contentView.removeView(debugView);
             debugView = null;
           } else {
-            final TextView view = new NoScrollTextView(context);
+            final TextView view = new TextView(context);
+            view.setScrollDisabled(true);
             view.setBackgroundColor(0xaaffffff);
             view.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f);
             view.setGravity(Gravity.CENTER_VERTICAL);
@@ -482,14 +486,13 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
     // Emoji corner
 
-    TGLegacyManager.instance().addEmojiListener(this);
-
-    emojiViewSmall = new NoScrollTextView(context) {
+    emojiViewSmall = new EmojiTextView(context) {
       @Override
       public boolean onTouchEvent (MotionEvent event) {
         return (event.getAction() != MotionEvent.ACTION_DOWN || emojiExpandFactor == 0f) && super.onTouchEvent(event);
       }
     };
+    emojiViewSmall.setScrollDisabled(true);
     emojiViewSmall.setSingleLine(true);
     emojiViewSmall.setTextColor(0xffffffff);
     emojiViewSmall.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16);
@@ -502,7 +505,8 @@ public class CallController extends ViewController<CallController.Arguments> imp
     emojiViewSmall.setId(R.id.btn_emoji);
     contentView.addView(emojiViewSmall);
 
-    emojiViewBig = new NoScrollTextView(context);
+    emojiViewBig = new EmojiTextView(context);
+    emojiViewBig.setScrollDisabled(true);
     emojiViewBig.setSingleLine(true);
     emojiViewBig.setScaleX(1f / EMOJI_EXPAND_FACTOR);
     emojiViewBig.setScaleY(1f / EMOJI_EXPAND_FACTOR);
@@ -521,7 +525,8 @@ public class CallController extends ViewController<CallController.Arguments> imp
     params.topMargin = Screen.dp(24f) * 2;
     params.rightMargin = params.leftMargin = Screen.dp(48f);
 
-    emojiViewHint = new NoScrollTextView(context);
+    emojiViewHint = new EmojiTextView(context);
+    emojiViewHint.setScrollDisabled(true);
     emojiViewHint.setAlpha(0f);
     emojiViewHint.setTextColor(0xffffffff);
     emojiViewHint.setGravity(Gravity.CENTER);
@@ -577,7 +582,6 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
     this.callSettings = tdlib.cache().getCallSettings(call.id);
 
-    TGLegacyManager.instance().addEmojiListener(this);
     setTexts();
     updateCallState();
 
@@ -592,9 +596,9 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
   private void setTexts () {
     if (nameView != null)
-      this.nameView.setText(Emoji.instance().replaceEmoji(TD.getUserName(user)));
+      this.nameView.setText(TD.getUserName(user));
     if (emojiViewHint != null)
-      this.emojiViewHint.setText(Emoji.instance().replaceEmoji(Lang.getString(R.string.CallEmojiHint, TD.getUserSingleName(call.userId, user))));
+      this.emojiViewHint.setText(Lang.getString(R.string.CallEmojiHint, TD.getUserSingleName(call.userId, user)));
   }
 
   @Override
@@ -619,20 +623,6 @@ public class CallController extends ViewController<CallController.Arguments> imp
   @Override
   public void onCallClose (TdApi.Call call) {
     closeCall();
-  }
-
-  @Override
-  public void onEmojiPartLoaded () {
-    if (emojiViewSmall != null) {
-      emojiViewSmall.invalidate();
-    }
-    if (emojiViewBig != null) {
-      emojiViewBig.invalidate();
-    }
-    if (nameView != null)
-      this.nameView.invalidate();
-    if (emojiViewHint != null)
-      this.emojiViewHint.invalidate();
   }
 
   @Override
@@ -748,38 +738,30 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
   @Override
   public void onClick (View v) {
-    switch (v.getId()) {
-      case R.id.btn_emoji: {
-        if (isEmojiVisible) {
-          setEmojiExpanded(true);
-        }
-        break;
+    final int viewId = v.getId();
+    if (viewId == R.id.btn_emoji) {
+      if (isEmojiVisible) {
+        setEmojiExpanded(true);
       }
-      case R.id.btn_mute: {
-        if (!TD.isFinished(call)) {
-          if (callSettings == null) {
-            callSettings = new CallSettings(tdlib, call.id);
-          }
-          callSettings.setMicMuted(((ButtonView) v).toggleActive());
+    } else if (viewId == R.id.btn_mute) {
+      if (!TD.isFinished(call)) {
+        if (callSettings == null) {
+          callSettings = new CallSettings(tdlib, call.id);
         }
-        break;
+        callSettings.setMicMuted(((ButtonView) v).toggleActive());
       }
-      case R.id.btn_openChat: {
-        tdlib.ui().openPrivateChat(this, call.userId, null);
-        break;
-      }
-      case R.id.btn_speaker: {
-        if (!TD.isFinished(call)) {
-          if (callSettings == null) {
-            callSettings = new CallSettings(tdlib, call.id);
-          }
-          if (callSettings.isSpeakerModeEnabled()) {
-            callSettings.setSpeakerMode(CallSettings.SPEAKER_MODE_NONE);
-          } else {
-            callSettings.toggleSpeakerMode(this);
-          }
+    } else if (viewId == R.id.btn_openChat) {
+      tdlib.ui().openPrivateChat(this, call.userId, null);
+    } else if (viewId == R.id.btn_speaker) {
+      if (!TD.isFinished(call)) {
+        if (callSettings == null) {
+          callSettings = new CallSettings(tdlib, call.id);
         }
-        break;
+        if (callSettings.isSpeakerModeEnabled()) {
+          callSettings.setSpeakerMode(CallSettings.SPEAKER_MODE_NONE);
+        } else {
+          callSettings.toggleSpeakerMode(this);
+        }
       }
     }
   }
@@ -942,10 +924,10 @@ public class CallController extends ViewController<CallController.Arguments> imp
         b.append(emoji);
       }
 
-      String result = b.toString();
+      CharSequence result = Emoji.instance().replaceEmoji(b.toString());
 
-      emojiViewSmall.setText(Emoji.instance().replaceEmoji(result));
-      emojiViewBig.setText(Emoji.instance().replaceEmoji(result));
+      emojiViewSmall.setText(result);
+      emojiViewBig.setText(result);
 
       if (!hadEmojiSinceStart) {
         showEmojiTooltip();
@@ -1110,7 +1092,6 @@ public class CallController extends ViewController<CallController.Arguments> imp
     super.destroy();
     tdlib.cache().unsubscribeFromCallUpdates(call.id, this);
     tdlib.cache().removeUserDataListener(call.userId, this);
-    TGLegacyManager.instance().removeEmojiListener(this);
     avatarView.performDestroy();
   }
 

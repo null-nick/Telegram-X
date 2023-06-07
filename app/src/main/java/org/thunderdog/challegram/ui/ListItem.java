@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
 import org.thunderdog.challegram.core.Lang;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.util.DrawModifier;
 
 import me.vkryl.core.ArrayUtils;
@@ -115,8 +115,10 @@ public class ListItem {
   public static final int TYPE_DRAWER_ITEM_WITH_RADIO_SEPARATED = 88;
   public static final int TYPE_VALUED_SETTING_COMPACT = 89;
   public static final int TYPE_VALUED_SETTING_COMPACT_WITH_RADIO = 90;
+  public static final int TYPE_VALUED_SETTING_COMPACT_WITH_RADIO_2 = 390;
   public static final int TYPE_VALUED_SETTING_COMPACT_WITH_COLOR = 91;
   public static final int TYPE_VALUED_SETTING_COMPACT_WITH_TOGGLER = 92;
+  public static final int TYPE_VALUED_SETTING_COMPACT_WITH_CHECKBOX = 393;
   public static final int TYPE_DESCRIPTION_SMALL = 93;
   public static final int TYPE_COLOR_PICKER = 94;
   public static final int TYPE_EDITTEXT_REUSABLE = 95;
@@ -152,8 +154,12 @@ public class ListItem {
   public static final int TYPE_JOIN_REQUEST = 131;
   public static final int TYPE_CHAT_HEADER_LARGE = 132;
 
-  public static final int TYPE_PAYMENT_PRICE_PART = 140;
-  public static final int TYPE_PAYMENT_TIP = 141;
+  public static final int TYPE_REACTION_CHECKBOX = 140;
+
+  public static final int TYPE_USER_SMALL = 141;
+
+  public static final int TYPE_PAYMENT_PRICE_PART = 142;
+  public static final int TYPE_PAYMENT_TIP = 143;
 
   private static final int FLAG_SELECTED = 1;
   private static final int FLAG_BOOL_VALUE = 1 << 1;
@@ -180,7 +186,7 @@ public class ListItem {
 
   private int firstVisiblePosition = -1, offsetInPixels;
 
-  private @ThemeColorId int radioColorId;
+  private @ColorId int radioColorId;
 
   private int height;
 
@@ -238,7 +244,7 @@ public class ListItem {
 
   private InputFilter[] inputFilter;
 
-  public int getTextColorId (@ThemeColorId int defColorId) {
+  public int getTextColorId (@ColorId int defColorId) {
     return textColorId != 0 ? textColorId : defColorId;
   }
 
@@ -246,7 +252,7 @@ public class ListItem {
     return TGTheme.getColor(getTextColorId(defColorId));
   }*/
 
-  public ListItem setTextColorId (@ThemeColorId int colorId) {
+  public ListItem setTextColorId (@ColorId int colorId) {
     this.textColorId = colorId;
     return this;
   }
@@ -273,12 +279,12 @@ public class ListItem {
     return longValue;
   }
 
-  public ListItem setRadioColorId (@ThemeColorId int colorId) {
+  public ListItem setRadioColorId (@ColorId int colorId) {
     this.radioColorId = colorId;
     return this;
   }
 
-  @ThemeColorId
+  @ColorId
   public int getRadioColorId () {
     return radioColorId;
   }

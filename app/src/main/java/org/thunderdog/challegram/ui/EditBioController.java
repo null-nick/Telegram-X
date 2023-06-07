@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,14 +24,18 @@ import android.view.inputmethod.EditorInfo;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
+import org.thunderdog.challegram.emoji.EmojiFilter;
 import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
+import org.thunderdog.challegram.util.CharacterStyleFilter;
 import org.thunderdog.challegram.widget.MaterialEditTextGroup;
 
+import me.vkryl.android.text.CodePointCountFilter;
 import me.vkryl.android.text.RestrictFilter;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.td.TdConstants;
@@ -97,13 +101,17 @@ public class EditBioController extends EditBaseController<EditBioController.Argu
     ListItem[] items;
     if (isDescription()) {
       item.setInputFilters(new InputFilter[]{
-        new InputFilter.LengthFilter(TdConstants.MAX_CHANNEL_DESCRIPTION_LENGTH)
+        new CodePointCountFilter(TdConstants.MAX_CHANNEL_DESCRIPTION_LENGTH),
+        new EmojiFilter(),
+        new CharacterStyleFilter()
       });
       items = new ListItem[] {item};
     } else {
       item.setInputFilters(new InputFilter[]{
-        new InputFilter.LengthFilter(tdlib.maxBioLength()),
-        new RestrictFilter(new char[]{'\n'})
+        new CodePointCountFilter(tdlib.maxBioLength()),
+        new EmojiFilter(),
+        new CharacterStyleFilter(),
+        new RestrictFilter(new char[] {'\n'})
           .setListener((filter, source, start, end, index, c) -> {
           if (end - start == 1) {
             onDoneClick(null);
@@ -113,7 +121,7 @@ public class EditBioController extends EditBaseController<EditBioController.Argu
       items = new ListItem[] {
         item,
         (new ListItem(ListItem.TYPE_DESCRIPTION, R.id.description, 0, R.string.BioDescription)
-        .setTextColorId(R.id.theme_color_textLight))
+        .setTextColorId(ColorId.textLight))
       };
     }
     adapter.setTextChangeListener(this);

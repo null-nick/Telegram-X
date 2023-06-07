@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,9 +25,7 @@ import android.view.ViewGroup;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
-import androidx.annotation.Nullable;
-
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.config.Config;
@@ -39,6 +37,8 @@ import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibDelegate;
+import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.theme.ThemeListenerList;
 import org.thunderdog.challegram.tool.Fonts;
@@ -118,7 +118,7 @@ public class StickerSetWrap extends FrameLayoutFix implements StickersListContro
     themeListener.addThemeInvalidateListener(shadowView);
 
     FrameLayoutFix buttonWrap = new FrameLayoutFix(context);
-    ViewSupport.setThemedBackground(buttonWrap, R.id.theme_color_filling);
+    ViewSupport.setThemedBackground(buttonWrap, ColorId.filling);
     themeListener.addThemeInvalidateListener(buttonWrap);
     buttonWrap.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(56f), Gravity.BOTTOM));
 
@@ -185,16 +185,15 @@ public class StickerSetWrap extends FrameLayoutFix implements StickersListContro
   }
 
   @Override
-  public boolean onStickerClick (View view, TGStickerObj sticker, boolean isMenuClick, boolean forceDisableNotification, @Nullable TdApi.MessageSchedulingState schedulingState) {
+  public boolean onStickerClick (View view, TGStickerObj sticker, boolean isMenuClick, TdApi.MessageSendOptions sendOptions) {
     NavigationController navigation = UI.getContext(getContext()).navigation();
     if (navigation != null) {
       ViewController<?> c = navigation.getCurrentStackItem();
-      if (c != null && sticker.isPremium() && !tdlib.hasPremium()) {
-        tdlib.ui().showPremiumAlert(c, view);
+      if (c != null && sticker.isPremium() && tdlib.ui().showPremiumAlert(c, view, TdlibUi.PremiumFeature.STICKER)) {
         return false;
       }
       if (c instanceof MessagesController && ((MessagesController) c).canWriteMessages()) {
-        if (((MessagesController) c).onSendSticker(view, sticker, forceDisableNotification, schedulingState)) {
+        if (((MessagesController) c).onSendSticker(view, sticker, sendOptions)) {
           popupLayout.hideWindow(true);
           return true;
         }
@@ -427,7 +426,7 @@ public class StickerSetWrap extends FrameLayoutFix implements StickersListContro
 
   private void updateButton (String str, boolean positive, boolean animated) {
     str = str.toUpperCase();
-    int colorId = positive ? R.id.theme_color_textNeutral : R.id.theme_color_textNegative;
+    int colorId = positive ? ColorId.textNeutral : ColorId.textNegative;
     if (!textButton.getText().toString().equals(str) || textButton.getCurrentTextColor() != Theme.getColor(colorId)) {
       if (animated) {
         if (animator == null) {
@@ -464,7 +463,7 @@ public class StickerSetWrap extends FrameLayoutFix implements StickersListContro
   }
 
   public void initWithSet (TdApi.StickerSet set) {
-    this.info = new TdApi.StickerSetInfo(set.id, set.title, set.name, set.thumbnail, set.thumbnailOutline, set.isInstalled, set.isArchived, set.isOfficial, set.stickerType, false, set.stickers.length, null);
+    this.info = new TdApi.StickerSetInfo(set.id, set.title, set.name, set.thumbnail, set.thumbnailOutline, set.isInstalled, set.isArchived, set.isOfficial, set.stickerFormat, set.stickerType, false, set.stickers.length, null);
     updateButton(false);
     stickersController.setStickerSetInfo(info);
     stickersController.setStickers(set.stickers, info.stickerType, set.emojis);
@@ -473,7 +472,7 @@ public class StickerSetWrap extends FrameLayoutFix implements StickersListContro
 
   private void addViews () {
     headerView.initWithSingleController(stickersController, false);
-    addView(stickersController.get());
+    addView(stickersController.getValue());
     addView(topShadow);
     if (topLick != null) {
       addView(topLick);

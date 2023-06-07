@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ import androidx.collection.SparseArrayCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.dialogs.SearchManager;
@@ -54,6 +54,7 @@ import org.thunderdog.challegram.support.RippleSupport;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibCache;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Fonts;
 import org.thunderdog.challegram.tool.Keyboard;
 import org.thunderdog.challegram.tool.Screen;
@@ -62,8 +63,8 @@ import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.unsorted.Size;
 import org.thunderdog.challegram.util.OptionDelegate;
-import org.thunderdog.challegram.util.Unlockable;
 import org.thunderdog.challegram.util.SenderPickerDelegate;
+import org.thunderdog.challegram.util.Unlockable;
 import org.thunderdog.challegram.util.UserPickerMultiDelegate;
 import org.thunderdog.challegram.v.HeaderEditText;
 import org.thunderdog.challegram.widget.NoScrollTextView;
@@ -78,6 +79,7 @@ import java.util.List;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.StringUtils;
 import me.vkryl.td.ChatId;
+import me.vkryl.td.Td;
 
 public class ContactsController extends TelegramViewController<ContactsController.Args> implements OptionDelegate, BubbleHeaderView.Callback, TextWatcher, Runnable, Menu, Unlockable,
   TdlibCache.UserDataChangeListener, TdlibCache.UserStatusChangeListener, Comparator<TdApi.User> {
@@ -277,7 +279,7 @@ public class ContactsController extends TelegramViewController<ContactsControlle
   @Override
   protected View onCreateView (Context context) {
     contentView = new FrameLayoutFix(context);
-    ViewSupport.setThemedBackground(contentView, R.id.theme_color_filling, this);
+    ViewSupport.setThemedBackground(contentView, ColorId.filling, this);
 
     recyclerView = new SectionedRecyclerView(context);
     recyclerView.setSectionedAdapter(adapter = new ContactsAdapter(recyclerView, this));
@@ -414,18 +416,13 @@ public class ContactsController extends TelegramViewController<ContactsControlle
     if (pickedSenderId != null && delegate != null && id != R.id.btn_cancel) {
       delegate.onSenderConfirm(this, pickedSenderId, id);
       navigateBack();
-    } else switch (id) {
-      case R.id.btn_newContact: {
+    } else {
+      if (id == R.id.btn_newContact) {
         createContact();
-        break;
-      }
-      case R.id.btn_localContacts: {
+      } else if (id == R.id.btn_localContacts) {
         importContacts(SOURCE_TYPE_LOCAL);
-        break;
-      }
-      case R.id.btn_gmailContacts: {
+      } else if (id == R.id.btn_gmailContacts) {
         importContacts(SOURCE_TYPE_GMAIL);
-        break;
       }
     }
     return true;
@@ -473,13 +470,10 @@ public class ContactsController extends TelegramViewController<ContactsControlle
 
   @Override
   public void fillMenuItems (int id, HeaderView header, LinearLayout menu) {
-    switch (id) {
-      case R.id.menu_search:
-        header.addSearchButton(menu, this, getHeaderIconColorId());
-        break;
-      case R.id.menu_contacts:
-        header.addButton(menu, R.id.menu_btn_addContact, R.drawable.baseline_person_add_24, getHeaderIconColorId(), this, Screen.dp(49f));
-        break;
+    if (id == R.id.menu_search) {
+      header.addSearchButton(menu, this, getHeaderIconColorId());
+    } else if (id == R.id.menu_contacts) {
+      header.addButton(menu, R.id.menu_btn_addContact, R.drawable.baseline_person_add_24, getHeaderIconColorId(), this, Screen.dp(49f));
     }
   }
 
@@ -491,22 +485,15 @@ public class ContactsController extends TelegramViewController<ContactsControlle
 
   @Override
   public void onMenuItemPressed (int id, View view) {
-    switch (id) {
-      case R.id.menu_btn_addContact: {
-        if (users != null) {
-          createContact();
-          // showOptions(new int[] {R.id.btn_newContact, R.id.btn_localContacts, R.id.btn_gmailContacts}, new String[] {UI.getString(R.string.NewContact), UI.getString(R.string.ImportContacts), UI.getString(R.string.ImportGmailContacts)}, null, new int[] {R.drawable.ic_person_add_gray, R.drawable.ic_contact_gray, R.drawable.ic_mail_gray});
-        }
-        break;
+    if (id == R.id.menu_btn_addContact) {
+      if (users != null) {
+        createContact();
+        // showOptions(new int[] {R.id.btn_newContact, R.id.btn_localContacts, R.id.btn_gmailContacts}, new String[] {UI.getString(R.string.NewContact), UI.getString(R.string.ImportContacts), UI.getString(R.string.ImportGmailContacts)}, null, new int[] {R.drawable.ic_person_add_gray, R.drawable.ic_contact_gray, R.drawable.ic_mail_gray});
       }
-      case R.id.menu_btn_search: {
-        openSearchMode();
-        break;
-      }
-      case R.id.menu_btn_clear: {
-        clearSearchInput();
-        break;
-      }
+    } else if (id == R.id.menu_btn_search) {
+      openSearchMode();
+    } else if (id == R.id.menu_btn_clear) {
+      clearSearchInput();
     }
   }
 
@@ -902,13 +889,11 @@ public class ContactsController extends TelegramViewController<ContactsControlle
         }
         String firstName = Strings.clean(user.getFirstName().trim()).toLowerCase();
         String lastName = Strings.clean(user.getLastName().trim()).toLowerCase();
-        String username = user.getUsername();
-        if (username != null)
-          username = username.toLowerCase();
+        TdApi.Usernames usernames = user.getUsernames();
         String check = (firstName + " " + lastName).trim();
 
         if (q != null) {
-          if (!firstName.startsWith(q) && !lastName.startsWith(q) && !check.startsWith(q) && !(!StringUtils.isEmpty(username) && username.startsWith(q))) {
+          if (!firstName.startsWith(q) && !lastName.startsWith(q) && !check.startsWith(q) && !Td.findUsernameByPrefix(usernames, q)) {
             continue;
           }
         }
@@ -1199,7 +1184,7 @@ public class ContactsController extends TelegramViewController<ContactsControlle
 
     @Override
     public int getItemHeight () {
-      return Screen.dp(UserView.HEIGHT);
+      return Screen.dp(UserView.DEFAULT_HEIGHT);
     }
 
     @Override

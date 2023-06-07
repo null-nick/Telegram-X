@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,6 +21,7 @@ import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Resources;
 import android.os.Build;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
 import android.text.format.DateFormat;
@@ -31,8 +32,9 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
+import androidx.core.content.ContextCompat;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
@@ -112,6 +114,10 @@ public class UI {
     }
   }
 
+  public static boolean isTestLab () {
+    return UI.TEST_MODE == UI.TEST_MODE_AUTO;
+  }
+
   public static Handler getProgressHandler () {
     if (_progressHandler == null) {
       synchronized (UI.class) {
@@ -132,57 +138,66 @@ public class UI {
     }
   }
 
-  public static boolean startService (Intent intent, boolean isForeground, boolean forcePermissionRequest) {
+  private static boolean startServiceImpl (Context context, Intent intent, boolean isForeground) {
     try {
       if (isForeground) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-          BaseActivity activity = getUiContext();
-          if (activity != null) {
-            activity.requestCustomPermissions(new String[] {Manifest.permission.FOREGROUND_SERVICE}, (code, granted) -> {
-              try {
-                activity.startForegroundService(intent);
-              } catch (Throwable t) {
-                Log.e("Cannot start foreground service", t);
-              }
-            });
-            return true;
-          } else {
-            Log.e("Cannot start foreground service, because activity not found.");
-          }
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-          getContext().startForegroundService(intent);
-          return true;
+        ContextCompat.startForegroundService(context, intent);
+      } else {
+        context.startService(intent);
+      }
+      return true;
+    } catch (Throwable t) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (t instanceof android.app.ForegroundServiceStartNotAllowedException) {
+          Log.e("Cannot start foreground service due to system restrictions", t);
+          return false;
         }
       }
-      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && forcePermissionRequest) {
+      Log.e("Cannot start service, isForeground:%b", t, isForeground);
+      return false;
+    }
+  }
+
+  public static boolean startService (Intent intent, boolean isForeground, boolean forcePermissionRequest, @Nullable CancellationSignal signal) {
+    if (isForeground) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
         BaseActivity activity = getUiContext();
         if (activity != null) {
-          activity.requestCustomPermissions(new String[] {Manifest.permission.FOREGROUND_SERVICE}, (code, granted) -> {
-            try {
-              activity.startService(intent);
-            } catch (Throwable t) {
-              Log.e("Cannot start service", t);
+          activity.requestCustomPermissions(new String[] {Manifest.permission.FOREGROUND_SERVICE}, (code, permissions, grantResults, grantCount) -> {
+            if (signal == null || !signal.isCanceled()) {
+              startServiceImpl(activity, intent, true);
             }
           });
           return true;
         } else {
-          Log.e("Cannot request foreground service permission, because activity not found.");
+          Log.e("Cannot start foreground service, because activity not found.");
         }
       }
-      getContext().startService(intent);
-      return true;
-    } catch (Throwable t) {
-      Log.w("Cannot start service at all", t);
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        return startServiceImpl(getContext(), intent, true);
+      }
     }
-    return false;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && forcePermissionRequest) {
+      BaseActivity activity = getUiContext();
+      if (activity != null) {
+        activity.requestCustomPermissions(new String[] {Manifest.permission.FOREGROUND_SERVICE}, (code, permissions, grantResults, grantCount) -> {
+          if (signal == null || !signal.isCanceled()) {
+            startServiceImpl(activity, intent, false);
+          }
+        });
+        return true;
+      } else {
+        Log.e("Cannot request foreground service permission, because activity not found.");
+      }
+    }
+    return startServiceImpl(getContext(), intent, false);
   }
 
   private static long lastResumeTime;
 
   public static void startNotificationService () {
     if (Config.SERVICES_ENABLED) {
-      startService(new Intent(getAppContext(), NetworkListenerService.class), false, false);
+      startService(new Intent(getAppContext(), NetworkListenerService.class), false, false, null);
     }
   }
 
@@ -311,6 +326,21 @@ public class UI {
     return uiContext != null ? uiContext.get() : null;
   }
 
+  public static boolean isValid (BaseActivity activity) {
+    if (activity != null) {
+      if (activity.getActivityState() == STATE_DESTROYED) {
+        return false;
+      }
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+        if (activity.isDestroyed()) {
+          return false;
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
   public static boolean isNavigationBusyWithSomething () {
     BaseActivity activity = getUiContext();
     return activity != null && activity.isNavigationBusy();
@@ -428,7 +458,8 @@ public class UI {
     String string = TD.toErrorString(obj);
     if (string != null) {
       Log.critical("TDLib Error: %s", Log.generateException(2), string);
-      if (TD.errorCode(obj) != 401) {
+      int errorCode = TD.errorCode(obj);
+      if (errorCode != 401 && !(errorCode == 500 && "Client is closed".equals(TD.errorText(obj)))) {
         showToast(string, Toast.LENGTH_SHORT);
       }
     }
@@ -665,6 +696,13 @@ public class UI {
     getAppHandler().navigateDelayed(controller, delay);
   }
 
+  public static void execute (Runnable r) {
+    if (inUiThread()) {
+      r.run();
+    } else {
+      post(r);
+    }
+  }
   public static void post (Runnable r) {
     getAppHandler().post(r);
   }
@@ -705,19 +743,15 @@ public class UI {
     getAppHandler().openLink(url);
   }
 
-  public static void emojiLoaded (boolean isChange) {
-    getAppHandler().emojiLoaded(isChange);
-  }
-
   @Deprecated
-  public static void openCameraDelayed (Context context) {
+  public static void openCameraDelayed (BaseActivity context) {
     getAppHandler().openCamera(context, ACTIVITY_DELAY, false, false);
   }
 
   private static final long ACTIVITY_DELAY = 160l;
 
-  public static void openGalleryDelayed (boolean sendAsFile) {
-    getAppHandler().openGallery(ACTIVITY_DELAY, sendAsFile);
+  public static void openGalleryDelayed (BaseActivity context, boolean sendAsFile) {
+    getAppHandler().openGallery(context, ACTIVITY_DELAY, sendAsFile);
   }
 
   public static void setSoftInputMode (BaseActivity context, int inputMode) {

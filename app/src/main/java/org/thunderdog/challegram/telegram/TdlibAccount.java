@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,8 +20,8 @@ import android.os.SystemClock;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.drinkmore.Tracer;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.U;
@@ -40,9 +40,10 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import me.vkryl.core.StringUtils;
 import me.vkryl.core.BitwiseUtils;
+import me.vkryl.core.StringUtils;
 import me.vkryl.leveldb.LevelDB;
+import me.vkryl.td.Td;
 
 public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   public static final int NO_ID = -1;
@@ -86,7 +87,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
     this.flags = FLAG_UNAUTHORIZED;
     Settings.instance().setAllowSpecialTdlibInstanceMode(id, instanceMode);
     if (instanceMode == Tdlib.Mode.DEBUG) {
-      this.flags |= Tdlib.Mode.DEBUG;
+      this.flags |= FLAG_DEBUG;
     } else if (instanceMode == Tdlib.Mode.SERVICE) {
       this.flags |= FLAG_SERVICE | FLAG_NO_PRIVATE_DATA;
     }
@@ -131,7 +132,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
     this.order            = r.readInt();
     boolean integrityCheckFailed = false;
     if (allowIntegrityChecks) {
-      if (BitwiseUtils.getFlag(flags, FLAG_SERVICE | FLAG_DEBUG) && !Settings.instance().allowSpecialTdlibInstanceMode(id)) {
+      if (BitwiseUtils.hasFlag(flags, FLAG_SERVICE | FLAG_DEBUG) && !Settings.instance().allowSpecialTdlibInstanceMode(id)) {
         int flags = this.flags & ~FLAG_DEBUG;
         flags &= ~FLAG_SERVICE;
         this.flags = flags;
@@ -188,10 +189,10 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
     if (isLoggingOut())
       return true;
     if (isService())
-      return BitwiseUtils.getFlag(flags, FLAG_HAVE_UNFINISHED_SERVICE_WORK);
+      return BitwiseUtils.hasFlag(flags, FLAG_HAVE_UNFINISHED_SERVICE_WORK);
     if (isUnauthorized())
       return false;
-    return !BitwiseUtils.getFlag(flags, FLAG_NO_KEEP_ALIVE) || hasUnprocessedPushes() || !hasUserInformation() /*|| !isDeviceRegistered()*/;
+    return !BitwiseUtils.hasFlag(flags, FLAG_NO_KEEP_ALIVE) || hasUnprocessedPushes() || !hasUserInformation() /*|| !isDeviceRegistered()*/;
   }
 
   boolean setHasUnprocessedPushes (boolean hasUnprocessedPushes) {
@@ -199,7 +200,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   }
 
   boolean hasUnprocessedPushes () {
-    return BitwiseUtils.getFlag(flags, FLAG_HAS_UNPROCESSED_PUSHES);
+    return BitwiseUtils.hasFlag(flags, FLAG_HAS_UNPROCESSED_PUSHES);
   }
 
   boolean setLoggingOut (boolean isLoggingOut) {
@@ -215,7 +216,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   }
 
   boolean isLoggingOut () {
-    return BitwiseUtils.getFlag(flags, FLAG_LOGGING_OUT);
+    return BitwiseUtils.hasFlag(flags, FLAG_LOGGING_OUT);
   }
 
   boolean markNoPrivateData () {
@@ -223,7 +224,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   }
 
   boolean hasPrivateData () {
-    return !BitwiseUtils.getFlag(flags, FLAG_NO_PRIVATE_DATA);
+    return !BitwiseUtils.hasFlag(flags, FLAG_NO_PRIVATE_DATA);
   }
 
   // notifications
@@ -233,7 +234,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   }
 
   public boolean forceEnableNotifications () {
-    return !BitwiseUtils.getFlag(flags, FLAG_FORCE_DISABLE_NOTIFICATIONS);
+    return !BitwiseUtils.hasFlag(flags, FLAG_FORCE_DISABLE_NOTIFICATIONS);
   }
 
   public boolean allowNotifications () {
@@ -254,7 +255,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   }
 
   public boolean haveVisibleNotifications () {
-    return !BitwiseUtils.getFlag(flags, FLAG_NO_PENDING_NOTIFICATIONS);
+    return !BitwiseUtils.hasFlag(flags, FLAG_NO_PENDING_NOTIFICATIONS);
   }
 
   // is_debug
@@ -281,8 +282,8 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   }
 
   public int tdlibInstanceMode () {
-    if (BitwiseUtils.getFlag(flags, FLAG_SERVICE | FLAG_DEBUG)) {
-      if (BitwiseUtils.getFlag(flags, FLAG_SERVICE)) {
+    if (BitwiseUtils.hasFlag(flags, FLAG_SERVICE | FLAG_DEBUG)) {
+      if (BitwiseUtils.hasFlag(flags, FLAG_SERVICE)) {
         return Tdlib.Mode.SERVICE;
       } else {
         return Tdlib.Mode.DEBUG;
@@ -299,7 +300,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   }
 
   public boolean isDeviceRegistered () {
-    return BitwiseUtils.getFlag(flags, FLAG_DEVICE_REGISTERED);
+    return BitwiseUtils.hasFlag(flags, FLAG_DEVICE_REGISTERED);
   }
 
   // user_id
@@ -331,6 +332,12 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   public boolean hasTdlib (boolean activeOnly) {
     synchronized (sync) {
       return tdlib != null && !(activeOnly && tdlib.isPaused());
+    }
+  }
+
+  public Tdlib activeTdlib () {
+    synchronized (sync) {
+      return tdlib != null && !tdlib.isPaused() ? tdlib : null;
     }
   }
 
@@ -434,7 +441,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
   // Convenience
 
   public boolean isUnauthorized () {
-    return BitwiseUtils.getFlag(flags, FLAG_UNAUTHORIZED);
+    return BitwiseUtils.hasFlag(flags, FLAG_UNAUTHORIZED);
   }
 
   boolean setUnauthorized (boolean isUnauthorized, long knownUserId) {
@@ -467,7 +474,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
     private long userId;
     private String firstName;
     private String lastName;
-    private String username;
+    private TdApi.Usernames usernames;
     private String phoneNumber;
     private String profilePhotoSmallPath, profilePhotoBigPath;
 
@@ -480,7 +487,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
       this.userId = user.id;
       this.firstName = user.firstName;
       this.lastName = user.lastName;
-      this.username = user.username;
+      this.usernames = user.usernames;
       this.phoneNumber = user.phoneNumber;
       if (user.profilePhoto != null) {
         this.profilePhotoSmallPath = TD.isFileLoaded(user.profilePhoto.small) ? user.profilePhoto.small.local.path : isUpdate ? getUserProfilePhotoPath(accountId, false) : null;
@@ -499,8 +506,14 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
       return lastName;
     }
 
+    @Nullable
+    public TdApi.Usernames getUsernames () {
+      return usernames;
+    }
+
+    @Nullable
     public String getUsername () {
-      return username;
+      return Td.primaryUsername(usernames);
     }
 
     public String getPhoneNumber () {
@@ -554,7 +567,23 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
       editor.putLong(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_ID, userId);
       editor.putString(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_NAME1, firstName);
       editor.putString(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_NAME2, lastName);
-      editor.putString(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_USERNAME, username);
+      if (usernames != null) {
+        editor
+          .putString(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_USERNAME, usernames.editableUsername);
+      } else {
+        editor
+          .remove(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_USERNAME);
+      }
+      if (usernames != null && usernames.activeUsernames != null && usernames.activeUsernames.length > 0) {
+        editor.putStringArray(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_USERNAMES_ACTIVE, usernames.activeUsernames);
+      } else {
+        editor.remove(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_USERNAMES_ACTIVE);
+      }
+      if (usernames != null && usernames.disabledUsernames != null && usernames.disabledUsernames.length > 0) {
+        editor.putStringArray(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_USERNAMES_DISABLED, usernames.disabledUsernames);
+      } else {
+        editor.remove(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_USERNAMES_DISABLED);
+      }
       editor.putString(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_PHONE, phoneNumber);
       if (!StringUtils.isEmpty(profilePhotoSmallPath)) {
         editor.putString(prefix + Settings.KEY_ACCOUNT_INFO_SUFFIX_PHOTO, profilePhotoSmallPath);
@@ -773,12 +802,19 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
     return info != null ? info.getLastName() : "#" + knownUserId;
   }
 
-  public String getUsername () {
+  @Nullable
+  public TdApi.Usernames getUsernames () {
     TdApi.User myUser = getUser();
     if (myUser != null)
-      return myUser.username;
+      return myUser.usernames;
     DisplayInformation info = getDisplayInformation();
-    return info != null ? info.getUsername() : null;
+    return info != null ? info.getUsernames() : null;
+  }
+
+  @Nullable
+  public String getUsername () {
+    TdApi.Usernames usernames = getUsernames();
+    return Td.primaryUsername(usernames);
   }
 
   public String getLongName () {
@@ -787,7 +823,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
     if (myUser != null) {
       firstName = myUser.firstName;
       lastName = myUser.lastName;
-      username = myUser.username;
+      username = Td.primaryUsername(myUser.usernames);
       phoneNumber = myUser.phoneNumber;
     } else {
       DisplayInformation info = getDisplayInformation();
@@ -814,7 +850,7 @@ public class TdlibAccount implements Comparable<TdlibAccount>, TdlibProvider {
     String lastName;
     String phoneNumber;
     if (myUser != null) {
-      username = myUser.username;
+      username = Td.primaryUsername(myUser.usernames);
       firstName = myUser.firstName;
       lastName = myUser.lastName;
       phoneNumber = myUser.phoneNumber;

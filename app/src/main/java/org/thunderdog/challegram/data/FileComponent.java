@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@
 package org.thunderdog.challegram.data;
 
 import android.graphics.Canvas;
+import android.graphics.Color;
 import android.os.SystemClock;
 import android.view.MotionEvent;
 import android.view.View;
@@ -24,7 +25,7 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
@@ -38,11 +39,13 @@ import org.thunderdog.challegram.loader.ImageMp3File;
 import org.thunderdog.challegram.loader.ImageReceiver;
 import org.thunderdog.challegram.loader.ImageVideoThumbFile;
 import org.thunderdog.challegram.loader.Receiver;
+import org.thunderdog.challegram.mediaview.MediaViewThumbLocation;
 import org.thunderdog.challegram.player.TGPlayerController;
 import org.thunderdog.challegram.telegram.TGLegacyAudioManager;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibFilesManager;
 import org.thunderdog.challegram.telegram.TdlibManager;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.DrawAlgorithms;
 import org.thunderdog.challegram.tool.Paints;
@@ -51,6 +54,7 @@ import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.TGMimeType;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.util.DrawableProvider;
+import org.thunderdog.challegram.util.text.Highlight;
 import org.thunderdog.challegram.util.text.Text;
 import org.thunderdog.challegram.widget.FileProgressComponent;
 
@@ -77,6 +81,7 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
 
   public boolean hasPreview;
   public ImageFile miniThumbnail, preview, fullPreview;
+  private boolean mayBeTransparent;
 
   private @Nullable String title;
   private boolean needFakeTitle;
@@ -87,6 +92,7 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
   private float sizeWidth;
 
   private final TGMessage context;
+  private final TdApi.Message message;
 
   // DOCUMENT
 
@@ -94,8 +100,9 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
     return needOpenIn;
   }
 
-  public FileComponent (@NonNull TGMessage context, @NonNull TdApi.Document doc) {
+  public FileComponent (@NonNull TGMessage context, @NonNull TdApi.Message message, @NonNull TdApi.Document doc) {
     this.context = context;
+    this.message = message;
     if (this.needOpenIn = TD.isSupportedMusic(doc)) {
       // TdApi.VoiceNote fakeAudio = new TdApi.VoiceNote(0, null, doc.mimeType, doc.document);
       // setVoice(fakeAudio, null, null);
@@ -149,13 +156,13 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
       }
     }
 
-    this.progress = new FileProgressComponent(context.context(), context.tdlib(), TdlibFilesManager.DOWNLOAD_FLAG_FILE, hasPreview && TGMimeType.isImageMimeType(doc.mimeType), context.getChatId(), context.getId());
+    this.progress = new FileProgressComponent(context.context(), context.tdlib(), TdlibFilesManager.DOWNLOAD_FLAG_FILE, hasPreview && TGMimeType.isImageMimeType(doc.mimeType), message != null ? message.chatId : context.getChatId(), message != null ? message.id : context.getId());
     this.progress.setBackgroundColorProvider(context);
     this.progress.setSimpleListener(this);
+    this.progress.setDocumentMetadata(doc, !hasPreview);
     if (hasPreview) {
       this.progress.setBackgroundColor(0x44000000);
     } else {
-      this.progress.setDownloadedIconRes(doc);
       this.progress.setBackgroundColorId(TD.getFileColorId(doc, context.isOutgoingBubble()));
     }
     this.progress.setFile(doc.document, context.getMessage());
@@ -166,8 +173,9 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
 
   // AUDIO
 
-  public FileComponent (@NonNull TGMessage context, @NonNull TdApi.Audio audio, TdApi.Message playPauseFile, TGPlayerController.PlayListBuilder playListBuilder) {
+  public FileComponent (@NonNull TGMessage context, @NonNull TdApi.Message message, @NonNull TdApi.Audio audio, TdApi.Message playPauseFile, TGPlayerController.PlayListBuilder playListBuilder) {
     this.context = context;
+    this.message = message;
 
     setAudio(audio, playPauseFile, playListBuilder);
   }
@@ -200,13 +208,13 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
       }
     }
 
-    this.progress = new FileProgressComponent(context.context(), context.tdlib(), TdlibFilesManager.DOWNLOAD_FLAG_MUSIC, preview != null, context.getChatId(), context.getId());
+    this.progress = new FileProgressComponent(context.context(), context.tdlib(), TdlibFilesManager.DOWNLOAD_FLAG_MUSIC, preview != null, message != null ? message.chatId : context.getChatId(), message != null ? message.id : context.getId());
     this.progress.setBackgroundColorProvider(context);
     this.progress.setSimpleListener(this);
     if (hasPreview) {
       progress.setBackgroundColor(Config.COVER_OVERLAY);
     } else {
-      progress.setBackgroundColorId(context.isOutgoingBubble() ? R.id.theme_color_bubbleOut_file : R.id.theme_color_file);
+      progress.setBackgroundColorId(context.isOutgoingBubble() ? ColorId.bubbleOut_file : ColorId.file);
     }
     this.progress.setPlayPauseFile(playPauseFile != null ? playPauseFile : TD.newFakeMessage(audio), playListBuilder);
     if (viewProvider != null) {
@@ -218,8 +226,9 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
 
   private float unreadFactor;
 
-  public FileComponent (@NonNull TGMessage context, @NonNull TdApi.VoiceNote voice, TdApi.Message playPauseFile, TGPlayerController.PlayListBuilder playListBuilder) {
+  public FileComponent (@NonNull TGMessage context, @NonNull TdApi.Message message, @NonNull TdApi.VoiceNote voice, TdApi.Message playPauseFile, TGPlayerController.PlayListBuilder playListBuilder) {
     this.context = context;
+    this.message = message;
 
     setVoice(voice, playPauseFile, playListBuilder);
   }
@@ -231,10 +240,10 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
     this.waveform = new Waveform(voice.waveform, Waveform.MODE_BITMAP, context.isOutgoingBubble());
     this.unreadFactor = playPauseFile != context.getMessage() || context.isContentRead() ? 0f : 1f;
 
-    this.progress = new FileProgressComponent(context.context(), context.tdlib(), TdlibFilesManager.DOWNLOAD_FLAG_VOICE, false, context.getChatId(), context.getId());
+    this.progress = new FileProgressComponent(context.context(), context.tdlib(), TdlibFilesManager.DOWNLOAD_FLAG_VOICE, false,message != null ? message.chatId : context.getChatId(), message != null ? message.id : context.getId());
     this.progress.setBackgroundColorProvider(context);
     this.progress.setSimpleListener(this);
-    this.progress.setBackgroundColorId(context.isOutgoingBubble() ? R.id.theme_color_bubbleOut_file : R.id.theme_color_file);
+    this.progress.setBackgroundColorId(context.isOutgoingBubble() ? ColorId.bubbleOut_file : ColorId.file);
     this.progress.setPlayPauseFile(playPauseFile != null ? playPauseFile : TD.newFakeMessage(voice), playListBuilder, this);
     if (this.viewProvider != null) {
       this.progress.setViewProvider(viewProvider);
@@ -332,7 +341,7 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
   }
 
   private void buildTitles (int maxWidth) {
-    trimmedTitle = title != null ? new Text.Builder(title, maxWidth, Paints.getTitleStyleProvider(), context.getTextColorSet()).textFlags(doc != null ? Text.FLAG_ELLIPSIZE_MIDDLE : 0).singleLine().allBold().build() : null;
+    trimmedTitle = title != null ? new Text.Builder(title, maxWidth, Paints.getTitleStyleProvider(), context.getTextColorSet()).textFlags(doc != null ? Text.FLAG_ELLIPSIZE_MIDDLE : 0).singleLine().allBold().highlight(context.getHighlightedText(Highlight.Pool.KEY_FILE_TITLE, title)).build() : null;
 
     float oldWidth = sizeWidth;
     trimSubtitle(maxWidth);
@@ -368,9 +377,9 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
   }
 
   private void trimSubtitle (int maxWidth) {
-    trimmedSubtitle = !StringUtils.isEmpty(subtitle) ? new Text.Builder(subtitle, maxWidth, Paints.getSubtitleStyleProvider(), context.getDecentColorSet()).singleLine().build() : null;
+    trimmedSubtitle = !StringUtils.isEmpty(subtitle) ? new Text.Builder(subtitle, maxWidth, Paints.getSubtitleStyleProvider(), context.getDecentColorSet()).singleLine().highlight(context.getHighlightedText(Highlight.Pool.KEY_FILE_SUBTITLE, subtitle)).build() : null;
     if (!StringUtils.isEmpty(subtitleMeasure)) {
-      Text trimmedBigSubtitle = new Text.Builder(subtitleMeasure, maxWidth, Paints.getSubtitleStyleProvider(), context.getDecentColorSet()).singleLine().build();
+      Text trimmedBigSubtitle = new Text.Builder(subtitleMeasure, maxWidth, Paints.getSubtitleStyleProvider(), context.getDecentColorSet()).singleLine().highlight(context.getHighlightedText(Highlight.Pool.KEY_FILE_SUBTITLE, subtitleMeasure)).build();
       sizeWidth = Math.max(Math.max(sizeWidth, getSubtitleWidth()), trimmedBigSubtitle.getWidth());
     } else {
       sizeWidth = Math.max(sizeWidth, getSubtitleWidth());
@@ -434,6 +443,7 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
   private ImageFile createFullPreview () {
     if (fullPreview == null) {
       if (doc != null) {
+        mayBeTransparent = TGMimeType.isTransparentImageMimeType(doc.mimeType);
         fullPreview = createFullPreview(context.tdlib(), doc);
       } else if (audio != null && TD.isFileLoaded(audio.audio) && (audio.albumCoverThumbnail == null || preview == null || Math.max(audio.albumCoverThumbnail.width, audio.albumCoverThumbnail.height) < 90)) {
         fullPreview = new ImageMp3File(audio.audio.local.path);
@@ -632,6 +642,25 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
 
   private int lastStartX, lastStartY;
 
+  public MediaViewThumbLocation getMediaThumbLocation (View view, int viewTop, int viewBottom, int top) {
+    if (hasPreview) {
+      MediaViewThumbLocation thumbLocation = new MediaViewThumbLocation();
+      thumbLocation.setNoBounce();
+
+      final int previewSize = getPreviewSize();
+
+      int actualTop = lastStartY + viewTop;
+      int actualBottom = (view.getMeasuredHeight() - (lastStartY + previewSize)) + viewBottom;
+
+      thumbLocation.set(lastStartX, lastStartY + top, lastStartX + previewSize, lastStartY + previewSize + top);
+      thumbLocation.setClip(0, actualTop < 0 ? -actualTop : 0, 0, actualBottom < 0 ? -actualBottom : 0);
+      thumbLocation.setRoundings(previewSize / 2);
+
+      return thumbLocation;
+    }
+    return null;
+  }
+
   public <T extends View & DrawableProvider> void draw (T view, Canvas c, int startX, int startY, Receiver preview, Receiver receiver, @ColorInt int backgroundColor, int contentReplaceColor, float alpha, float checkFactor) {
     this.lastStartX = startX;
     this.lastStartY = startY;
@@ -652,6 +681,9 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
       }*/
       preview.setPaintAlpha(alpha * preview.getAlpha());
       receiver.setPaintAlpha(alpha * receiver.getAlpha());
+      if (mayBeTransparent) {
+        c.drawCircle(startX + previewSize / 2f, startY + previewSize / 2f, previewSize / 2f, Paints.fillingPaint(ColorUtils.alphaColor(alpha, Color.WHITE)));
+      }
       DrawAlgorithms.drawReceiver(c, preview, receiver, true, true, startX, startY, startX + previewSize, startY + previewSize);
       receiver.restorePaintAlpha();
       preview.restorePaintAlpha();
@@ -711,7 +743,7 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
         float y = cy + (float) ((double) fileRadius * Math.cos(radians));
 
         // c.drawCircle(x, y, outerRadius * unreadFactor, Paints.fillingPaint(context.getContentReplaceColor()));
-        c.drawCircle(x, y, innerRadius * unreadFactor, Paints.fillingPaint(ColorUtils.alphaColor(unreadFactor, Theme.getColor(align ? R.id.theme_color_bubbleOut_waveformActive : R.id.theme_color_waveformActive))));
+        c.drawCircle(x, y, innerRadius * unreadFactor, Paints.fillingPaint(ColorUtils.alphaColor(unreadFactor, Theme.getColor(align ? ColorId.bubbleOut_waveformActive : ColorId.waveformActive))));
       }
       if (trimmedSubtitle != null) {
         int textX = startX + previewSize + getPreviewOffset() + waveform.getWidth() + Screen.dp(12f);
@@ -749,13 +781,10 @@ public class FileComponent extends BaseComponent implements FileProgressComponen
     if (doc != null) {
       this.context.tdlib().ui().readCustomLanguage(this.context.controller(), doc, langPack ->
         this.context.controller().showOptions(Lang.getString(R.string.LanguageWarning), new int[] {R.id.btn_messageApplyLocalization, R.id.btn_open}, new String[] {Lang.getString(R.string.LanguageInstall), Lang.getString(R.string.Open)}, null, new int[] {R.drawable.baseline_language_24, R.drawable.baseline_open_in_browser_24}, (itemView, id) -> {
-          switch (id) {
-            case R.id.btn_messageApplyLocalization:
-              this.context.tdlib().ui().showLanguageInstallPrompt(this.context.controller(), langPack, this.context.getMessage());
-              break;
-            case R.id.btn_open:
-              open();
-              break;
+          if (id == R.id.btn_messageApplyLocalization) {
+            this.context.tdlib().ui().showLanguageInstallPrompt(this.context.controller(), langPack, this.context.getMessage());
+          } else if (id == R.id.btn_open) {
+            open();
           }
           this.context.readContent();
           return true;

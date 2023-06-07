@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,8 +23,7 @@ import android.view.View;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
-import org.thunderdog.challegram.R;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.loader.DoubleImageReceiver;
 import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.loader.ImageFileLocal;
@@ -33,6 +32,7 @@ import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.TdlibFilesManager;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.TGBackground;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.theme.ThemeDelegate;
@@ -173,7 +173,7 @@ public class WallpaperComponent extends BaseComponent implements ClickHelper.Del
     int right = startX + getWidth();
     int bottom = startY + getHeight();
 
-    placeholderPaint.setColor(Theme.getColor(R.id.theme_color_placeholder));
+    placeholderPaint.setColor(Theme.getColor(ColorId.placeholder));
     placeholderRect.set(startX, startY, right, bottom);
 
     final boolean clipped = Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT && placeholderPath != null;
@@ -219,7 +219,7 @@ public class WallpaperComponent extends BaseComponent implements ClickHelper.Del
   }
 
   private int getWallpaperBackground (ThemeDelegate theme) {
-    return ColorUtils.compositeColor(theme.getColor(R.id.theme_color_background), theme.getColor(R.id.theme_color_bubble_chatBackground));
+    return ColorUtils.compositeColor(theme.getColor(ColorId.background), theme.getColor(ColorId.bubble_chatBackground));
   }
 
   private void drawBackground (Canvas c, TGBackground wallpaper, int startX, int startY, int endX, int endY, float alpha, Receiver receiver) {

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
@@ -179,7 +179,7 @@ public class TdlibNotificationExtras {
     if (areMentions) {
       tdlib.client().send(new TdApi.ReadAllChatMentions(chatId), tdlib.silentHandler());
     } else {
-      tdlib.readMessages(chatId, messageThreadId, messageIds);
+      tdlib.readMessages(chatId, messageIds, new TdApi.MessageSourceNotification());
     }
     hide(tdlib);
     if (needToast) {

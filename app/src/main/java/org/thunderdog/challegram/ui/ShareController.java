@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -49,7 +49,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
@@ -74,10 +74,12 @@ import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.support.RippleSupport;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.ChatListListener;
+import org.thunderdog.challegram.telegram.RightId;
 import org.thunderdog.challegram.telegram.TGLegacyManager;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibChatList;
 import org.thunderdog.challegram.telegram.TdlibChatListSlice;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.ColorState;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Fonts;
@@ -116,10 +118,13 @@ import me.vkryl.android.util.SingleViewProvider;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.ArrayUtils;
 import me.vkryl.core.ColorUtils;
+import me.vkryl.core.FileUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.collection.IntList;
 import me.vkryl.core.collection.LongList;
+import me.vkryl.core.collection.LongSet;
 import me.vkryl.core.lambda.Filter;
+import me.vkryl.core.lambda.RunnableBool;
 import me.vkryl.td.ChatId;
 import me.vkryl.td.ChatPosition;
 import me.vkryl.td.Td;
@@ -175,6 +180,8 @@ public class ShareController extends TelegramViewController<ShareController.Args
     private ShareProviderDelegate customDelegate;
 
     private Runnable after;
+
+    private TdApi.MessageSendOptions defaultSendOptions;
 
     public Args (TdApi.Message message) {
       this(new TdApi.Message[]{message});
@@ -257,6 +264,11 @@ public class ShareController extends TelegramViewController<ShareController.Args
       return this;
     }
 
+    public Args setDefaultSendOptions (@Nullable TdApi.MessageSendOptions defaultSendOptions) {
+      this.defaultSendOptions = defaultSendOptions;
+      return this;
+    }
+
     public Args setAllowCopyLink (boolean allowCopyLink) {
       this.allowCopyLink = allowCopyLink;
       return this;
@@ -302,17 +314,17 @@ public class ShareController extends TelegramViewController<ShareController.Args
 
   @Override
   protected int getHeaderTextColorId () {
-    return R.id.theme_color_text;
+    return ColorId.text;
   }
 
   @Override
   protected int getHeaderColorId () {
-    return R.id.theme_color_filling;
+    return ColorId.filling;
   }
 
   @Override
   protected int getHeaderIconColorId () {
-    return R.id.theme_color_icon;
+    return ColorId.icon;
   }
 
   @Override
@@ -347,25 +359,20 @@ public class ShareController extends TelegramViewController<ShareController.Args
 
   @Override
   public void fillMenuItems (int id, HeaderView header, LinearLayout menu) {
-    switch (id) {
-      case R.id.menu_search: {
-        if (canCopyLink()) {
-          header.addButton(menu, R.id.menu_btn_copy, getHeaderIconColorId(), this, R.drawable.baseline_link_24, Screen.dp(49f), R.drawable.bg_btn_header);
-        }
-        int exportState = getExportContentState();
-        if (exportState != EXPORT_NONE) {
-          header.addButton(menu, R.id.menu_btn_forward, getHeaderIconColorId(), this, R.drawable.baseline_share_24, Screen.dp(49f), R.drawable.bg_btn_header);
-        }
-        header.addSearchButton(menu, this, getHeaderIconColorId()).setTouchDownListener((v, e) -> {
-          resetTopEnsuredState();
-          hideSoftwareKeyboard();
-        });
-        break;
+    if (id == R.id.menu_search) {
+      if (canCopyLink()) {
+        header.addButton(menu, R.id.menu_btn_copy, getHeaderIconColorId(), this, R.drawable.baseline_link_24, Screen.dp(49f), R.drawable.bg_btn_header);
       }
-      case R.id.menu_clear: {
-        header.addClearButton(menu, this);
-        break;
+      int exportState = getExportContentState();
+      if (exportState != EXPORT_NONE) {
+        header.addButton(menu, R.id.menu_btn_forward, getHeaderIconColorId(), this, R.drawable.baseline_share_24, Screen.dp(49f), R.drawable.bg_btn_header);
       }
+      header.addSearchButton(menu, this, getHeaderIconColorId()).setTouchDownListener((v, e) -> {
+        resetTopEnsuredState();
+        hideSoftwareKeyboard();
+      });
+    } else if (id == R.id.menu_clear) {
+      header.addClearButton(menu, this);
     }
   }
 
@@ -384,29 +391,18 @@ public class ShareController extends TelegramViewController<ShareController.Args
 
   @Override
   public void onMenuItemPressed (int id, View view) {
-    switch (id) {
-      case R.id.menu_btn_search: {
-        if (displayingChats != null) {
-          openSearchMode();
-        }
-        break;
+    if (id == R.id.menu_btn_search) {
+      if (displayingChats != null) {
+        openSearchMode();
       }
-      case R.id.menu_btn_copy: {
-        copyLink();
-        break;
-      }
-      case R.id.menu_btn_forward: {
-        exportContent();
-        break;
-      }
-      case R.id.btn_menu_customize: {
-        showShareSettings();
-        break;
-      }
-      case R.id.menu_btn_clear: {
-        clearSearchInput();
-        break;
-      }
+    } else if (id == R.id.menu_btn_copy) {
+      copyLink();
+    } else if (id == R.id.menu_btn_forward) {
+      exportContent();
+    } else if (id == R.id.btn_menu_customize) {
+      showShareSettings();
+    } else if (id == R.id.menu_btn_clear) {
+      clearSearchInput();
     }
   }
 
@@ -592,29 +588,29 @@ public class ShareController extends TelegramViewController<ShareController.Args
     }
     for (int i = 0; i < downloadingFiles.size(); i++) {
       FileEntry file = downloadingFiles.valueAt(i);
-      file.onTimeout = tdlib.files().downloadFileSync(file.file, -1, downloadedFile -> tdlib.ui().post(() -> onFileLoaded(file)), updatedFile -> tdlib.ui().post(this::dispatchDownloadProgress));
+      file.onTimeout = tdlib.files().downloadFileSync(file.file, -1, downloadedFile -> tdlib.ui().post(() -> onFileLoaded(file)), updatedFile -> tdlib.ui().post(this::dispatchDownloadProgress), null);
     }
   }
 
-  private void exportContact (String phoneNumber, String firstName, String lastName, String username, @Nullable String customVcard) {
+  private void exportContact (String phoneNumber, String firstName, String lastName, @Nullable TdApi.Usernames usernames, @Nullable String customVcard) {
     StringBuilder b = new StringBuilder()
       .append("BEGIN:VCARD\r\n")
       .append("VERSION:3.0\r\n")
       .append("N:").append(Strings.vcardEscape(lastName)).append(";").append(Strings.vcardEscape(firstName)).append("\r\n")
       .append("FN:").append(Strings.vcardEscape(TD.getUserName(firstName, lastName))).append("\r\n")
       .append("TEL;TYPE=cell:").append(Strings.vcardEscape(Strings.formatPhone(phoneNumber, true, true))).append("\r\n");
-    if (!StringUtils.isEmpty(username)) {
-      b.append("URL:").append(Strings.vcardEscape(tdlib.tMeUrl(username))).append("\r\n");
+    if (Td.hasUsername(usernames)) {
+      b.append("URL:").append(Strings.vcardEscape(tdlib.tMeUrl(usernames))).append("\r\n");
     }
     b.append("END:VCARD\r\n");
     String vcard = b.toString();
 
     Background.instance().post(() -> {
       try {
-        File dir = new File(UI.getAppContext().getFilesDir(), "vcf");
-        if (!dir.exists() && !dir.mkdir())
+        File vcfCacheDirectory = new File(UI.getAppContext().getFilesDir(), "vcf");
+        if (!FileUtils.createDirectory(vcfCacheDirectory))
           return;
-        File file = new File(dir, "temp.vcf");
+        File file = new File(vcfCacheDirectory, "temp.vcf");
         if (!file.exists() && !file.createNewFile())
           return;
         try (FileWriter fw = new FileWriter(file)) {
@@ -746,6 +742,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
           if (authorId != 0) {
             for (TdApi.Message message : args.messages) {
               TdApi.FormattedText formattedCaption = Td.textOrCaption(message.content);
+              //noinspection UnsafeOptInUsageError
               if (Td.isEmpty(messageCaption)) {
                 messageCaption = formattedCaption;
               } else if (!Td.isEmpty(formattedCaption) && !Td.equalsTo(messageCaption, formattedCaption)) {
@@ -770,6 +767,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
           }
           authorSignature = !StringUtils.isEmpty(username) ? Lang.getString(R.string.format_ShareAuthorLink, author, tdlib.tMeUrl(username)) : author;
 
+          //noinspection UnsafeOptInUsageError
           if (!Td.isEmpty(messageCaption)) {
             CharSequence caption = TD.toCharSequence(messageCaption);
             if (isOutgoing || isPrivateMedia) {
@@ -812,7 +810,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
           break;
         }
         case MODE_CONTACT: {
-          exportContact(args.contactUser.phoneNumber, args.contactUser.firstName, args.contactUser.lastName, args.contactUser.username, null);
+          exportContact(args.contactUser.phoneNumber, args.contactUser.firstName, args.contactUser.lastName, args.contactUser.usernames, null);
           break;
         }
       }
@@ -914,7 +912,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
   @Override
   public boolean accept (TdApi.Chat chat) {
     if (tdlib.chatAvailable(chat)) {
-      Tdlib.RestrictionStatus restrictionStatus = tdlib.getRestrictionStatus(chat, R.id.right_sendMessages);
+      Tdlib.RestrictionStatus restrictionStatus = tdlib.getRestrictionStatus(chat, RightId.SEND_BASIC_MESSAGES);
       return restrictionStatus == null || !restrictionStatus.isGlobal();
     }
     return false;
@@ -961,7 +959,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     headerCell = new DoubleHeaderView(context);
     headerCell.setTitle(R.string.SendTo);
     headerCell.initWithMargin(Screen.dp(56f) * getMenuItemCount(), false);
-    headerCell.setThemedTextColor(R.id.theme_color_text, R.id.theme_color_textLight, this);
+    headerCell.setThemedTextColor(ColorId.text, ColorId.textLight, this);
     updateHeader();
 
     contentView = new RelativeLayout(context);
@@ -1052,7 +1050,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     };
     decoration = new GridSpacingItemDecoration(calculateSpanCount(), Screen.dp(HORIZONTAL_PADDING_SIZE), true, false, false);
     /*decoration.setNeedDraw(true, SettingItem.TYPE_CHAT_VERTICAL_FULLWIDTH);
-    decoration.setDrawColorId(R.id.theme_color_filling);*/
+    decoration.setDrawColorId(ColorId.filling);*/
     decoration.setSpanSizeLookup(lookup);
     recyclerView.addItemDecoration(decoration);
     recyclerView.addItemDecoration(new RecyclerView.ItemDecoration() {
@@ -1079,7 +1077,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
           if (i >= itemCount - addSize) {
             int rowCount = (int) Math.ceil((float) itemCount / (float) spanCount);
             int itemsHeight = rowCount * Screen.dp(86f) + Screen.dp(HORIZONTAL_PADDING_SIZE) + Screen.dp(VERTICAL_PADDING_SIZE);
-            outRect.bottom = Math.max(0, get().getMeasuredHeight() == 0 ? Screen.currentHeight() : get().getMeasuredHeight() - HeaderView.getSize(true) - itemsHeight - (canShareLink ? Screen.dp(56f) : 0));
+            outRect.bottom = Math.max(0, getValue().getMeasuredHeight() == 0 ? Screen.currentHeight() : getValue().getMeasuredHeight() - HeaderView.getSize(true) - itemsHeight - (canShareLink ? Screen.dp(56f) : 0));
           }
         }
       }
@@ -1101,7 +1099,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     sendButton.getChildAt(0).setOnClickListener(this);
     sendButton.getChildAt(0).setOnLongClickListener(v -> {
       if (selectedChats.size() > 0) {
-        sendMessages(true, false, false, null);
+        sendMessages(true, false, getArgumentsStrict().defaultSendOptions);
         return true;
       }
       return false;
@@ -1150,27 +1148,24 @@ public class ShareController extends TelegramViewController<ShareController.Args
         items.add(new HapticMenuHelper.MenuItem(R.id.btn_settings, Lang.getString(R.string.MoreForwardOptions), R.drawable.baseline_more_horiz_24).bindTutorialFlag(Settings.TUTORIAL_FORWARD_COPY));
       }
       return items;
-    }, (view, parentView) -> {
+    }, (view, parentView, item) -> {
       if (selectedChats == null || selectedChats.size() == 0)
-        return;
+        return false;
+      TdApi.MessageSendOptions defaultSendOptions = getArgumentsStrict().defaultSendOptions;
       boolean needHideKeyboard = parentView.getId() == R.id.btn_done;
-      switch (view.getId()) {
-        case R.id.btn_settings:
-          showShareSettings();
-          break;
-        case R.id.btn_sendScheduled:
-          tdlib.ui().showScheduleOptions(this, selectedChats.size() == 1 ? selectedChats.valueAt(0).getChatId() : 0, false, (forceDisableNotification, schedulingState, disableMarkdown) -> performSend(needHideKeyboard, forceDisableNotification, schedulingState, false), null);
-          break;
-        case R.id.btn_sendOnceOnline:
-          performSend(needHideKeyboard, false, new TdApi.MessageSchedulingStateSendWhenOnline(), false);
-          break;
-        case R.id.btn_sendNoSound:
-          performSend(needHideKeyboard, true, null, false);
-          break;
-        case R.id.btn_sendAndOpen:
-          performSend(needHideKeyboard, false, null, true);
-          break;
+      final int viewId = view.getId();
+      if (viewId == R.id.btn_settings) {
+        showShareSettings();
+      } else if (viewId == R.id.btn_sendScheduled) {
+        tdlib.ui().showScheduleOptions(this, selectedChats.size() == 1 ? selectedChats.valueAt(0).getChatId() : 0, false, (sendOptions, disableMarkdown) -> performSend(needHideKeyboard, sendOptions, false), defaultSendOptions, null);
+      } else if (viewId == R.id.btn_sendOnceOnline) {
+        performSend(needHideKeyboard, Td.newSendOptions(defaultSendOptions, new TdApi.MessageSchedulingStateSendWhenOnline()), false);
+      } else if (viewId == R.id.btn_sendNoSound) {
+        performSend(needHideKeyboard, Td.newSendOptions(defaultSendOptions, true), false);
+      } else if (viewId == R.id.btn_sendAndOpen) {
+        performSend(needHideKeyboard, Td.newSendOptions(defaultSendOptions), true);
       }
+      return true;
     }, getThemeListeners(), null).attachToView(sendButton.getChildAt(0));
 
     // Bottom wrap
@@ -1194,7 +1189,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     bottomWrap.setOrientation(LinearLayout.VERTICAL);
     contentView.addView(bottomWrap);
 
-    inputView = new InputView(context, tdlib) {
+    inputView = new InputView(context, tdlib, this) {
       @Override
       protected void onMeasure (int widthMeasureSpec, int heightMeasureSpec) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec);
@@ -1253,10 +1248,10 @@ public class ShareController extends TelegramViewController<ShareController.Args
     inputView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 18f);
     inputView.setPadding(Screen.dp(60f), Screen.dp(12f), Screen.dp(55f), Screen.dp(12f));
     inputView.setHintTextColor(Theme.textPlaceholderColor());
-    addThemeHintTextColorListener(inputView, R.id.theme_color_textPlaceholder);
-    ViewSupport.setThemedBackground(inputView, R.id.theme_color_filling, this);
+    addThemeHintTextColorListener(inputView, ColorId.textPlaceholder);
+    ViewSupport.setThemedBackground(inputView, ColorId.filling, this);
     inputView.setHighlightColor(Theme.fillingTextSelectionColor());
-    addThemeHighlightColorListener(inputView, R.id.theme_color_textSelectionHighlight);
+    addThemeHighlightColorListener(inputView, ColorId.textSelectionHighlight);
     inputView.setMinimumHeight(Screen.dp(48f));
     inputView.setHint(Lang.getString(R.string.AddComment));
     inputView.setImeOptions(EditorInfo.IME_FLAG_NO_EXTRACT_UI);
@@ -1287,7 +1282,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     okButton.setScaleType(ImageView.ScaleType.CENTER);
     okButton.setImageResource(R.drawable.deproko_baseline_send_24);
     okButton.setColorFilter(Theme.chatSendButtonColor());
-    addThemeFilterListener(okButton, R.id.theme_color_chatSendButton);
+    addThemeFilterListener(okButton, ColorId.chatSendButton);
     okButton.setVisibility(View.INVISIBLE);
     okButton.setOnClickListener(this);
     okButton.setLayoutParams(params);
@@ -1304,7 +1299,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     emojiButton.setOnClickListener(this);
     emojiButton.setImageResource(R.drawable.deproko_baseline_insert_emoticon_26);
     emojiButton.setColorFilter(Theme.iconColor());
-    addThemeFilterListener(emojiButton, R.id.theme_color_icon);
+    addThemeFilterListener(emojiButton, ColorId.icon);
     emojiButton.setLayoutParams(params);
     contentView.addView(emojiButton);
 
@@ -1317,7 +1312,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     params = new RelativeLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
     params.addRule(RelativeLayout.ABOVE, R.id.share_bottom);
     bottomShadow = SeparatorView.simpleSeparator(context, params, false);
-    bottomShadow.setColorId(R.id.theme_color_shareSeparator);
+    bottomShadow.setColorId(ColorId.shareSeparator);
     bottomShadow.setAlignBottom();
     if (canShareLink) {
       bottomShadow.setTranslationY(Screen.dp(48f));
@@ -1349,7 +1344,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     FrameLayout.LayoutParams fp = FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(6f));
     fp.topMargin = HeaderView.getSize(false) - Screen.dp(3f);
     fixView = new View(context);
-    ViewSupport.setThemedBackground(fixView, R.id.theme_color_filling, this);
+    ViewSupport.setThemedBackground(fixView, ColorId.filling, this);
     fixView.setLayoutParams(fp);
 
     wrapView = new FrameLayoutFix(context);
@@ -1445,19 +1440,49 @@ public class ShareController extends TelegramViewController<ShareController.Args
 
   @Override
   public ForceTouchView.ActionListener onCreateActions (final View v, ForceTouchView.ForceTouchContext context, IntList ids, IntList icons, StringList strings, ViewController<?> target) {
+    return null;  // Deprecated
+  }
+
+  @Override
+  public ForceTouchView.ActionListener onCreateActions (View v, ForceTouchView.ForceTouchContext context, ArrayList<BaseView.ActionItem> items, ViewController<?> target) {
     final ListItem item = (ListItem) v.getTag();
     final TGFoundChat chat = (TGFoundChat) item.getData();
+    final TdApi.Chat tdChat = chat.getChat();
 
     context.setExcludeHeader(true);
+    context.setShrunkenFooter(true);
 
-    ids.append(R.id.btn_selectChat);
-    strings.append(isChecked(chat.getAnyId()) ? R.string.Unselect : R.string.Select);
-    icons.append(R.drawable.baseline_playlist_add_check_24);
+    if (tdChat != null && tdChat.messageSenderId != null) {
+      if (tdlib.isSelfSender(tdChat.messageSenderId)) {
+        items.add(new BaseView.ActionItem(R.id.btn_openSendersMenu, R.drawable.dot_baseline_acc_personal_24, Lang.getString(R.string.SendAsOption)));
+      } else if (!tdlib.isChannel(tdChat.messageSenderId)) {
+        items.add(new BaseView.ActionItem(R.id.btn_openSendersMenu, R.drawable.dot_baseline_acc_anon_24, Lang.getString(R.string.SendAsOption)));
+      } else {
+        items.add(new BaseView.ActionItem(R.id.btn_openSendersMenu, Lang.getString(R.string.SendAsOption), tdChat.messageSenderId));
+      }
+    }
+
+    items.add(new BaseView.ActionItem(R.id.btn_selectChat, R.drawable.baseline_playlist_add_check_24, Lang.getString(isChecked(chat.getAnyId()) ? R.string.Unselect : R.string.Select)));
 
     return new ForceTouchView.ActionListener() {
       @Override
       public void onForceTouchAction (ForceTouchView.ForceTouchContext context, int actionId, Object arg) {
-        ((VerticalChatView) v).setIsChecked(toggleChecked(v, chat), true);
+        if (actionId == R.id.btn_openSendersMenu) {
+          MessagesController.getChatAvailableMessagesSenders(tdlib, tdChat.id, result -> {
+            final SetSenderController c = new SetSenderController(ShareController.this.context, tdlib);
+            c.setArguments(new SetSenderController.Args(tdChat, result.senders, tdChat.messageSenderId));
+            c.setDelegate(newSender -> MessagesController.setNewMessageSender(tdlib, tdChat.id, newSender, () -> {
+              chat.updateChat();
+              ((VerticalChatView) v).onChatDefaultMessageSenderIdChanged(chat.getChatId(), newSender.sender);
+            }));
+            c.show();
+          });
+          return;
+        }
+
+        toggleChecked(v, chat, isChecked ->
+          ((VerticalChatView) v).setIsChecked(isChecked, true)
+        );
       }
 
       @Override
@@ -1528,7 +1553,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     if (!isChecked(chatId)) {
       if (processSingleTap(chat))
         return true;
-      if (!toggleChecked(view, chat))
+      if (!toggleChecked(view, chat, null))
         return true;
     }
 
@@ -1611,8 +1636,39 @@ public class ShareController extends TelegramViewController<ShareController.Args
     if (!hasSelectedAnything && chat.isSelfChat() && selectedChats.size() == 0) {
       selectedChats.put(chat.getAnyId(), chat);
       selectedChatIds.append(chat.getAnyId());
-      sendMessages(false, true, false, null);
+      sendMessages(false, true, null);
       return true;
+    }
+    return false;
+  }
+
+  private boolean hasVoiceOrVideoMessageContent () {
+    Args args = getArgumentsStrict();
+    switch (mode) {
+      case MODE_TELEGRAM_FILES: {
+        for (MediaItem item : args.telegramFiles) {
+          TdApi.InputMessageContent content = item.createShareContent(null);
+          if (content.getConstructor() == TdApi.InputMessageVoiceNote.CONSTRUCTOR ||
+            content.getConstructor() == TdApi.InputMessageVideoNote.CONSTRUCTOR) {
+            return true;
+          }
+        }
+        break;
+      }
+      case MODE_MESSAGES: {
+        for (TdApi.Message message : args.messages) {
+          if (message.content.getConstructor() == TdApi.MessageVoiceNote.CONSTRUCTOR ||
+              message.content.getConstructor() == TdApi.MessageVideoNote.CONSTRUCTOR) {
+            return true;
+          }
+        }
+        break;
+      }
+      case MODE_CUSTOM_CONTENT: {
+        return
+          args.customContent.getConstructor() == TdApi.InputMessageVoiceNote.CONSTRUCTOR ||
+          args.customContent.getConstructor() == TdApi.InputMessageVideoNote.CONSTRUCTOR;
+      }
     }
     return false;
   }
@@ -1622,10 +1678,10 @@ public class ShareController extends TelegramViewController<ShareController.Args
     TdApi.Chat chat = tdlib.chatStrict(chatId);
     switch (mode) {
       case MODE_TEXT: {
-        return tdlib.getMessageRestrictionText(chat);
+        return tdlib.getBasicMessageRestrictionText(chat);
       }
       case MODE_FILE: {
-        return tdlib.getMediaRestrictionText(chat);
+        return tdlib.getDefaultRestrictionText(chat, RightId.SEND_DOCS);
       }
       case MODE_STICKER: {
         return tdlib.getStickerRestrictionText(chat);
@@ -1652,11 +1708,31 @@ public class ShareController extends TelegramViewController<ShareController.Args
           if (message.content.getConstructor() == TdApi.MessagePoll.CONSTRUCTOR && !((TdApi.MessagePoll) message.content).poll.isAnonymous && tdlib.isChannel(chatId))
             return Lang.getString(R.string.PollPublicForwardHint);
 
-          CharSequence restrictionRes = tdlib.getRestrictionText(chat, message);
-          if (restrictionRes != null)
-            return restrictionRes;
+          if (message.content.getConstructor() == TdApi.MessageVoiceNote.CONSTRUCTOR ||
+              message.content.getConstructor() == TdApi.MessageVideoNote.CONSTRUCTOR) {
+            CharSequence restrictionText = tdlib.getVoiceVideoRestricitonText(chat, message.content.getConstructor() == TdApi.MessageVideoNote.CONSTRUCTOR);
+            if (restrictionText != null)
+              return restrictionText;
+          }
+
+          CharSequence restrictionText = tdlib.getRestrictionText(chat, message);
+          if (restrictionText != null)
+            return restrictionText;
         }
         break;
+      }
+    }
+    return null;
+  }
+
+  @Nullable
+  private View findVisibleChatView (long chatId) {
+    int i = adapter.indexOfViewByLongId(chatId);
+    if (i != -1) {
+      int firstVisiblePosition = ((LinearLayoutManager) recyclerView.getLayoutManager()).findFirstVisibleItemPosition();
+      int lastVisiblePosition = ((LinearLayoutManager) recyclerView.getLayoutManager()).findLastVisibleItemPosition();
+      if (i >= firstVisiblePosition && i <= lastVisiblePosition) {
+        return recyclerView.getLayoutManager().findViewByPosition(i);
       }
     }
     return null;
@@ -1666,21 +1742,14 @@ public class ShareController extends TelegramViewController<ShareController.Args
     CharSequence errorMessage = getErrorMessage(chatId);
     if (errorMessage != null) {
       if (anchorView == null) {
-        int i = adapter.indexOfViewByLongId(chatId);
-        if (i != -1) {
-          int firstVisiblePosition = ((LinearLayoutManager) recyclerView.getLayoutManager()).findFirstVisibleItemPosition();
-          int lastVisiblePosition = ((LinearLayoutManager) recyclerView.getLayoutManager()).findLastVisibleItemPosition();
-          if (i >= firstVisiblePosition && i <= lastVisiblePosition) {
-            anchorView = recyclerView.getLayoutManager().findViewByPosition(i);
-            includeTitle = includeTitle && anchorView == null;
-          }
-        }
+        anchorView = findVisibleChatView(chatId);
+        includeTitle = includeTitle && anchorView == null;
       }
       if (anchorView == null && isExpanded) {
         anchorView = isSendHidden ? okButton : sendButton;
       }
       if (includeTitle) {
-        errorMessage = Lang.getString(R.string.format_chatAndError, tdlib.chatTitle(chatId), errorMessage);
+        errorMessage = Lang.getString(R.string.format_chatAndError, (target, argStart, argEnd, argIndex, needFakeBold) -> argIndex == 0 ? Lang.boldCreator().onCreateSpan(target, argStart, argEnd, argIndex, needFakeBold) : null, tdlib.chatTitle(chatId), errorMessage);
       }
       if (anchorView != null) {
         context().tooltipManager().builder(anchorView).icon(R.drawable.baseline_warning_24).show(tdlib, errorMessage).hideDelayed();
@@ -1692,9 +1761,39 @@ public class ShareController extends TelegramViewController<ShareController.Args
     return false;
   }
 
-  private boolean toggleChecked (View view, TGFoundChat chat)  {
+  private boolean toggleChecked (View view, TGFoundChat chat, RunnableBool after)  {
+    return toggleCheckedImpl(view, chat, after, true);
+  }
+
+  private final LongSet lockedChatIds = new LongSet();
+
+  private boolean toggleCheckedImpl (View view, TGFoundChat chat, @Nullable RunnableBool after, boolean performAsyncChecks)  {
     long chatId = chat.getAnyId();
-    boolean result = !isChecked(chatId) && !showErrorMessage(view, chatId, false);
+    if (lockedChatIds.has(chatId)) {
+      return false;
+    }
+
+    boolean result = !isChecked(chatId);
+
+    if (result) {
+      if (performAsyncChecks && ChatId.isUserChat(chatId) && hasVoiceOrVideoMessageContent()) {
+        lockedChatIds.add(chatId);
+        tdlib.cache().userFull(tdlib.chatUserId(chatId), userFullInfo -> {
+          lockedChatIds.remove(chatId);
+          // FIXME: view recycling safety
+          // By the time `after` is called, initial view could have been already recycled.
+          // Current implementation relies on the quick response from GetUserFull,
+          // however, there's a chance `view` could have been already taken by some other view.
+          // Should be fixed inside `after` contents.
+          toggleCheckedImpl(view, chat, after, false);
+        });
+        return false;
+      }
+      if (showErrorMessage(view, chatId, false)) {
+        result = false;
+      }
+    }
+
     if (result) {
       selectedChats.put(chatId, chat);
       selectedChatIds.append(chatId);
@@ -1705,6 +1804,9 @@ public class ShareController extends TelegramViewController<ShareController.Args
     }
     checkAbilityToSend();
     updateHeader();
+    if (after != null) {
+      after.runWithBool(result);
+    }
     return result;
   }
 
@@ -1739,78 +1841,67 @@ public class ShareController extends TelegramViewController<ShareController.Args
 
   private static final boolean OPEN_KEYBOARD_WITH_AUTOSCROLL = false;
   private boolean sendOnKeyboardClose;
-  private boolean sendOnKeyboardCloseForceDisableNotifications;
-  private TdApi.MessageSchedulingState sendOnKeyboardCloseSchedulingState;
+  private TdApi.MessageSendOptions sendOnKeyboardCloseSendOptions;
   private boolean sendOnKeyboardCloseGoToChat;
 
-  private void performSend (boolean needHideKeyboard, boolean forceDisableNotification, TdApi.MessageSchedulingState schedulingState, boolean forceGoToChat) {
+  private void performSend (boolean needHideKeyboard, TdApi.MessageSendOptions finalSendOptions, boolean forceGoToChat) {
     if (needHideKeyboard) {
       if (!sendOnKeyboardClose) {
         sendOnKeyboardClose = true;
-        sendOnKeyboardCloseForceDisableNotifications = forceDisableNotification;
-        sendOnKeyboardCloseSchedulingState = schedulingState;
+        sendOnKeyboardCloseSendOptions = finalSendOptions;
         sendOnKeyboardCloseGoToChat = forceGoToChat;
         hideSoftwareKeyboard();
       }
     } else {
-      sendMessages(forceGoToChat, false, forceDisableNotification, schedulingState);
+      sendMessages(forceGoToChat, false, finalSendOptions);
     }
   }
 
   @Override
   public void onClick (View v) {
-    switch (v.getId()) {
-      case R.id.btn_send:{
-        if (selectedChats.size() == 0) {
-          if (canShareLink) {
-            shareLink();
-            // copyLink();
-          }
-        } else {
-          performSend(false, false, null, false);
+    final int viewId = v.getId();
+    if (viewId == R.id.btn_send) {
+      if (selectedChats.size() == 0) {
+        if (canShareLink) {
+          shareLink();
+          // copyLink();
         }
-        break;
+      } else {
+        performSend(false, Td.newSendOptions(), false);
       }
-      case R.id.btn_done: {
-        if (selectedChats.size() == 0) {
-          hideSoftwareKeyboard();
-        } else {
-          performSend(true, false, null, false);
-        }
-        break;
+    } else if (viewId == R.id.btn_done) {
+      if (selectedChats.size() == 0) {
+        hideSoftwareKeyboard();
+      } else {
+        performSend(true, Td.newSendOptions(), false);
       }
-      case R.id.share_comment_stub: {
-        if (OPEN_KEYBOARD_WITH_AUTOSCROLL) {
-          final int top = getTopEdge();
-          openKeyboardUponFinishingAutoScroll = true;
-          smoothScrollBy(top);
-        }
-        break;
+    } else if (viewId == R.id.share_comment_stub) {
+      if (OPEN_KEYBOARD_WITH_AUTOSCROLL) {
+        final int top = getTopEdge();
+        openKeyboardUponFinishingAutoScroll = true;
+        smoothScrollBy(top);
       }
-      case R.id.btn_emoji: {
-        processEmojiClick();
-        break;
-      }
-      default: {
-        ListItem item = (ListItem) v.getTag();
-        TGFoundChat chat = (TGFoundChat) item.getData();
-        switch (item.getId()) {
-          case R.id.chat: {
-            if (autoScrollFinished) {
-              if (!processSingleTap(chat))
-                ((VerticalChatView) v).setIsChecked(toggleChecked(v, chat), true);
-            }
-            break;
-          }
-          case R.id.search_chat: {
-            if (!processSingleTap(chat)) {
-              ((VerticalChatView) v).setIsChecked(toggleChecked(v, chat), true);
-              closeSearchMode(null);
-            }
-            break;
+    } else if (viewId == R.id.btn_emoji) {
+      processEmojiClick();
+    } else {
+      ListItem item = (ListItem) v.getTag();
+      TGFoundChat chat = (TGFoundChat) item.getData();
+      final int itemId = item.getId();
+      if (itemId == R.id.chat) {
+        if (autoScrollFinished) {
+          if (!processSingleTap(chat)) {
+            toggleChecked(v, chat, isChecked ->
+              ((VerticalChatView) v).setIsChecked(isChecked, true)
+            );
           }
         }
-        break;
+      } else if (itemId == R.id.search_chat) {
+        if (!processSingleTap(chat)) {
+          toggleChecked(v, chat, isChecked ->
+            ((VerticalChatView) v).setIsChecked(isChecked, true)
+          );
+          closeSearchMode(null);
+        }
       }
     }
   }
@@ -2073,7 +2164,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     popupLayout.setNeedRootInsets();
     popupLayout.setTouchProvider(this);
     popupLayout.setIgnoreHorizontal();
-    get();
+    getValue();
     context().addFullScreenView(this, false);
   }
 
@@ -2087,7 +2178,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
   private void launchOpenAnimation () {
     if (!openLaunched) {
       openLaunched = true;
-      popupLayout.showSimplePopupView(get(), calculateTotalHeight());
+      popupLayout.showSimplePopupView(getValue(), calculateTotalHeight());
     }
   }
 
@@ -2256,13 +2347,13 @@ public class ShareController extends TelegramViewController<ShareController.Args
     private void doDraw (Canvas c) {
       final int width = getMeasuredWidth();
       final int height = getMeasuredHeight();
-      final int color = factor == 0f ? Theme.fillingColor() : factor == 1f ? Theme.getColor(R.id.theme_color_fillingPositive) : ColorUtils.fromToArgb(Theme.fillingColor(), Theme.getColor(R.id.theme_color_fillingPositive), factor);
+      final int color = factor == 0f ? Theme.fillingColor() : factor == 1f ? Theme.getColor(ColorId.fillingPositive) : ColorUtils.fromToArgb(Theme.fillingColor(), Theme.getColor(ColorId.fillingPositive), factor);
       c.drawColor(color);
       if (factor != 0f && factor != 1f) {
         float radius = (float) Math.sqrt(width * width + height * height) * .5f;
-        c.drawCircle(width / 2, height / 2, radius * factor, Paints.fillingPaint(ColorUtils.alphaColor(factor, Theme.getColor(R.id.theme_color_fillingPositive))));
+        c.drawCircle(width / 2, height / 2, radius * factor, Paints.fillingPaint(ColorUtils.alphaColor(factor, Theme.getColor(ColorId.fillingPositive))));
       }
-      final int textColor = factor == 0f ? Theme.getColor(R.id.theme_color_textNeutral) : factor == 1f ? Theme.getColor(R.id.theme_color_fillingPositiveContent) : ColorUtils.fromToArgb(Theme.getColor(R.id.theme_color_textNeutral), Theme.getColor(R.id.theme_color_fillingPositiveContent), factor);
+      final int textColor = factor == 0f ? Theme.getColor(ColorId.textNeutral) : factor == 1f ? Theme.getColor(ColorId.fillingPositiveContent) : ColorUtils.fromToArgb(Theme.getColor(ColorId.textNeutral), Theme.getColor(ColorId.fillingPositiveContent), factor);
       if (factor <= .5f) {
         TextPaint paint = Paints.getTitleBigPaint(copyTextFake);
         final int sourceTextColor = paint.getColor();
@@ -2563,7 +2654,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
       setSendButtonHidden(isVisible);
       if (!isVisible && sendOnKeyboardClose) {
         sendOnKeyboardClose = false;
-        sendMessages(sendOnKeyboardCloseGoToChat, false, sendOnKeyboardCloseForceDisableNotifications, sendOnKeyboardCloseSchedulingState);
+        sendMessages(sendOnKeyboardCloseGoToChat, false, sendOnKeyboardCloseSendOptions);
       }
     }
   }
@@ -2602,7 +2693,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
         emojiButton.setImageResource(R.drawable.baseline_keyboard_24);
         emojiLayout.hideKeyboard(inputView);
       } else {
-        emojiButton.setImageResource(MessagesController.BOT_CLOSE_RES);
+        emojiButton.setImageResource(R.drawable.baseline_direction_arrow_down_24);
       }
 
       checkKeyboardVisible();
@@ -2740,7 +2831,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     switch (msg.content.getConstructor()) {
       case TdApi.MessageContact.CONSTRUCTOR: {
         TdApi.Contact contact = ((TdApi.MessageContact) msg.content).contact;
-        exportContact(contact.phoneNumber, contact.firstName, contact.lastName, contact.userId != 0 ? tdlib.cache().userUsername(contact.userId) : null, contact.vcard);
+        exportContact(contact.phoneNumber, contact.firstName, contact.lastName, contact.userId != 0 ? tdlib.cache().userUsernames(contact.userId) : null, contact.vcard);
         break;
       }
     }
@@ -2877,20 +2968,30 @@ public class ShareController extends TelegramViewController<ShareController.Args
   private boolean isSent;
   private boolean needHideAuthor, needRemoveCaptions, forceSendWithoutSound;
 
-  private void sendMessages (boolean forceGoToChat, boolean isSingleTap, boolean forceDisableNotification, @Nullable TdApi.MessageSchedulingState schedulingState) {
+  private void sendMessages (boolean forceGoToChat, boolean isSingleTap, @Nullable TdApi.MessageSendOptions finalSendOptions) {
     if (selectedChats.size() == 0 || isSent) {
       return;
+    }
+
+    // Double check if there are any new restrictions
+    for (int i = 0; i < selectedChats.size(); i++) {
+      long chatId = selectedChats.valueAt(i).getChatId();
+      if (showErrorMessage(null, chatId, true)) {
+        return;
+      }
     }
 
     final ArrayList<TdApi.Function<?>> functions = new ArrayList<>();
     final TdApi.FormattedText comment = inputView.getOutputText(true);
 
+    //noinspection UnsafeOptInUsageError
     final boolean hasComment = !Td.isEmpty(comment);
 
     final Args args = getArgumentsStrict();
 
-    TdApi.MessageSendOptions cloudSendOptions = new TdApi.MessageSendOptions(forceDisableNotification || forceSendWithoutSound, false, false, schedulingState);
-    TdApi.MessageSendOptions secretSendOptions = cloudSendOptions.disableNotification ? new TdApi.MessageSendOptions(true, cloudSendOptions.fromBackground, false, cloudSendOptions.schedulingState) : cloudSendOptions;
+    TdApi.MessageSendOptions cloudSendOptions = Td.newSendOptions(finalSendOptions, forceSendWithoutSound);
+    // FIXME: it seems separate sendOptions for secret chats no longer required or something is broken?
+    TdApi.MessageSendOptions secretSendOptions = Td.newSendOptions(cloudSendOptions);
 
     for (int i = 0; i < selectedChatIds.size(); i++) {
       final long chatId = selectedChatIds.get(i);
@@ -2907,15 +3008,15 @@ public class ShareController extends TelegramViewController<ShareController.Args
       }
       TdApi.MessageSendOptions sendOptions = ChatId.isSecret(chatId) ? secretSendOptions : cloudSendOptions;
       if (hasComment) {
-        functions.add(new TdApi.SendMessage(chatId, 0, 0, sendOptions, null, new TdApi.InputMessageText(comment, false, false)));
+        functions.addAll(TD.sendMessageText(chatId, 0, 0, sendOptions, new TdApi.InputMessageText(comment, false, false), tdlib.maxMessageTextLength()));
       }
       switch (mode) {
         case MODE_TEXT: {
-          functions.add(new TdApi.SendMessage(chatId, 0, 0, sendOptions, null, new TdApi.InputMessageText(args.text, false, false)));
+          functions.addAll(TD.sendMessageText(chatId, 0, 0, sendOptions, new TdApi.InputMessageText(args.text, false, false), tdlib.maxMessageTextLength()));
           break;
         }
         case MODE_MESSAGES: {
-          if (!TD.forwardMessages(chatId, args.messages, needHideAuthor, needRemoveCaptions, sendOptions, functions))
+          if (!TD.forwardMessages(chatId, 0, args.messages, needHideAuthor, needRemoveCaptions, sendOptions, functions))
             return;
           break;
         }
@@ -2940,15 +3041,18 @@ public class ShareController extends TelegramViewController<ShareController.Args
           break;
         }
         case MODE_CUSTOM_CONTENT: {
-          functions.add(new TdApi.SendMessage(chatId, 0, 0, sendOptions, null, args.customContent));
+          functions.addAll(TD.sendMessageText(chatId, 0,0, sendOptions, args.customContent, tdlib.maxMessageTextLength()));
           break;
         }
         case MODE_TELEGRAM_FILES: {
           TdApi.FormattedText formattedCaption = StringUtils.isEmpty(args.telegramCaption) ? null : TD.newText(args.telegramCaption);
+          TdApi.FormattedText messageCaption = formattedCaption != null && formattedCaption.text.codePointCount(0, formattedCaption.text.length()) <= tdlib.maxCaptionLength() ? formattedCaption : null;
+          if (formattedCaption != null && messageCaption == null) {
+            functions.addAll(TD.sendMessageText(chatId, 0, 0, sendOptions, new TdApi.InputMessageText(formattedCaption, false, false), tdlib.maxMessageTextLength()));
+          }
           for (MediaItem item : args.telegramFiles) {
             boolean last = item == args.telegramFiles[args.telegramFiles.length - 1];
-            TdApi.FormattedText caption = last ? formattedCaption : null;
-            TdApi.InputMessageContent content = item.createShareContent(caption);
+            TdApi.InputMessageContent content = item.createShareContent(last ? messageCaption : null);
             if (content == null)
               return;
             functions.add(new TdApi.SendMessage(chatId, 0, 0, sendOptions, null, content));
@@ -3066,7 +3170,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
     Args args = getArgumentsStrict();
     if (args.messages.length == 0)
       return false;
-    if (tdlib.canCopyMessageLinks(args.messages[0].chatId)) {
+    if (tdlib.canCopyPublicMessageLinks(args.messages[0].chatId)) {
       if (args.messages.length == 1) {
         return true;
       }

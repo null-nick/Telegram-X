@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,7 +15,13 @@
 package org.thunderdog.challegram.ui;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Message;
 import android.text.InputType;
+import android.text.Spannable;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.method.LinkMovementMethod;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -23,16 +29,18 @@ import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
-import android.os.Handler;
-import android.os.Message;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import com.google.android.gms.safetynet.SafetyNet;
+
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.TDLib;
+import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
@@ -43,13 +51,17 @@ import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.AuthorizationListener;
 import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Fonts;
+import org.thunderdog.challegram.tool.Intents;
 import org.thunderdog.challegram.tool.Keyboard;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
+import org.thunderdog.challegram.util.CustomTypefaceSpan;
+import org.thunderdog.challegram.util.NoUnderlineClickableSpan;
 import org.thunderdog.challegram.widget.CircleButton;
 import org.thunderdog.challegram.widget.MaterialEditTextGroup;
 import org.thunderdog.challegram.widget.NoScrollTextView;
@@ -76,7 +88,9 @@ public class PasswordController extends ViewController<PasswordController.Args> 
   public static final int MODE_CODE_PHONE_CONFIRM = 9;
   public static final int MODE_TRANSFER_OWNERSHIP_CONFIRM = 10;
   public static final int MODE_CONFIRM = 11;
-  public static final int MODE_PAYMENT_METHOD_SAVED = 12;
+  public static final int MODE_CODE_EMAIL = 12;
+  public static final int MODE_EMAIL_LOGIN = 13;
+  public static final int MODE_PAYMENT_METHOD_SAVED = 14;
 
   private final Handler handler = new Handler(this);
 
@@ -104,6 +118,20 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       this.state = null;
       this.authState = state;
       this.phoneNumber = phoneNumber;
+    }
+
+    public Args (int mode, TdApi.AuthorizationStateWaitEmailCode state) {
+      this.mode = mode;
+      this.state = null;
+      this.authState = state;
+      setEmail(state.codeInfo.emailAddressPattern);
+      setCodeLength(state.codeInfo.length);
+    }
+
+    public Args (int mode, TdApi.AuthorizationStateWaitEmailAddress state) {
+      this.mode = mode;
+      this.state = null;
+      this.authState = state;
     }
 
     public Args (int mode, TdApi.AuthenticationCodeInfo codeInfo, @NonNull String phoneNumber) {
@@ -172,6 +200,8 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       case MODE_LOGIN_EMAIL_RECOVERY:
       case MODE_LOGIN:
       case MODE_CODE:
+      case MODE_CODE_EMAIL:
+      case MODE_EMAIL_LOGIN:
         return true;
     }
     return false;
@@ -195,6 +225,9 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       case MODE_NEW: {
         return Lang.getString(R.string.YourPassword);
       }
+      case MODE_EMAIL_LOGIN: {
+        return Lang.getString(R.string.YourEmail);
+      }
       case MODE_CONFIRM:
       case MODE_UNLOCK_EDIT: {
         return Lang.getString(R.string.EnterPassword);
@@ -213,7 +246,8 @@ public class PasswordController extends ViewController<PasswordController.Args> 
         return Lang.getString(R.string.PasswordRecovery);
       }
       case MODE_CODE:
-      case MODE_CODE_CHANGE: {
+      case MODE_CODE_CHANGE:
+      case MODE_CODE_EMAIL: {
         return Lang.getString(R.string.ConfirmationCode);
       }
       case MODE_CODE_PHONE_CONFIRM: {
@@ -233,7 +267,18 @@ public class PasswordController extends ViewController<PasswordController.Args> 
 
   @Override
   public int getId () {
-    return mode == MODE_CODE || mode == MODE_CODE_CHANGE || mode == MODE_CODE_PHONE_CONFIRM ? R.id.controller_code : mode == MODE_EMAIL_RECOVERY ? R.id.controller_passwordRecovery : mode == MODE_LOGIN_EMAIL_RECOVERY ? R.id.controller_loginPassword : R.id.controller_password;
+    switch (mode) {
+      case MODE_CODE:
+      case MODE_CODE_CHANGE:
+      case MODE_CODE_PHONE_CONFIRM:
+      case MODE_CODE_EMAIL:
+        return R.id.controller_code;
+      case MODE_EMAIL_RECOVERY:
+        return R.id.controller_passwordRecovery;
+      case MODE_LOGIN_EMAIL_RECOVERY:
+        return R.id.controller_loginPassword;
+    }
+    return R.id.controller_password;
   }
 
   private MaterialEditTextGroup editText;
@@ -243,6 +288,10 @@ public class PasswordController extends ViewController<PasswordController.Args> 
   private TextView resetWaitView;
   private @Nullable ProgressComponentView progressView;
   private TextView hintView;
+
+  public int getMode () {
+    return mode;
+  }
 
   private int getDoneIcon () {
     switch (mode) {
@@ -260,7 +309,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
   @Override
   protected View onCreateView (Context context) {
     final FrameLayoutFix contentView = new FrameLayoutFix(context);
-    ViewSupport.setThemedBackground(contentView, R.id.theme_color_filling, this);
+    ViewSupport.setThemedBackground(contentView, ColorId.filling, this);
 
     final int topMargin = (Screen.smallestActualSide() - HeaderView.getSize(false) - Screen.dp(175f)) / 2;
 
@@ -278,7 +327,8 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     editText.setEmptyListener(this);
     editText.setTextListener(this);
     switch (mode) {
-      case MODE_EMAIL_CHANGE: {
+      case MODE_EMAIL_CHANGE:
+      case MODE_EMAIL_LOGIN: {
         editText.getEditText().setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS);
         break;
       }
@@ -286,7 +336,8 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       case MODE_LOGIN_EMAIL_RECOVERY:
       case MODE_CODE:
       case MODE_CODE_CHANGE:
-      case MODE_CODE_PHONE_CONFIRM: {
+      case MODE_CODE_PHONE_CONFIRM:
+      case MODE_CODE_EMAIL: {
         editText.getEditText().setInputType(InputType.TYPE_CLASS_NUMBER);
         break;
       }
@@ -307,12 +358,17 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       }
       case MODE_CODE:
       case MODE_CODE_CHANGE:
-      case MODE_CODE_PHONE_CONFIRM: {
+      case MODE_CODE_PHONE_CONFIRM:
+      case MODE_CODE_EMAIL: {
         editText.setHint(R.string.login_Code);
         break;
       }
       case MODE_EDIT: {
         editText.setHint(R.string.EnterANewPassword);
+        break;
+      }
+      case MODE_EMAIL_LOGIN: {
+        editText.setHint(R.string.EnterEmail);
         break;
       }
       case MODE_EMAIL_CHANGE: {
@@ -353,7 +409,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     nextButton = new CircleButton(context);
     addThemeInvalidateListener(nextButton);
     nextButton.setId(R.id.btn_done);
-    nextButton.init(getDoneIcon(), 56f, 4f, R.id.theme_color_circleButtonRegular, R.id.theme_color_circleButtonRegularIcon);
+    nextButton.init(getDoneIcon(), 56f, 4f, ColorId.circleButtonRegular, ColorId.circleButtonRegularIcon);
     nextButton.setOnClickListener(this);
     nextButton.setLayoutParams(params);
     nextButton.setAlpha(0f);
@@ -365,8 +421,8 @@ public class PasswordController extends ViewController<PasswordController.Args> 
 
     forgotView = new NoScrollTextView(context);
     forgotView.setId(R.id.btn_forgotPassword);
-    forgotView.setTextColor(Theme.getColor(R.id.theme_color_textNeutral));
-    addThemeTextColorListener(forgotView, R.id.theme_color_textNeutral);
+    forgotView.setTextColor(Theme.getColor(ColorId.textNeutral));
+    addThemeTextColorListener(forgotView, ColorId.textNeutral);
     forgotView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f);
     forgotView.setPadding(Screen.dp(16f), Screen.dp(16f), Screen.dp(16f), Screen.dp(16f));
     forgotView.setOnClickListener(this);
@@ -375,8 +431,8 @@ public class PasswordController extends ViewController<PasswordController.Args> 
 
     cancelResetView = new NoScrollTextView(context);
     cancelResetView.setId(R.id.btn_cancelReset);
-    cancelResetView.setTextColor(Theme.getColor(R.id.theme_color_textNeutral));
-    addThemeTextColorListener(cancelResetView, R.id.theme_color_textNeutral);
+    cancelResetView.setTextColor(Theme.getColor(ColorId.textNeutral));
+    addThemeTextColorListener(cancelResetView, ColorId.textNeutral);
     cancelResetView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f);
     cancelResetView.setPadding(Screen.dp(16f), Screen.dp(16f), Screen.dp(16f), Screen.dp(6f));
     cancelResetView.setOnClickListener(this);
@@ -387,7 +443,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     resetWaitView = new NoScrollTextView(context);
     resetWaitView.setId(R.id.btn_cancelResetWait);
     resetWaitView.setTextColor(Theme.textDecentColor());
-    addThemeTextColorListener(resetWaitView, R.id.theme_color_textLight);
+    addThemeTextColorListener(resetWaitView, ColorId.textLight);
     resetWaitView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f);
     resetWaitView.setPadding(Screen.dp(16f), Screen.dp(16f), Screen.dp(16f), Screen.dp(6f));
     resetWaitView.setAlpha(0f);
@@ -428,13 +484,21 @@ public class PasswordController extends ViewController<PasswordController.Args> 
         hint = getCodeHint(((TdApi.AuthorizationStateWaitCode) authState).codeInfo.type, formattedPhone);
         break;
       }
+      case MODE_CODE_EMAIL: {
+        hint = Lang.getStringBold(R.string.SentEmailCode, ((TdApi.AuthorizationStateWaitEmailCode) authState).codeInfo.emailAddressPattern);
+        break;
+      }
+      case MODE_EMAIL_LOGIN: {
+        hint = Lang.getString(R.string.LoginEmailInfo);
+        break;
+      }
       case MODE_EMAIL_CHANGE: {
         hint = Lang.getString(R.string.YourEmailInfo);
         break;
       }
     }
 
-    if (mode == MODE_TRANSFER_OWNERSHIP_CONFIRM || mode == MODE_UNLOCK_EDIT || mode == MODE_CONFIRM || mode == MODE_LOGIN || mode == MODE_CODE || mode == MODE_CODE_CHANGE || mode == MODE_CODE_PHONE_CONFIRM) {
+    if (mode == MODE_TRANSFER_OWNERSHIP_CONFIRM || mode == MODE_UNLOCK_EDIT || mode == MODE_CONFIRM || mode == MODE_LOGIN || mode == MODE_CODE || mode == MODE_CODE_CHANGE || mode == MODE_CODE_PHONE_CONFIRM || mode == MODE_CODE_EMAIL) {
       RelativeLayout forgotWrap = new RelativeLayout(context);
       forgotWrap.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.LEFT | Gravity.BOTTOM));
 
@@ -462,8 +526,8 @@ public class PasswordController extends ViewController<PasswordController.Args> 
 
       progressView = new ProgressComponentView(context);
       progressView.initMedium(0f);
-      progressView.setProgressColor(Theme.getColor(R.id.theme_color_textNeutral));
-      addThemeTextColorListener(progressView, R.id.theme_color_textNeutral);
+      progressView.setProgressColor(Theme.getColor(ColorId.textNeutral));
+      addThemeTextColorListener(progressView, ColorId.textNeutral);
       progressView.setAlpha(0f);
       progressView.setLayoutParams(rp);
       forgotWrap.addView(progressView);
@@ -480,9 +544,14 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     params.topMargin = topMargin + Screen.dp(60f) + Screen.dp(14f);
 
     hintView = new NoScrollTextView(context);
+    hintView.setMovementMethod(LinkMovementMethod.getInstance());
+    hintView.setLinkTextColor(Theme.textLinkColor());
+    hintView.setHighlightColor(Theme.textLinkHighlightColor());
+    addThemeLinkTextColorListener(hintView, ColorId.textLink);
+    addThemeHighlightColorListener(hintView, ColorId.textLinkPressHighlight);
     hintView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f);
     hintView.setTextColor(Theme.textDecentColor());
-    addThemeTextColorListener(hintView, R.id.theme_color_textLight);
+    addThemeTextColorListener(hintView, ColorId.textLight);
     hintView.setTypeface(Fonts.getRobotoRegular());
     hintView.setLayoutParams(params);
 
@@ -500,19 +569,85 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       case MODE_LOGIN_EMAIL_RECOVERY:
       case MODE_CODE:
       // FIXME? case MODE_CODE_CHANGE:
+      case MODE_CODE_EMAIL:
+      case MODE_EMAIL_LOGIN:
       case MODE_LOGIN: {
         tdlib.listeners().addAuthorizationChangeListener(this);
         break;
       }
     }
 
+    sendFirebaseSmsIfNeeded(false);
+
     return contentView;
+  }
+
+  private String lastSafetyNetError;
+
+  private void sendFirebaseSmsIfNeeded (boolean forced) {
+    TdApi.AuthenticationCodeType codeType = authenticationCodeType();
+    if (codeType == null || codeType.getConstructor() != TdApi.AuthenticationCodeTypeFirebaseAndroid.CONSTRUCTOR || isFirebaseSmsSent) {
+      return;
+    }
+    TdApi.AuthenticationCodeTypeFirebaseAndroid firebase = (TdApi.AuthenticationCodeTypeFirebaseAndroid) codeType;
+    String safetyNetApiKey = tdlib.safetyNetApiKey();
+    if (StringUtils.isEmpty(safetyNetApiKey)) {
+      TDLib.Tag.safetyNet("Requesting next code type, because SafetyNet API_KEY is unavailable");
+      requestNextCodeType(false, false);
+      return;
+    }
+    if (Config.REQUIRE_FIREBASE_SERVICES_FOR_SAFETYNET && !U.isGooglePlayServicesAvailable(context)) {
+      TDLib.Tag.safetyNet("Requesting next code type, because Firebase services are unavailable");
+      requestNextCodeType(false, false);
+      return;
+    }
+    Runnable onAttestationFailure = () -> {
+      if (forced) {
+        TDLib.Tag.safetyNet("Avoiding infinite loop, because attestation failed twice");
+        onDeadEndReached();
+      } else {
+        TDLib.Tag.safetyNet("Force resend code, ignoring whether codeInfo.nextCodeType is null or not");
+        requestNextCodeType(false, true);
+      }
+    };
+    //noinspection ConstantConditions
+    SafetyNet.getClient(context)
+      .attest(firebase.nonce, safetyNetApiKey)
+      .addOnSuccessListener(attestationSuccess -> {
+        String attestationResult = attestationSuccess.getJwsResult();
+        if (StringUtils.isEmpty(attestationResult)) {
+          TDLib.Tag.safetyNet("Attestation success, but result is empty");
+          lastSafetyNetError = "EMPTY_JWS_RESULT";
+          executeOnUiThreadOptional(onAttestationFailure);
+        } else {
+          TDLib.Tag.safetyNet("Attestation success: %s", attestationResult);
+          tdlib.client().send(new TdApi.SendAuthenticationFirebaseSms(attestationResult), result -> {
+            runOnUiThreadOptional(() -> {
+              if (result.getConstructor() == TdApi.Ok.CONSTRUCTOR) {
+                isFirebaseSmsSent = true;
+                updateAuthState();
+                TDLib.Tag.safetyNet("Attestation finished successfully");
+              } else {
+                lastSafetyNetError = TD.toErrorString(result);
+                TDLib.Tag.safetyNet("Attestation failed by server, retrying once: %s", TD.toErrorString(result));
+                requestNextCodeType(false, true);
+              }
+            });
+          });
+        }
+      })
+      .addOnFailureListener(attestationError -> {
+        lastSafetyNetError = attestationError.getMessage();
+        TDLib.Tag.safetyNet("Attestation failed with error: %s", attestationError.getMessage());
+        executeOnUiThreadOptional(onAttestationFailure);
+      });
   }
 
   @Override
   public void onAuthorizationStateChanged (TdApi.AuthorizationState authorizationState) {
     runOnUiThreadOptional(() -> {
       this.authState = authorizationState;
+      this.isFirebaseSmsSent = false;
       updateAuthState();
     });
   }
@@ -522,11 +657,14 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     switch (mode) {
       case MODE_CODE:
       case MODE_LOGIN:
+      case MODE_CODE_EMAIL:
         editText.setText(code);
         proceed();
         break;
     }
   }
+
+  private boolean isFirebaseSmsSent;
 
   private CharSequence getCodeHint (TdApi.AuthenticationCodeType type, String formattedPhone) {
     if (mode == MODE_CODE_PHONE_CONFIRM) {
@@ -535,24 +673,48 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     editText.setHint(Lang.getString(R.string.login_Code));
     switch (type.getConstructor()) {
       case TdApi.AuthenticationCodeTypeCall.CONSTRUCTOR: {
-        return Strings.replaceBoldTokens(Lang.getString(R.string.SentCallCode, formattedPhone), R.id.theme_color_textLight);
+        return Strings.replaceBoldTokens(Lang.getString(R.string.SentCallCode, formattedPhone), ColorId.textLight);
       }
       case TdApi.AuthenticationCodeTypeFlashCall.CONSTRUCTOR: {
-        return Strings.replaceBoldTokens(Lang.getString(R.string.SentCallOnly, formattedPhone), R.id.theme_color_textLight);
+        return Strings.replaceBoldTokens(Lang.getString(R.string.SentCallOnly, formattedPhone), ColorId.textLight);
       }
       case TdApi.AuthenticationCodeTypeTelegramMessage.CONSTRUCTOR: {
-        return Strings.replaceBoldTokens(Lang.getString(R.string.SentAppCode), R.id.theme_color_textLight);
+        return Strings.replaceBoldTokens(Lang.getString(R.string.SentAppCode), ColorId.textLight);
       }
-      case TdApi.AuthenticationCodeTypeSms.CONSTRUCTOR: {
-        return Strings.replaceBoldTokens(Lang.getString(R.string.SentSmsCode, formattedPhone), R.id.theme_color_textLight);
+      case TdApi.AuthenticationCodeTypeSms.CONSTRUCTOR:
+      case TdApi.AuthenticationCodeTypeFirebaseAndroid.CONSTRUCTOR: {
+        int resId = R.string.SentSmsCode;
+        if (type.getConstructor() == TdApi.AuthenticationCodeTypeFirebaseAndroid.CONSTRUCTOR && !isFirebaseSmsSent) {
+          resId = R.string.SendingSmsCode;
+        }
+        return Strings.replaceBoldTokens(Lang.getString(resId, formattedPhone), ColorId.textLight);
       }
       case TdApi.AuthenticationCodeTypeMissedCall.CONSTRUCTOR: {
         TdApi.AuthenticationCodeTypeMissedCall missedCall = (TdApi.AuthenticationCodeTypeMissedCall) type;
         editText.setHint(Lang.pluralBold(R.string.login_LastDigits, missedCall.length));
-        return Strings.replaceBoldTokens(Lang.getString(R.string.format_doubleLines, Lang.getString(R.string.SentMissedCall, Strings.formatPhone(missedCall.phoneNumberPrefix)), Lang.plural(R.string.SentMissedCallXDigits, missedCall.length)), R.id.theme_color_textLight);
+        return Strings.replaceBoldTokens(Lang.getString(R.string.format_doubleLines, Lang.getString(R.string.SentMissedCall, Strings.formatPhone(missedCall.phoneNumberPrefix)), Lang.plural(R.string.SentMissedCallXDigits, missedCall.length)), ColorId.textLight);
       }
+      case TdApi.AuthenticationCodeTypeFragment.CONSTRUCTOR: {
+        TdApi.AuthenticationCodeTypeFragment fragment = (TdApi.AuthenticationCodeTypeFragment) type;
+        SpannableStringBuilder b = new SpannableStringBuilder();
+        b.append(Strings.replaceBoldTokens(Lang.getStringSecure(R.string.SentFragmentCode)));
+        if (!StringUtils.isEmpty(fragment.url)) {
+          b.append(" ");
+          int start = b.length();
+          b.append(Lang.getStringSecure(R.string.OpenFragment));
+          b.setSpan(new NoUnderlineClickableSpan() {
+            @Override
+            public void onClick (@NonNull View widget) {
+              UI.openUrl(fragment.url);
+            }
+          }, start, b.length(), Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        return b;
+      }
+      case TdApi.AuthenticationCodeTypeFirebaseIos.CONSTRUCTOR:
+        break; // Unreachable
     }
-    return Strings.replaceBoldTokens(Lang.getString(R.string.SentSmsCode), R.id.theme_color_textLight);
+    throw new UnsupportedOperationException(type.toString());
   }
 
   @Override
@@ -568,7 +730,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       setIsInputOK(Strings.isValidEmail(text));
     } else if (mode == MODE_EMAIL_RECOVERY || mode == MODE_LOGIN_EMAIL_RECOVERY) {
       setIsInputOK(Strings.getNumber(text).length() >= 6);
-    } else if ((mode == MODE_CODE || mode == MODE_CODE_CHANGE || mode == MODE_CODE_PHONE_CONFIRM) && Strings.getNumberLength(text) >= TD.getCodeLength(authState)) {
+    } else if ((mode == MODE_CODE || mode == MODE_CODE_CHANGE || mode == MODE_CODE_PHONE_CONFIRM || mode == MODE_CODE_EMAIL) && Strings.getNumberLength(text) >= TD.getCodeLength(authState)) {
       proceed();
     } else if ((mode == MODE_NEW || mode == MODE_EDIT) && step == STEP_PASSWORD_HINT) {
       passwordHint = text;
@@ -648,7 +810,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       }
       case HINT_ANIMATOR: {
         if (finalFactor == 0f) {
-          if (pendingHint != null && !pendingHint.isEmpty()) {
+          if (!StringUtils.isEmpty(pendingHint)) {
             setHint(pendingHint, pendingHintIsError);
             pendingHint = null;
             pendingHintIsError = false;
@@ -676,16 +838,16 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     setHintText(Lang.getString(res), isError);
   }
 
-  private void setHint (String text, boolean isError) {
+  private void setHint (CharSequence text, boolean isError) {
     hintView.setText(text);
     hintView.setTextColor(isError ? Theme.textRedColor() : Theme.textDecentColor());
     removeThemeListenerByTarget(hintView);
-    addThemeTextColorListener(hintView, isError ? R.id.theme_color_textNegative : R.id.theme_color_textLight);
+    addOrUpdateThemeTextColorListener(hintView, isError ? ColorId.textNegative : ColorId.textLight);
     editText.setInErrorState(isError);
   }
 
-  private void setHintText (@Nullable String text, boolean isError) {
-    if (text == null || text.isEmpty()) {
+  private void setHintText (@Nullable CharSequence text, boolean isError) {
+    if (StringUtils.isEmpty(text)) {
       animateHint(0f);
       if (hintView.getAlpha() == 0f) {
         setHint("", false);
@@ -700,7 +862,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     }
   }
 
-  private String pendingHint;
+  private CharSequence pendingHint;
   private boolean pendingHintIsError;
 
   private static final int FORGET_ANIMATOR = 1;
@@ -751,21 +913,67 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     return authState != null && authState.getConstructor() == TdApi.AuthorizationStateWaitCode.CONSTRUCTOR && ((TdApi.AuthorizationStateWaitCode) authState).codeInfo.nextType != null;
   }
 
-  private void updateAuthState () {
+  private TdApi.AuthenticationCodeType authenticationCodeType () {
     if (authState != null && authState.getConstructor() == TdApi.AuthorizationStateWaitCode.CONSTRUCTOR) {
-      hintView.setText(getCodeHint(((TdApi.AuthorizationStateWaitCode) authState).codeInfo.type, formattedPhone));
+      return ((TdApi.AuthorizationStateWaitCode) authState).codeInfo.type;
+    }
+    return null;
+  }
+
+  private void updateAuthState () {
+    TdApi.AuthenticationCodeType authenticationCodeType = authenticationCodeType();
+    if (authenticationCodeType != null) {
+      hintView.setText(getCodeHint(authenticationCodeType, formattedPhone));
       if (!hasNextCodeType()) {
         setForgetText(null);
       }
     }
+    sendFirebaseSmsIfNeeded(false);
   }
 
-  private void requestNextCodeType () {
-    if (!hasNextCodeType() || inRecoveryProgress) {
+  private void onDeadEndReached () {
+    TDLib.Tag.safetyNet("Dead end reached: attestation failed and codeInfo.nextType is null");
+    CharSequence message = Lang.getMarkdownString(this, R.string.login_DeadEnd);
+    if (message instanceof Spannable) {
+      CustomTypefaceSpan[] spans = ((Spannable) message).getSpans(0, message.length(), CustomTypefaceSpan.class);
+      for (CustomTypefaceSpan span : spans) {
+        if (span.getEntityType() != null && span.getEntityType().getConstructor() == TdApi.TextEntityTypeItalic.CONSTRUCTOR) {
+          span.setTypeface(null);
+          span.setColorId(ColorId.textLink);
+          span.setEntityType(new TdApi.TextEntityTypeEmailAddress());
+          int start = ((Spannable) message).getSpanStart(span);
+          int end = ((Spannable) message).getSpanEnd(span);
+          ((Spannable) message).setSpan(new NoUnderlineClickableSpan() {
+            @Override
+            public void onClick (@NonNull View widget) {
+              Intents.sendEmail(
+                Lang.getStringSecure(R.string.email_SmsHelp),
+                Lang.getStringSecure(R.string.email_LoginDeadEnd_subject, formattedPhone),
+                Lang.getStringSecure(R.string.email_LoginDeadEnd_text, formattedPhone, U.getUsefulMetadata(tdlib)),
+                StringUtils.isEmpty(lastSafetyNetError) ? "none" : lastSafetyNetError
+              );
+            }
+          }, start, end, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+          break;
+        }
+      }
+    }
+    setHint(message, true);
+  }
+
+  private void requestNextCodeType (boolean byUser, boolean force) {
+    if (inRecoveryProgress) {
       return;
     }
 
-    if (tdlib.context().watchDog().isOffline()) {
+    if (!hasNextCodeType() && !force) {
+      if (!byUser) {
+        onDeadEndReached();
+      }
+      return;
+    }
+
+    if (byUser && tdlib.context().watchDog().isOffline()) {
       UI.showNetworkPrompt();
       return;
     }
@@ -783,22 +991,22 @@ public class PasswordController extends ViewController<PasswordController.Args> 
         function = new TdApi.ResendAuthenticationCode();
         break;
     }
-    tdlib.client().send(function, object -> tdlib.ui().post(() -> {
-      if (!isDestroyed()) {
-        setInRecoveryProgress(false);
-        switch (object.getConstructor()) {
-          case TdApi.Ok.CONSTRUCTOR: {
-            break;
-          }
-          case TdApi.AuthenticationCodeInfo.CONSTRUCTOR: {
-            ((TdApi.AuthorizationStateWaitCode) authState).codeInfo = (TdApi.AuthenticationCodeInfo) object;
-            updateAuthState();
-            break;
-          }
-          case TdApi.Error.CONSTRUCTOR: {
-            UI.showError(object);
-            break;
-          }
+    tdlib.client().send(function, object -> runOnUiThreadOptional(() -> {
+      setInRecoveryProgress(false);
+      switch (object.getConstructor()) {
+        case TdApi.Ok.CONSTRUCTOR: {
+          break;
+        }
+        case TdApi.AuthenticationCodeInfo.CONSTRUCTOR: {
+          ((TdApi.AuthorizationStateWaitCode) authState).codeInfo = (TdApi.AuthenticationCodeInfo) object;
+          isFirebaseSmsSent = false;
+          updateAuthState();
+          sendFirebaseSmsIfNeeded(force);
+          break;
+        }
+        case TdApi.Error.CONSTRUCTOR: {
+          setHint(TD.toErrorString(object), true);
+          break;
         }
       }
     }));
@@ -941,9 +1149,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
         openAlert(R.string.RestorePasswordNoEmailTitle, R.string.SinceNotProvided);
         return;
       }
-      setStackLocked(true);
       tdlib.client().send(new TdApi.RequestAuthenticationPasswordRecovery(), object -> runOnUiThreadOptional(() -> {
-        setStackLocked(false);
         setInRecoveryProgress(false);
         switch (object.getConstructor()) {
           case TdApi.Ok.CONSTRUCTOR: {
@@ -1069,6 +1275,15 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     if (this.inProgress != inProgress) {
       this.inProgress = inProgress;
       nextButton.setInProgress(inProgress);
+      if (needStackLocking()) {
+        if (isFocused() || (!inProgress && isStackLocked())) {
+          setStackLocked(inProgress);
+        } else {
+          addOneShotFocusListener(() ->
+            setStackLocked(this.inProgress)
+          );
+        }
+      }
     }
   }
 
@@ -1275,6 +1490,10 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     }
   }
 
+  private boolean needStackLocking () {
+    return mode == MODE_CODE || mode == MODE_CODE_EMAIL || mode == MODE_LOGIN_EMAIL_RECOVERY;
+  }
+
   private void sendCode (String code) {
     if (inProgress) {
       return;
@@ -1286,9 +1505,6 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     }
 
     setInProgress(true);
-    if (mode == MODE_CODE) {
-      setStackLocked(true);
-    }
 
     TdApi.Function<?> function;
     switch (mode) {
@@ -1298,6 +1514,10 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       case MODE_CODE_CHANGE:
         function = new TdApi.CheckChangePhoneNumberCode(code);
         break;
+      case MODE_CODE_EMAIL:
+        // TODO sign in with Google (+ Apple ID?)
+        function = new TdApi.CheckAuthenticationEmailCode(new TdApi.EmailAddressAuthenticationCode(code));
+        break;
       default:
         function = new TdApi.CheckAuthenticationCode(code);
         break;
@@ -1306,9 +1526,6 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     tdlib.client().send(function, object -> tdlib.ui().post(() -> {
       if (!isDestroyed()) {
         setInProgress(false);
-        if (mode == MODE_CODE) {
-          setStackLocked(false);
-        }
         switch (object.getConstructor()) {
           case TdApi.Ok.CONSTRUCTOR: {
             switch (mode) {
@@ -1331,12 +1548,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
             break;
           }
           case TdApi.Error.CONSTRUCTOR: {
-            TdApi.Error error = (TdApi.Error) object;
-            if ("PHONE_CODE_INVALID".equals(error.message)) {
-              setHintText(R.string.InvalidCode, true);
-            } else {
-              setHintText(TD.toErrorString(error), true);
-            }
+            setHintText(TD.toErrorString(object), true);
             break;
           }
         }
@@ -1356,15 +1568,8 @@ public class PasswordController extends ViewController<PasswordController.Args> 
 
     setInProgress(true);
 
-    if (mode == MODE_LOGIN_EMAIL_RECOVERY) {
-      setStackLocked(true);
-    }
-
     tdlib.client().send(mode == MODE_LOGIN_EMAIL_RECOVERY ? new TdApi.RecoverAuthenticationPassword(recoveryCode, null, null) : new TdApi.RecoverPassword(recoveryCode, null, null), object -> tdlib.ui().post(() -> {
       if (!isDestroyed()) {
-        if (mode == MODE_LOGIN_EMAIL_RECOVERY) {
-          setStackLocked(false);
-        }
         setInProgress(false);
         switch (object.getConstructor()) {
           case TdApi.Ok.CONSTRUCTOR: {
@@ -1388,7 +1593,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     }));
   }
 
-  private void login (String password) {
+  private void login (TdApi.Function<?> function) {
     if (inProgress) {
       return;
     }
@@ -1399,28 +1604,24 @@ public class PasswordController extends ViewController<PasswordController.Args> 
     }
 
     setInProgress(true);
-    setStackLocked(true);
 
-    tdlib.client().send(new TdApi.CheckAuthenticationPassword(password), object -> tdlib.ui().post(() -> {
-      if (!isDestroyed()) {
-        setInProgress(false);
-        setStackLocked(false);
+    tdlib.client().send(function, object -> runOnUiThreadOptional(() -> {
+      setInProgress(false);
 
-        switch (object.getConstructor()) {
-          case TdApi.Ok.CONSTRUCTOR: {
-            break;
+      switch (object.getConstructor()) {
+        case TdApi.Ok.CONSTRUCTOR: {
+          break;
+        }
+        case TdApi.Error.CONSTRUCTOR: {
+          TdApi.Error error = (TdApi.Error) object;
+          if (error.code == 400 && "PASSWORD_HASH_INVALID".equals(error.message)) {
+            Views.selectAll(editText.getEditText());
+            Keyboard.show(editText);
+            setHintText(R.string.InvalidPasswordTryAgain, true);
+          } else {
+            setHintText(TD.toErrorString(object), true);
           }
-          case TdApi.Error.CONSTRUCTOR: {
-            TdApi.Error error = (TdApi.Error) object;
-            if (error.code == 400 && "PASSWORD_HASH_INVALID".equals(error.message)) {
-              Views.selectAll(editText.getEditText());
-              Keyboard.show(editText);
-              setHintText(R.string.InvalidPasswordTryAgain, true);
-            } else {
-              setHintText(TD.toErrorString(object), true);
-            }
-            break;
-          }
+          break;
         }
       }
     }));
@@ -1440,7 +1641,7 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       }
       case MODE_LOGIN: {
         if (!input.isEmpty()) {
-          login(input);
+          login(new TdApi.CheckAuthenticationPassword(input));
         }
         break;
       }
@@ -1462,9 +1663,18 @@ public class PasswordController extends ViewController<PasswordController.Args> 
         }
         break;
       }
+      case MODE_EMAIL_LOGIN: {
+        if (Strings.isValidEmail(input)) {
+          login(new TdApi.SetAuthenticationEmailAddress(input));
+        } else {
+          setHintText(R.string.EmailInvalid, true);
+        }
+        break;
+      }
       case MODE_CODE:
       case MODE_CODE_CHANGE:
-      case MODE_CODE_PHONE_CONFIRM: {
+      case MODE_CODE_PHONE_CONFIRM:
+      case MODE_CODE_EMAIL: {
         String number = Strings.getNumber(input);
         sendCode(number);
         break;
@@ -1493,8 +1703,9 @@ public class PasswordController extends ViewController<PasswordController.Args> 
       }
       case MODE_CODE:
       case MODE_CODE_CHANGE:
-      case MODE_CODE_PHONE_CONFIRM: {
-        requestNextCodeType();
+      case MODE_CODE_PHONE_CONFIRM:
+      case MODE_CODE_EMAIL: {
+        requestNextCodeType(true, false);
         break;
       }
       case MODE_CONFIRM:
@@ -1514,19 +1725,15 @@ public class PasswordController extends ViewController<PasswordController.Args> 
 
   @Override
   public void onClick (View v) {
-    switch (v.getId()) {
-      case R.id.btn_done: {
-        proceed();
-        break;
-      }
-      case R.id.btn_cancelReset: {
-        openAlert(R.string.ResetPassword, R.string.CancelPasswordReset, Lang.getString(R.string.CancelPasswordResetYes), (dialog, which) -> { cancelResetPassword(); });
-        break;
-      }
-      case R.id.btn_forgotPassword: {
-        proceedForgot();
-        break;
-      }
+    final int viewId = v.getId();
+    if (viewId == R.id.btn_done) {
+      proceed();
+    } else if (viewId == R.id.btn_cancelReset) {
+      openAlert(R.string.ResetPassword, R.string.CancelPasswordReset, Lang.getString(R.string.CancelPasswordResetYes), (dialog, which) -> {
+        cancelResetPassword();
+      });
+    } else if (viewId == R.id.btn_forgotPassword) {
+      proceedForgot();
     }
   }
 

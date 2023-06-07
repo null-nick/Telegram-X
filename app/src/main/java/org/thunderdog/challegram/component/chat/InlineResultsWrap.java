@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,7 +29,7 @@ import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.sticker.StickerSmallView;
@@ -53,12 +53,14 @@ import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.telegram.TGLegacyManager;
 import org.thunderdog.challegram.telegram.TdlibDelegate;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.theme.ThemeId;
 import org.thunderdog.challegram.theme.ThemeListenerList;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
+import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.ui.MessagesController;
 import org.thunderdog.challegram.ui.SimpleMediaViewController;
 import org.thunderdog.challegram.util.CancellableResultHandler;
@@ -200,7 +202,7 @@ public class InlineResultsWrap extends FrameLayoutFix implements View.OnClickLis
       public void draw (Canvas c) {
         int top = detectRecyclerTopEdge();
         int width = getMeasuredWidth();
-        c.drawRect(0, top, width, getMeasuredHeight(), Paints.fillingPaint(adapter.useDarkMode() ? Theme.getColor(R.id.theme_color_filling, ThemeId.NIGHT_BLACK) : Theme.fillingColor()));
+        c.drawRect(0, top, width, getMeasuredHeight(), Paints.fillingPaint(adapter.useDarkMode() ? Theme.getColor(ColorId.filling, ThemeId.NIGHT_BLACK) : Theme.fillingColor()));
 
         super.draw(c);
       }
@@ -397,23 +399,8 @@ public class InlineResultsWrap extends FrameLayoutFix implements View.OnClickLis
   }
 
   @Override
-  public void onEmojiPartLoaded () {
-    if (recyclerView != null) {
-      RecyclerView.LayoutManager manager = recyclerView.getLayoutManager();
-      if (manager != null) {
-        LinearLayoutManager lm = (LinearLayoutManager) recyclerView.getLayoutManager();
-        int first = lm.findFirstVisibleItemPosition();
-        int last = lm.findLastVisibleItemPosition();
-        if (first != -1 && last != -1) {
-          for (int i = Math.max(1, first); i <= last; i++) {
-            View view = manager.findViewByPosition(i);
-            if (view != null) {
-              view.invalidate();
-            }
-          }
-        }
-      }
-    }
+  public void onEmojiUpdated (boolean isPackSwitch) {
+    Views.invalidateChildren(recyclerView);
   }
 
   private void checkLoadMore () {
@@ -869,7 +856,7 @@ public class InlineResultsWrap extends FrameLayoutFix implements View.OnClickLis
           UI.post(() -> {
             if (!isCancelled()) {
               setItems(null);
-              delegate.tdlib().ui().openChat(c, chatId, new TdlibUi.ChatOpenParameters().keepStack().shareItem(new TGBotStart(delegate.tdlib().chatUserId(chatId), button.data(), false)));
+              delegate.tdlib().ui().openChat(c, chatId, new TdlibUi.ChatOpenParameters().keepStack().shareItem(new TGBotStart(delegate.tdlib().chatUserId(chatId), button.botStartParameter(), false)));
             }
           });
         } else {
@@ -903,46 +890,42 @@ public class InlineResultsWrap extends FrameLayoutFix implements View.OnClickLis
 
   @Override
   public void onClick (View v) {
-    switch (v.getId()) {
-      case R.id.btn_switchPmButton: {
-        switchPm((InlineResultButton) v.getTag());
-        break;
-      }
-      case R.id.result: {
-        Object tag = v.getTag();
-        if (tag != null && tag instanceof InlineResult) {
-          InlineResult<?> result = (InlineResult<?>) tag;
-          PickListener listener = findListener();
-          if (listener == null) {
-            return;
+    int viewId = v.getId();
+    if (viewId == R.id.btn_switchPmButton) {
+      switchPm((InlineResultButton) v.getTag());
+    } else if (viewId == R.id.result) {
+      Object tag = v.getTag();
+      if (tag != null && tag instanceof InlineResult) {
+        InlineResult<?> result = (InlineResult<?>) tag;
+        PickListener listener = findListener();
+        if (listener == null) {
+          return;
+        }
+        switch (result.getType()) {
+          case InlineResult.TYPE_HASHTAG: {
+            InlineResultHashtag hashtag = (InlineResultHashtag) result;
+            listener.onHashtagPick(hashtag);
+            break;
           }
-          switch (result.getType()) {
-            case InlineResult.TYPE_HASHTAG: {
-              InlineResultHashtag hashtag = (InlineResultHashtag) result;
-              listener.onHashtagPick(hashtag);
-              break;
-            }
-            case InlineResult.TYPE_EMOJI_SUGGESTION: {
-              InlineResultEmojiSuggestion suggestion = (InlineResultEmojiSuggestion) result;
-              listener.onEmojiSuggestionPick(suggestion);
-              break;
-            }
-            case InlineResult.TYPE_MENTION: {
-              InlineResultMention mention = (InlineResultMention) result;
-              listener.onMentionPick(mention, mention.isUsernameless() ? mention.getMention(true) : null);
-              break;
-            }
-            case InlineResult.TYPE_COMMAND: {
-              listener.onCommandPick((InlineResultCommand) result, false);
-              break;
-            }
-            default: {
-              listener.onInlineQueryResultPick(result);
-              break;
-            }
+          case InlineResult.TYPE_EMOJI_SUGGESTION: {
+            InlineResultEmojiSuggestion suggestion = (InlineResultEmojiSuggestion) result;
+            listener.onEmojiSuggestionPick(suggestion);
+            break;
+          }
+          case InlineResult.TYPE_MENTION: {
+            InlineResultMention mention = (InlineResultMention) result;
+            listener.onMentionPick(mention, mention.isUsernameless() ? mention.getMention(true) : null);
+            break;
+          }
+          case InlineResult.TYPE_COMMAND: {
+            listener.onCommandPick((InlineResultCommand) result, false);
+            break;
+          }
+          default: {
+            listener.onInlineQueryResultPick(result);
+            break;
           }
         }
-        break;
       }
     }
   }
@@ -953,13 +936,13 @@ public class InlineResultsWrap extends FrameLayoutFix implements View.OnClickLis
   }
 
   @Override
-  public boolean onStickerClick (StickerSmallView view, View clickView, TGStickerObj sticker, boolean isMenuClick, boolean forceDisableNotification, @Nullable TdApi.MessageSchedulingState schedulingState) {
+  public boolean onStickerClick (StickerSmallView view, View clickView, TGStickerObj sticker, boolean isMenuClick, TdApi.MessageSendOptions sendOptions) {
     Object tag = view.getTag();
     if (tag instanceof InlineResult) {
       InlineResult<?> result = (InlineResult<?>) tag;
       MessagesController c = findMessagesController();
       if (c != null) {
-        c.sendInlineQueryResult(result.getQueryId(), result.getId(), true, true, forceDisableNotification, schedulingState);
+        c.sendInlineQueryResult(result.getQueryId(), result.getId(), true, true, sendOptions);
       }
     }
     return false;

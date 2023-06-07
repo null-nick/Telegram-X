@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@ package org.thunderdog.challegram.unsorted;
 import android.os.SystemClock;
 import android.view.View;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.Log;
@@ -264,7 +264,7 @@ public class Test {
 
   public static File getTestDBDir () {
     File pmcDir = new File(UI.getAppContext().getFilesDir(), "pmc");
-    if (!pmcDir.exists() && !pmcDir.mkdir()) {
+    if (!FileUtils.createDirectory(pmcDir)) {
       throw new IllegalStateException("Unable to create working directory");
     }
     return new File(pmcDir, "test");

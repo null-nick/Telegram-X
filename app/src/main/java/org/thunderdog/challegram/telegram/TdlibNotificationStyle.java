@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -37,11 +37,13 @@ import androidx.core.app.RemoteInput;
 import androidx.core.content.pm.ShortcutInfoCompat;
 import androidx.core.content.pm.ShortcutManagerCompat;
 import androidx.core.graphics.drawable.IconCompat;
+import androidx.core.os.CancellationSignal;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.TDLib;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.config.Device;
@@ -54,7 +56,7 @@ import org.thunderdog.challegram.receiver.TGMessageReceiver;
 import org.thunderdog.challegram.receiver.TGRemoveAllReceiver;
 import org.thunderdog.challegram.receiver.TGRemoveReceiver;
 import org.thunderdog.challegram.receiver.TGWearReplyReceiver;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.DrawAlgorithms;
 import org.thunderdog.challegram.tool.Intents;
 import org.thunderdog.challegram.tool.Strings;
@@ -69,7 +71,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Queue;
 import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.LinkedBlockingDeque;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -273,7 +277,17 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
     String channelId;
     String rShortcutId = null;
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      android.app.NotificationChannel channel = (android.app.NotificationChannel) tdlib.notifications().getSystemChannel(group);
+      android.app.NotificationChannel channel;
+      try {
+        channel = (android.app.NotificationChannel) tdlib.notifications().getSystemChannel(group);
+      } catch (TdlibNotificationChannelGroup.ChannelCreationFailureException e) {
+        TDLib.Tag.notifications("Unable to get notification channel for group.id %d:\n%s",
+          group.getId(),
+          Log.toString(e)
+        );
+        tdlib.settings().trackNotificationChannelProblem(e, group.getChatId());
+        channel = null;
+      }
       if (channel == null) {
         group.markAsHidden(TdlibNotificationGroup.HIDE_REASON_DISABLED_CHANNEL);
         return DISPLAY_STATE_FAIL;
@@ -316,7 +330,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
     // Notification itself
 
     final boolean needPreview = helper.needPreview(group);
-    final boolean needReply = !Passcode.instance().isLocked() && needPreview && (!isSummary || Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) && !isChannel && tdlib.hasWritePermission(chat) && !group.isOnlyScheduled();
+    final boolean needReply = !Passcode.instance().isLocked() && needPreview && (!isSummary || Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) && !isChannel && tdlib.canSendBasicMessage(chat) && !group.isOnlyScheduled();
     final boolean needReplyToMessage = needReply && canReplyTo(group) && (!ChatId.isPrivate(chatId) || (singleNotification != null && chat.unreadCount > 1));
     final long[] allMessageIds = group.getAllMessageIds();
     final long[] allUserIds = group.isMention() ? group.getAllUserIds() : null;
@@ -327,7 +341,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
     Intent msgHeardIntent = new Intent();
     styleIntent(Intents.ACTION_MESSAGE_HEARD, msgHeardIntent, tdlib, group, needReplyToMessage, allMessageIds, allUserIds);
 
-    PendingIntent msgHeardPendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, msgHeardIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent msgHeardPendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, msgHeardIntent, Intents.mutabilityFlags(true));
     conversationBuilder.setReadPendingIntent(msgHeardPendingIntent);
 
     NotificationCompat.Action replyAction = null, muteAction = null, readAction = null;
@@ -336,14 +350,14 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
       // reply
       Intent msgReplyIntent = new Intent();
       styleIntent(Intents.ACTION_MESSAGE_REPLY, msgReplyIntent, tdlib, group, needReplyToMessage, allMessageIds, allUserIds);
-      PendingIntent msgReplyPendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, msgReplyIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+      PendingIntent msgReplyPendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, msgReplyIntent, Intents.mutabilityFlags(true));
       RemoteInput remoteInputAuto = new RemoteInput.Builder(TGBaseReplyReceiver.EXTRA_VOICE_REPLY).setLabel(Lang.getString(R.string.Reply)).build();
       conversationBuilder.setReplyAction(msgReplyPendingIntent, remoteInputAuto);
 
       Intent replyIntent = new Intent(UI.getAppContext(), TGWearReplyReceiver.class);
       Intents.secureIntent(replyIntent, true);
       TdlibNotificationExtras.put(replyIntent, tdlib, group, needReplyToMessage, allMessageIds, allUserIds);
-      PendingIntent replyPendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, replyIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+      PendingIntent replyPendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, replyIntent, Intents.mutabilityFlags(true));
       RemoteInput remoteInput = new RemoteInput.Builder(TGBaseReplyReceiver.EXTRA_VOICE_REPLY).setLabel(Lang.getString(R.string.Reply)).build();
       String replyToString = Lang.getString(R.string.Reply);
       replyAction = new NotificationCompat.Action.Builder(R.drawable.baseline_reply_24_white, replyToString, replyPendingIntent).setAllowGeneratedReplies(true).addRemoteInput(remoteInput).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_REPLY).build();
@@ -354,7 +368,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
       Intent intent = new Intent(UI.getAppContext(), TGMessageReceiver.class);
       styleIntent(Intents.ACTION_MESSAGE_READ, intent, tdlib, group, needReplyToMessage, allMessageIds, allUserIds);
       try {
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, intent, Intents.mutabilityFlags(true));
         readAction = new NotificationCompat.Action.Builder(R.drawable.baseline_done_all_24_white, Lang.getString(R.string.ActionRead), pendingIntent).setSemanticAction(NotificationCompat.Action.SEMANTIC_ACTION_MARK_AS_READ).build();
       } catch (Throwable t) {
         Log.e("Unable to add read intent", t);
@@ -366,7 +380,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
       Intent intent = new Intent(UI.getAppContext(), TGMessageReceiver.class);
       styleIntent(Intents.ACTION_MESSAGE_MUTE, intent, tdlib, group, needReplyToMessage, allMessageIds, allUserIds);
       try {
-        PendingIntent pendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+        PendingIntent pendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, intent, Intents.mutabilityFlags(true));
         String text;
         if (group.isMention()) {
           long singleSenderId = group.singleSenderId();
@@ -391,7 +405,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
     Intent hideIntent = new Intent(UI.getAppContext(), TGRemoveReceiver.class);
     Intents.secureIntent(hideIntent, true);
     TdlibNotificationExtras.put(hideIntent, tdlib, group, needReplyToMessage, allMessageIds, allUserIds);
-    PendingIntent hidePendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, hideIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent hidePendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), notificationId, hideIntent, Intents.mutabilityFlags(true));
 
     NotificationCompat.Style style = null;
 
@@ -433,7 +447,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
         }
         textBuilder.append(messageText);
         conversationBuilder.addMessage(messageText != null ? messageText.toString() : null);
-        addMessage(messagingStyle, messageText, person, tdlib, chat, notification, isSummary ? SUMMARY_MEDIA_LOAD_TIMEOUT : MEDIA_LOAD_TIMEOUT, isRebuild, !onlyScheduled && notification.isScheduled(), !onlySilent && notification.isVisuallySilent());
+        addMessage(messagingStyle, messageText, person, chat, notification, isSummary ? SUMMARY_MEDIA_LOAD_TIMEOUT : MEDIA_LOAD_TIMEOUT, isRebuild, !onlyScheduled && notification.isScheduled(), !onlySilent && notification.isVisuallySilent(), onlyPinned);
       } else {
         final CharSequence messageText;
         boolean isScheduled = true;
@@ -472,53 +486,65 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
 
       if (photoFile != null) {
         if (!isRebuild) {
-          tdlib.files().downloadFileSync(photoFile, TdlibNotificationStyle.MEDIA_LOAD_TIMEOUT, null, null);
+          downloadFile(photoFile, TdlibNotificationStyle.MEDIA_LOAD_TIMEOUT);
         }
         if (TD.isFileLoaded(photoFile)) {
           Bitmap result = null;
           try {
-            if (photo.type == TdlibNotificationMediaFile.TYPE_ANIMATED_STICKER) {
-              result = ImageReader.decodeLottieFrame(photoFile.local.path, photo.width, photo.height, 512);
-            } else {
-              BitmapFactory.Options opts = ImageReader.getImageSize(photoFile.local.path);
-              opts.inSampleSize = ImageReader.calculateInSampleSize(opts, 512, 512);
-              opts.inJustDecodeBounds = false;
-              result = ImageReader.decodeFile(photoFile.local.path, opts.inSampleSize != 0 ? opts : null);
+            switch (photo.type) {
+              case TdlibNotificationMediaFile.TYPE_WEBM_STICKER:
+                result = ImageReader.decodeVideoFrame(photoFile.local.path, photo.width, photo.height, 512);
+                break;
+              case TdlibNotificationMediaFile.TYPE_LOTTIE_STICKER:
+                result = ImageReader.decodeLottieFrame(photoFile.local.path, photo.width, photo.height, 512);
+                break;
+              case TdlibNotificationMediaFile.TYPE_STICKER:
+              case TdlibNotificationMediaFile.TYPE_IMAGE: {
+                BitmapFactory.Options opts = ImageReader.getImageSize(photoFile.local.path);
+                opts.inSampleSize = ImageReader.calculateInSampleSize(opts, 512, 512);
+                opts.inJustDecodeBounds = false;
+                result = ImageReader.decodeFile(photoFile.local.path, opts.inSampleSize != 0 ? opts : null);
+                break;
+              }
+              default:
+                throw new UnsupportedOperationException(Integer.toString(photo.type));
             }
-            int width = result.getWidth();
-            int height = result.getHeight();
-            float ratio = (float) width / (float) height;
-            if (ratio != 2f) {
-              int desiredWidth = Math.min(Math.max(result.getWidth(), result.getHeight()), 512);
-              desiredWidth = desiredWidth - desiredWidth % 2;
-              int desiredHeight = desiredWidth / 2;
-              Bitmap scaledBitmap = Bitmap.createBitmap(desiredWidth, desiredHeight, Bitmap.Config.ARGB_8888);
-              Canvas c = new Canvas(scaledBitmap);
-              Paint paint = new Paint();
-              paint.setFilterBitmap(true);
-              if (photo.needBlur) {
-                float scale = Math.min(90f / (float) result.getWidth(), 90f / (float) result.getHeight());
-                Bitmap blurredBitmap = Bitmap.createScaledBitmap(result, (int) ((float) result.getWidth() * scale), (int) ((float) result.getHeight() * scale), true);
-                if (U.blurBitmap(blurredBitmap, 3, 1)) {
-                  paint.setAlpha((int) (255f * .75f));
-                  c.drawColor(0xffffffff);
-                  DrawAlgorithms.drawBitmapCentered(scaledBitmap.getWidth(), scaledBitmap.getHeight(), c, blurredBitmap, true, paint);
-                  paint.setAlpha(255);
+            if (U.isValidBitmap(result)) {
+              int width = result.getWidth();
+              int height = result.getHeight();
+              float ratio = (float) width / (float) height;
+              if (ratio != 2f) {
+                int desiredWidth = Math.min(Math.max(result.getWidth(), result.getHeight()), 512);
+                desiredWidth = desiredWidth - desiredWidth % 2;
+                int desiredHeight = desiredWidth / 2;
+                Bitmap scaledBitmap = Bitmap.createBitmap(desiredWidth, desiredHeight, Bitmap.Config.ARGB_8888);
+                Canvas c = new Canvas(scaledBitmap);
+                Paint paint = new Paint();
+                paint.setFilterBitmap(true);
+                if (photo.needBlur) {
+                  float scale = Math.min(90f / (float) result.getWidth(), 90f / (float) result.getHeight());
+                  Bitmap blurredBitmap = Bitmap.createScaledBitmap(result, (int) ((float) result.getWidth() * scale), (int) ((float) result.getHeight() * scale), true);
+                  if (U.blurBitmap(blurredBitmap, 3, 1)) {
+                    paint.setAlpha((int) (255f * .75f));
+                    c.drawColor(0xffffffff);
+                    DrawAlgorithms.drawBitmapCentered(scaledBitmap.getWidth(), scaledBitmap.getHeight(), c, blurredBitmap, true, paint);
+                    paint.setAlpha(255);
+                  }
                 }
-              }
 
-              float scale = Math.min((float) desiredWidth / (float) width, (float) desiredHeight / (float) height);
-              Rect resultRect = new Rect();
-              resultRect.right = (int) ((float) width * scale);
-              resultRect.bottom = (int) ((float) height * scale);
-              if (!photo.isSticker()) {
-                resultRect.offset(desiredWidth / 2 - resultRect.right / 2, desiredHeight / 2 - resultRect.bottom / 2);
+                float scale = Math.min((float) desiredWidth / (float) width, (float) desiredHeight / (float) height);
+                Rect resultRect = new Rect();
+                resultRect.right = (int) ((float) width * scale);
+                resultRect.bottom = (int) ((float) height * scale);
+                if (!photo.isSticker()) {
+                  resultRect.offset(desiredWidth / 2 - resultRect.right / 2, desiredHeight / 2 - resultRect.bottom / 2);
+                }
+                c.drawBitmap(result, null, resultRect, paint);
+                Bitmap oldBitmap = result;
+                result = scaledBitmap;
+                oldBitmap.recycle();
+                U.recycle(c);
               }
-              c.drawBitmap(result, null, resultRect, paint);
-              Bitmap oldBitmap = result;
-              result = scaledBitmap;
-              oldBitmap.recycle();
-              U.recycle(c);
             }
           } catch (Throwable t) {
             Log.i(t);
@@ -822,7 +848,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
     return buildPerson(context, notification.isSelfChat(), TD.isMultiChat(chat), tdlib.isChannelChat(chat), Long.toString(chat.id), tdlib.isBotChat(chat) || tdlib.isChannelChat(chat), chat.title, tdlib.chatLetters(chat), tdlib.chatAvatarColorId(chat), chat.photo != null ? chat.photo.small : null, isScheduled, isSilent, allowDownload);
   }
 
-  public static Person buildPerson (TdlibNotificationManager context, boolean isSelfChat, boolean isGroupChat, boolean isChannel, String id, boolean isBot, String name, Letters letters, @ThemeColorId int colorId, TdApi.File photo, boolean isScheduled, boolean isSilent, boolean allowDownload) {
+  public static Person buildPerson (TdlibNotificationManager context, boolean isSelfChat, boolean isGroupChat, boolean isChannel, String id, boolean isBot, String name, Letters letters, @ColorId int colorId, TdApi.File photo, boolean isScheduled, boolean isSilent, boolean allowDownload) {
     Person.Builder b = new Person.Builder();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
       b.setKey(id);
@@ -853,7 +879,24 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
     style.addMessage(new NotificationCompat.MessagingStyle.Message(Lang.getSilentNotificationTitle(messageText, false, tdlib.isSelfChat(chat), tdlib.isMultiChat(chat), tdlib.isChannelChat(chat), isExclusivelyScheduled, isExclusivelySilent), TimeUnit.SECONDS.toMillis(notification.getDate()), person));
   }
 
-  private static void addMessage (NotificationCompat.MessagingStyle style, CharSequence messageText, Person person, Tdlib tdlib, TdApi.Chat chat, TdlibNotification notification, long loadTimeout, boolean isRebuild, boolean isExclusivelyScheduled, boolean isExclusivelySilent) {
+  private final Queue<CancellationSignal> pendingDownloadOperations = new LinkedBlockingDeque<>();
+
+  @Override
+  public void cancelPendingMediaPreviewDownloads (@NonNull Context context, @NonNull TdlibNotificationHelper helper) {
+    CancellationSignal cancellationSignal;
+    while ((cancellationSignal = pendingDownloadOperations.poll()) != null) {
+      cancellationSignal.cancel();
+    }
+  }
+
+  private void downloadFile (TdApi.File file, long timeout) {
+    CancellationSignal cancellationSignal = new CancellationSignal();
+    pendingDownloadOperations.offer(cancellationSignal);
+    tdlib.files().downloadFileSync(file, timeout, null, null, cancellationSignal);
+    pendingDownloadOperations.remove(cancellationSignal);
+  }
+
+  private void addMessage (NotificationCompat.MessagingStyle style, CharSequence messageText, Person person, TdApi.Chat chat, TdlibNotification notification, long loadTimeout, boolean isRebuild, boolean isExclusivelyScheduled, boolean isExclusivelySilent, boolean isOnlyPinned) {
     long chatId = chat.id;
     boolean isMention = notification.group().isMention();
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P && tdlib.notifications().needContentPreview(chatId, isMention)) {
@@ -861,18 +904,26 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
       TdlibNotificationMediaFile file = TdlibNotificationMediaFile.newFile(tdlib, chat, notification.getNotificationContent());
       if (file != null) {
         if (!isRebuild) {
-          tdlib.files().downloadFileSync(file.file, loadTimeout, null, null);
+          downloadFile(file.file, loadTimeout);
         }
         if (TD.isFileLoaded(file.file)) {
           Uri uri = null;
-          if (file.type == TdlibNotificationMediaFile.TYPE_ANIMATED_STICKER) {
+          if (file.type == TdlibNotificationMediaFile.TYPE_LOTTIE_STICKER ||
+              file.type == TdlibNotificationMediaFile.TYPE_WEBM_STICKER) {
             AtomicReference<TdApi.File> generatedFile = new AtomicReference<>();
             CountDownLatch latch = new CountDownLatch(1);
-            tdlib.client().send(new TdApi.UploadFile(new TdApi.InputFileGenerated(file.file.local.path, GenerationInfo.TYPE_STICKER_PREVIEW, 0), new TdApi.FileTypeSticker(), 32), result -> {
+            tdlib.client().send(new TdApi.PreliminaryUploadFile(new TdApi.InputFileGenerated(
+              file.file.local.path,
+              file.type == TdlibNotificationMediaFile.TYPE_LOTTIE_STICKER ?
+                GenerationInfo.TYPE_LOTTIE_STICKER_PREVIEW :
+                GenerationInfo.TYPE_VIDEO_STICKER_PREVIEW, 0),
+              new TdApi.FileTypeSticker(),
+              32
+            ), result -> {
               switch (result.getConstructor()) {
                 case TdApi.File.CONSTRUCTOR: {
                   TdApi.File uploadingFile = (TdApi.File) result;
-                  tdlib.client().send(new TdApi.CancelUploadFile(uploadingFile.id), tdlib.okHandler());
+                  tdlib.client().send(new TdApi.CancelPreliminaryUploadFile(uploadingFile.id), tdlib.okHandler());
                   tdlib.client().send(new TdApi.DownloadFile(uploadingFile.id, 32, 0, 0, true), downloadedFile -> {
                     switch (downloadedFile.getConstructor()) {
                       case TdApi.File.CONSTRUCTOR: {
@@ -905,16 +956,15 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
             uri = U.contentUriFromFile(new File(file.file.local.path));
           }
           if (uri != null) {
-            // String text = !Strings.isEmpty(caption) ? caption : update.message.content.getConstructor() != TdApi.MessagePhoto.CONSTRUCTOR ? messageText : null;
+            style.addMessage(new NotificationCompat.MessagingStyle.Message(messageText, date, person).setData("image/", uri));
             if (notification.isStickerContent()) {
-              style.addMessage(new NotificationCompat.MessagingStyle.Message(messageText, date, person).setData("image/", uri));
-              if (!StringUtils.isEmpty(messageText))
+              if (!StringUtils.isEmpty(messageText)) {
                 style.addMessage(new NotificationCompat.MessagingStyle.Message(messageText, date + 1, person));
+              }
             } else {
-              style.addMessage(new NotificationCompat.MessagingStyle.Message(messageText, date, person).setData("image/", uri));
-              String caption = notification.getContentText();
+              CharSequence caption = notification.getTextRepresentation(tdlib, isOnlyPinned, true, null);
               if (!StringUtils.isEmpty(caption)) {
-                style.addMessage(new NotificationCompat.MessagingStyle.Message(new TD.ContentPreview(TD.EMOJI_PHOTO, R.string.ChatContentPhoto, caption).toString(), date - 1, person));
+                style.addMessage(new NotificationCompat.MessagingStyle.Message(caption, date - 1, person));
               }
             }
             return;
@@ -950,7 +1000,6 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
   }
 
   private NotificationCompat.Builder buildCommonNotification (Context context, @NonNull TdlibNotificationHelper helper, int badgeCount, boolean allowPreview, @Nullable TdlibNotificationSettings settings, final List<TdlibNotification> notifications, final int category, boolean isRebuild) {
-    Tdlib tdlib = helper.tdlib();
     TdlibNotification lastNotification = notifications.get(notifications.size() - 1);
     long singleChatId = helper.findSingleChatId();
     long singleTargetMessageId = singleChatId != 0 ? helper.findSingleMessageId(singleChatId) : 0;
@@ -964,7 +1013,15 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
     int displayingMessageCount = helper.calculateMessageCount(category);
     long timeMs = TimeUnit.SECONDS.toMillis(lastNotification.notification().date);
 
-    NotificationCompat.Builder b = new NotificationCompat.Builder(context, helper.findCommonChannelId(category));
+    String commonChannelId;
+    try {
+      commonChannelId = helper.findCommonChannelId(category);
+    } catch (TdlibNotificationChannelGroup.ChannelCreationFailureException e) {
+      TDLib.Tag.notifications("Unable to create common notification channel:\n%s", Log.toString(e));
+      tdlib.settings().trackNotificationChannelProblem(e, 0);
+      return null;
+    }
+    NotificationCompat.Builder b = new NotificationCompat.Builder(context, commonChannelId);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
       if (allowPreview) {
         b.setGroupAlertBehavior(NotificationCompat.GROUP_ALERT_CHILDREN);
@@ -1001,7 +1058,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
       Intents.secureIntent(hideIntent, true);
       hideIntent.putExtra("account_id", tdlib.id());
       hideIntent.putExtra("category", category);
-      PendingIntent hidePendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), helper.getBaseNotificationId(category), hideIntent, PendingIntent.FLAG_UPDATE_CURRENT);
+      PendingIntent hidePendingIntent = PendingIntent.getBroadcast(UI.getAppContext(), helper.getBaseNotificationId(category), hideIntent, Intents.mutabilityFlags(true));
       b.setDeleteIntent(hidePendingIntent);
 
       if (displayingChatsCount == 1) {
@@ -1064,7 +1121,7 @@ public class TdlibNotificationStyle implements TdlibNotificationStyleDelegate, F
             } else {
               preview = Lang.getString(R.string.YouHaveNewMessage);
             }
-            addMessage(style, preview, buildPerson(tdlib.notifications(), chat, notification, onlyScheduled, onlySilent, !isRebuild), tdlib, chat, notification, MEDIA_LOAD_TIMEOUT, isRebuild, !onlyScheduled && notification.isScheduled(), !onlySilent && notification.isVisuallySilent());
+            addMessage(style, preview, buildPerson(tdlib.notifications(), chat, notification, onlyScheduled, onlySilent, !isRebuild), chat, notification, MEDIA_LOAD_TIMEOUT, isRebuild, !onlyScheduled && notification.isScheduled(), !onlySilent && notification.isVisuallySilent(), onlyPinned);
           }
           b.setStyle(style);
         } else {

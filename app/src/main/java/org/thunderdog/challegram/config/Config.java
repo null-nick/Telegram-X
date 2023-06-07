@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,18 +17,21 @@ package org.thunderdog.challegram.config;
 import android.os.Build;
 import android.view.WindowManager;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import androidx.annotation.Dimension;
+
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.N;
 import org.thunderdog.challegram.R;
-import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.data.TD;
-import org.thunderdog.challegram.tool.UI;
+import org.thunderdog.challegram.theme.ColorId;
 
 public class Config {
   public static final boolean SUPPORT_SYSTEM_UNDERLINE_SPAN = true;
 
-  public static final boolean COMMENTS_SUPPORTED = false;
+  public static final boolean COMMENTS_INLINE_BUTTON_SEPARATOR_1PX = false;
+  public static final @Dimension(unit = Dimension.DP) int COMMENTS_BUBBLE_BUTTON_MIN_WIDTH = 200;
+  public static final boolean SHOW_CHANNEL_POST_REPLY_INFO_IN_COMMENTS = true;
 
   public static final boolean NEED_SILENT_BROADCAST = false;
 
@@ -57,8 +60,6 @@ public class Config {
 
   public static final boolean TEST_NOTIFICATION_PROBLEM_RESOLUTION = false; // BuildConfig.DEBUG;
 
-  public static final boolean SO_SHARED = true;
-
   public static final boolean NEED_TDLIB_CLEANUP = false;
 
   public static final boolean FAKE_BACKGROUND_CONNECTION_STATE = true;
@@ -78,13 +79,10 @@ public class Config {
 
   public static final boolean NEED_NETWORK_SYNC_REQUEST = false;
 
-  public static final boolean VIEW_MESSAGES_BEFORE_SCROLL = false;
-  public static final boolean READ_MESSAGES_BEFORE_FOCUS = false;
-
   // Fields from default config.
 
-  public static final int STATUS_BAR_COLOR_ID = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? R.id.theme_color_statusBar : R.id.theme_color_statusBarLegacy;
-  public static final int STATUS_BAR_TEXT_COLOR_ID = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? R.id.theme_color_statusBarContent : R.id.theme_color_statusBarLegacyContent;
+  public static final int STATUS_BAR_COLOR_ID = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? ColorId.statusBar : ColorId.statusBarLegacy;
+  public static final int STATUS_BAR_TEXT_COLOR_ID = Build.VERSION.SDK_INT >= Build.VERSION_CODES.M ? ColorId.statusBarContent : ColorId.statusBarLegacyContent;
 
   public static final boolean DISABLE_SENDING_MEDIA_CACHE = false; // BuildConfig.DEBUG; // FIXME: TDLib
   public static final boolean WORKAROUND_NEED_MODIFY = true; // FIXME TDLib
@@ -118,8 +116,6 @@ public class Config {
   public static final boolean MUTE_VIDEO_AVAILABLE = USE_VIDEO_COMPRESSION;
 
   public static final boolean MASKS_TEXTS_AVAILABLE = false;
-
-  public static final boolean USE_CUSTOM_CRASH_MANAGER = BuildConfig.DEBUG || BuildConfig.ABI == 0 || !U.isGooglePlayServicesAvailable(UI.getAppContext()); // Assuming universal builds come from non-Google Play
 
   public static final boolean DEBUG_GALAXY_TAB_2 = false;
 
@@ -167,13 +163,12 @@ public class Config {
 
   public static final boolean USE_GROUP_NAMES = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
 
-  public static final boolean HEADLESS_RECENT_PACK = false;
+  public static final boolean FORCE_SHOW_RECENTS_STICKERS_TITLE = false;
+  public static final int DEFAULT_SHOW_RECENT_STICKERS_COUNT = 10;
 
   public static final boolean USE_TEXT_ADVANCE = true; // Build.VERSION.SDK_INT >= Build.VERSION_CODES.M;
 
   public static final boolean SMOOTH_SCROLL_TO_BOTTOM_ENABLED = false; // Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP;
-
-  public static final boolean SEARCH_BY_AVAILABLE = false;
 
   public static final boolean ALLOW_DEBUG_DC = BuildConfig.DEBUG || BuildConfig.EXPERIMENTAL;
 
@@ -231,6 +226,10 @@ public class Config {
 
   public static final boolean NEED_NOTIFICATION_CONTENT_PREVIEW = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
 
+  public static final boolean SHOW_COPY_REPORT_DETAILS_IN_SETTINGS = BuildConfig.EXPERIMENTAL;
+
+  public static final boolean FORCE_DISABLE_NOTIFICATIONS = BuildConfig.EXPERIMENTAL && !BuildConfig.DEBUG;
+
   public static final int MINIMUM_CALL_CONTACTS_SUGGESTIONS = 3;
 
   public static final boolean USE_CUSTOM_NAVIGATION_COLOR = Build.VERSION.SDK_INT >= Build.VERSION_CODES.O;
@@ -241,6 +240,13 @@ public class Config {
 
   public static final boolean USE_ICON_TABS = false;
 
+  /* TODO: Missing Android API
+   * TextUtils.CHAR_SEQUENCE_CREATOR doesn't support ImageSpan (or whatever alternative),
+   * therefore it's impossible to display even static custom emoji in notifications
+   * as of Android 12L (SDK 32).
+   */
+  public static final boolean SYSTEM_SUPPORTS_CUSTOM_IMAGE_SPANS = false;
+
   public static final boolean HIDE_EMPTY_TABS = true;
 
   public static final boolean CRASH_CHAT_NOT_FOUND = true;
@@ -249,7 +255,7 @@ public class Config {
 
   public static final boolean REVEAL_ANIMATION_AVAILABLE = Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP;
 
-  public static final boolean REMOVE_INTRO = !BuildConfig.DEBUG; // true;
+  public static final boolean REMOVE_INTRO = true;
 
   public static final boolean TEST_CHAT_COUNTERS = false;
 
@@ -258,6 +264,8 @@ public class Config {
   }
 
   public static final boolean DISABLE_PASSWORD_INVISIBILITY = true;
+
+  public static final boolean DEBUG_STICKER_OUTLINES = false; // BuildConfig.DEBUG;
 
   public static final int SUPPORTED_INSTANT_VIEW_VERSION = 2;
   public static final boolean INSTANT_VIEW_WRONG_LAYOUT = false;
@@ -268,5 +276,22 @@ public class Config {
 
   public static final boolean VIDEO_CLOUD_PLAYBACK_AVAILABLE = true;
 
+  public static final float MAX_ANIMATED_EMOJI_REFRESH_RATE = 30.0f;
+  public static final boolean LOOP_BIG_CUSTOM_EMOJI = false;
+
   public static final String FILE_PROVIDER_AUTHORITY = BuildConfig.APPLICATION_ID + ".provider";
+
+  public static final boolean PROFILE_DEADLOCKS = true;
+
+  public static final boolean DEBUG_REACTIONS_ANIMATIONS = false;
+  public static final boolean TEST_STATIC_REACTIONS = false;
+  public static final boolean TEST_GENERIC_REACTION_EFFECTS = false;
+
+  public static final boolean REORDER_INSTALLED_STICKER_SETS = false;
+
+  public static final boolean NEED_TEMPORARY_TOPICS_WORKAROUND = true;
+
+  public static final boolean USE_HARDWARE_PHOTO_VIEWER_CONFIG = false;
+
+  public static final boolean REQUIRE_FIREBASE_SERVICES_FOR_SAFETYNET = false;
 }

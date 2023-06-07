@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccount;
 import org.thunderdog.challegram.telegram.TdlibDelegate;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
@@ -94,6 +94,7 @@ import org.thunderdog.challegram.widget.PageBlockView;
 import org.thunderdog.challegram.widget.PageBlockWrapView;
 import org.thunderdog.challegram.widget.ProgressComponentView;
 import org.thunderdog.challegram.widget.RadioView;
+import org.thunderdog.challegram.widget.ReactionCheckboxSettingsView;
 import org.thunderdog.challegram.widget.ScalableTextView;
 import org.thunderdog.challegram.widget.SeparatorView;
 import org.thunderdog.challegram.widget.SettingStupidView;
@@ -221,7 +222,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
   }
 
   @Override
-  public void onEmojiPartLoaded () {
+  public void onEmojiUpdated (boolean isPackSwitch) {
     for (RecyclerView parentView : parentViews) {
       LinearLayoutManager manager = (LinearLayoutManager) parentView.getLayoutManager();
       final int first = manager.findFirstVisibleItemPosition();
@@ -404,6 +405,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
   }
 
   protected void setEmbedSticker (ListItem item, int position, EmbeddableStickerView userView, boolean isUpdate) {
+    // Override
+  }
+
+  protected void setReaction (ListItem item, int position, ReactionCheckboxSettingsView userView, boolean isUpdate) {
     // Override
   }
 
@@ -702,6 +707,13 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
           } else {
             boolean ok = false;
             switch (item.getViewType()) {
+              case ListItem.TYPE_REACTION_CHECKBOX: {
+                if (ok = view instanceof ReactionCheckboxSettingsView) {
+                  setReaction(item, position, ((ReactionCheckboxSettingsView) view), true);
+                }
+                break;
+              }
+
               case ListItem.TYPE_BUTTON: {
                 if (ok = view instanceof ViewGroup && ((ViewGroup) view).getChildAt(0) instanceof ScalableTextView) {
                   setButtonText(item, (ScalableTextView) ((ViewGroup) view).getChildAt(0), true);
@@ -1085,6 +1097,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
       case ListItem.TYPE_DRAWER_ITEM_WITH_RADIO:
       case ListItem.TYPE_DRAWER_ITEM_WITH_RADIO_SEPARATED:
       case ListItem.TYPE_DRAWER_ITEM_WITH_AVATAR:
+      case ListItem.TYPE_REACTION_CHECKBOX:
         return true;
     }
     return false;
@@ -1242,7 +1255,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
   // Drawing
 
   public static class BackgroundDecoration extends RecyclerView.ItemDecoration {
-    private @ThemeColorId int colorId;
+    private @ColorId int colorId;
 
     public BackgroundDecoration (int colorId) {
       this.colorId = colorId;
@@ -1353,7 +1366,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
       case ListItem.TYPE_SHADOW_BOTTOM:
       case ListItem.TYPE_SHADOW_TOP: {
         setShadowVisibility(item, (ShadowView) holder.itemView);
-        int colorId = item.getTextColorId(ThemeColorId.NONE);
+        int colorId = item.getTextColorId(ColorId.NONE);
         if (colorId != 0) {
           holder.itemView.setBackgroundColor(Theme.getColor(colorId));
         }
@@ -1476,6 +1489,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
         ((JoinedUsersView) group.getChildAt(0)).setJoinedText(item.getString());
         break;
       }
+      case ListItem.TYPE_USER_SMALL:
       case ListItem.TYPE_USER: {
         setUser(item, position, (UserView) holder.itemView, false);
         break;
@@ -1484,6 +1498,10 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
         DoubleTextViewWithIcon viewGroup = (DoubleTextViewWithIcon) holder.itemView;
         viewGroup.checkRtl();
         setJoinRequest(item, position, viewGroup,false);
+        break;
+      }
+      case ListItem.TYPE_REACTION_CHECKBOX: {
+        setReaction(item, position, (ReactionCheckboxSettingsView) holder.itemView, false);
         break;
       }
       case ListItem.TYPE_EMBED_STICKER: {
@@ -1567,7 +1585,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
         ((SettingView) holder.itemView).setIcon(item.getIconResource());
         ((SettingView) holder.itemView).setName(item.getString());
         ((SettingView) holder.itemView).setIgnoreEnabled(false);
-        ((SettingView) holder.itemView).setTextColorId(item.getTextColorId(R.id.theme_color_text));
+        ((SettingView) holder.itemView).setTextColorId(item.getTextColorId(ColorId.text));
         holder.itemView.setEnabled(true);
         setValuedSetting(item, (SettingView) holder.itemView, false);
         switch (viewType) {
@@ -1616,7 +1634,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
       }
       case ListItem.TYPE_EMPTY: {
         ((TextView) holder.itemView).setText(item.getString());
-        ((TextView) holder.itemView).setTextColor(Theme.getColor(item.getTextColorId(R.id.theme_color_background_textLight)));
+        ((TextView) holder.itemView).setTextColor(Theme.getColor(item.getTextColorId(ColorId.background_textLight)));
         break;
       }
       case ListItem.TYPE_2FA_EMAIL: {
@@ -1652,13 +1670,15 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
       case ListItem.TYPE_VALUED_SETTING_COMPACT:
       case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_COLOR:
       case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_RADIO:
+      case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_RADIO_2:
       case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_TOGGLER:
+      case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_CHECKBOX:
       case ListItem.TYPE_INFO_MULTILINE:
       case ListItem.TYPE_INFO_SETTING: {
         SettingView settingView = (SettingView) holder.itemView;
         settingView.setIcon(item.getIconResource());
         settingView.setName(item.getString());
-        settingView.setTextColorId(item.getTextColorId(ThemeColorId.NONE));
+        settingView.setTextColorId(item.getTextColorId(ColorId.NONE));
         holder.itemView.setEnabled(true);
         switch (viewType) {
           case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_COLOR: {
@@ -1671,6 +1691,12 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
             Views.setGravity(view, Gravity.CENTER_VERTICAL | (Lang.rtl() ? Gravity.RIGHT : Gravity.LEFT));
             break;
           }
+          case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_RADIO_2: {
+            View view = ((ViewGroup) (holder.itemView)).getChildAt(0);
+            Views.setGravity(view, Gravity.CENTER_VERTICAL | (Lang.rtl() ? Gravity.LEFT : Gravity.RIGHT));
+            break;
+          }
+          case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_CHECKBOX:
           case ListItem.TYPE_VALUED_SETTING_COMPACT_WITH_TOGGLER: {
             ((SettingView) holder.itemView).checkRtl(true);
             break;
@@ -1720,7 +1746,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
       case ListItem.TYPE_HEADER_PADDED: {
         TextView textView = (TextView) holder.itemView;
         setHeaderText(item, textView, false);
-        textView.setTextColor(Theme.getColor(item.getTextColorId(R.id.theme_color_background_textLight)));
+        textView.setTextColor(Theme.getColor(item.getTextColorId(ColorId.background_textLight)));
         textView.setGravity(Lang.gravity(Gravity.CENTER_VERTICAL));
         break;
       }
@@ -1728,7 +1754,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
         TextView textView = ((TextView) ((FrameLayoutFix) holder.itemView).getChildAt(0));
         textView.setGravity(Lang.gravity(Gravity.CENTER_VERTICAL));
         setHeaderText(item, textView, false);
-        textView.setTextColor(Theme.getColor(item.getTextColorId(R.id.theme_color_background_textLight)));
+        textView.setTextColor(Theme.getColor(item.getTextColorId(ColorId.background_textLight)));
         ImageView imageView = (ImageView) ((FrameLayoutFix) holder.itemView).getChildAt(1);
         imageView.setId(item.getId());
         imageView.setImageResource(item.getIconResource());
@@ -1747,7 +1773,7 @@ public class SettingsAdapter extends RecyclerView.Adapter<SettingHolder> impleme
       case ListItem.TYPE_DESCRIPTION_SMALL:
       case ListItem.TYPE_DESCRIPTION_CENTERED: {
         TextView textView = (TextView) holder.itemView;
-        textView.setTextColor(Theme.getColor(item.getTextColorId(viewType == ListItem.TYPE_DESCRIPTION_CENTERED ? R.id.theme_color_textLight : R.id.theme_color_background_textLight)));
+        textView.setTextColor(Theme.getColor(item.getTextColorId(viewType == ListItem.TYPE_DESCRIPTION_CENTERED ? ColorId.textLight : ColorId.background_textLight)));
         int padding = Screen.dp(16f) + item.getTextPaddingLeft();
         textView.setText(item.getString());
         if (holder.itemView.getPaddingLeft() != padding) {

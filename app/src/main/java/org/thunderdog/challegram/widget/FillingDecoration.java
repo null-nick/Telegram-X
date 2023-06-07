@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Paints;
 
 import java.util.ArrayList;
@@ -33,7 +33,7 @@ import java.util.ArrayList;
 public class FillingDecoration extends RecyclerView.ItemDecoration {
   private final ArrayList<int[]> ranges = new ArrayList<>();
 
-  private @ThemeColorId int fillingColorId = R.id.theme_color_filling;
+  private @ColorId int fillingColorId = ColorId.filling;
 
   public FillingDecoration (RecyclerView view, @Nullable ViewController<?> themeProvider) {
     if (themeProvider != null) {

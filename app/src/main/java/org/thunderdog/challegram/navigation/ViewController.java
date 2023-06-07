@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -58,7 +58,7 @@ import androidx.collection.SparseArrayCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.FillingDrawable;
 import org.thunderdog.challegram.Log;
@@ -75,10 +75,10 @@ import org.thunderdog.challegram.telegram.TdlibAccount;
 import org.thunderdog.challegram.telegram.TdlibContext;
 import org.thunderdog.challegram.telegram.TdlibDelegate;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.ColorState;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.theme.ThemeChangeListener;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.theme.ThemeDelegate;
 import org.thunderdog.challegram.theme.ThemeDeprecated;
 import org.thunderdog.challegram.theme.ThemeListenerEntry;
@@ -96,10 +96,10 @@ import org.thunderdog.challegram.ui.SettingHolder;
 import org.thunderdog.challegram.ui.SettingsAdapter;
 import org.thunderdog.challegram.ui.SettingsBugController;
 import org.thunderdog.challegram.ui.camera.CameraController;
-import org.thunderdog.challegram.util.Crash;
 import org.thunderdog.challegram.unsorted.Passcode;
 import org.thunderdog.challegram.unsorted.Settings;
 import org.thunderdog.challegram.unsorted.Size;
+import org.thunderdog.challegram.util.Crash;
 import org.thunderdog.challegram.util.OptionDelegate;
 import org.thunderdog.challegram.util.SimpleStringItem;
 import org.thunderdog.challegram.util.StringList;
@@ -126,6 +126,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.ViewUtils;
 import me.vkryl.android.widget.FrameLayoutFix;
+import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.DateUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
@@ -139,7 +140,6 @@ import me.vkryl.core.lambda.RunnableData;
 import me.vkryl.core.lambda.RunnableInt;
 import me.vkryl.core.lambda.RunnableLong;
 import me.vkryl.core.reference.ReferenceList;
-import me.vkryl.core.BitwiseUtils;
 import me.vkryl.td.ChatId;
 import me.vkryl.td.Td;
 
@@ -255,25 +255,25 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     }
   }
 
-  public final void addThemePaintColorListener (Paint paint, @ThemeColorId int color) {
+  public final void addThemePaintColorListener (Paint paint, @ColorId int color) {
     addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_PAINT_COLOR, color, paint));
   }
 
-  public final void addThemeBackgroundColorListener (View view, @ThemeColorId int color) {
+  public final void addThemeBackgroundColorListener (View view, @ColorId int color) {
     addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_BACKGROUND, color, view));
   }
 
   public final void addThemeFillingColorListener (View view) {
-    addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_BACKGROUND, R.id.theme_color_filling, view));
+    addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_BACKGROUND, ColorId.filling, view));
   }
 
-  public final ThemeListenerEntry addThemeTextColorListener (Object view, @ThemeColorId int colorId) {
+  public final ThemeListenerEntry addThemeTextColorListener (Object view, @ColorId int colorId) {
     ThemeListenerEntry entry;
     addThemeListener(entry = new ThemeListenerEntry(ThemeListenerEntry.MODE_TEXT_COLOR, colorId, view));
     return entry;
   }
 
-  public final ThemeListenerEntry addOrUpdateThemeTextColorListener (Object view, @ThemeColorId int colorId) {
+  public final ThemeListenerEntry addOrUpdateThemeTextColorListener (Object view, @ColorId int colorId) {
     ThemeListenerEntry entry = getThemeListeners().findThemeListenerByTarget(view, ThemeListenerEntry.MODE_TEXT_COLOR);
     if (entry != null) {
       entry.setTargetColorId(colorId);
@@ -282,37 +282,37 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     return addThemeTextColorListener(view, colorId);
   }
 
-  public final ThemeListenerEntry addThemeHintTextColorListener (Object view, @ThemeColorId int color) {
+  public final ThemeListenerEntry addThemeHintTextColorListener (Object view, @ColorId int color) {
     return addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_HINT_TEXT_COLOR, color, view));
   }
 
-  public final void addThemeLinkTextColorListener (Object view, @ThemeColorId int color) {
+  public final void addThemeLinkTextColorListener (Object view, @ColorId int color) {
     addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_LINK_TEXT_COLOR, color, view));
   }
 
-  public final void addThemeHighlightColorListener (Object view, @ThemeColorId int color) {
+  public final void addThemeHighlightColorListener (Object view, @ColorId int color) {
     addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_HIGHLIGHT_COLOR, color, view));
   }
 
   public final void addThemeTextAccentColorListener (Object view) {
-    addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_TEXT_COLOR, R.id.theme_color_text, view));
+    addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_TEXT_COLOR, ColorId.text, view));
   }
 
   public final void addThemeTextDecentColorListener (Object view) {
-    addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_TEXT_COLOR, R.id.theme_color_textLight, view));
+    addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_TEXT_COLOR, ColorId.textLight, view));
   }
 
   public final void addThemeInvalidateListener (View view) {
-    addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_INVALIDATE, ThemeColorId.NONE, view));
+    addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_INVALIDATE, ColorId.NONE, view));
   }
 
-  public final ThemeListenerEntry addThemeFilterListener (Object target, @ThemeColorId int color) {
+  public final ThemeListenerEntry addThemeFilterListener (Object target, @ColorId int color) {
     ThemeListenerEntry entry;
     addThemeListener(entry = new ThemeListenerEntry(ThemeListenerEntry.MODE_FILTER, color, target));
     return entry;
   }
 
-  public final void addThemeSpecialFilterListener (Object target, @ThemeColorId int colorId) {
+  public final void addThemeSpecialFilterListener (Object target, @ColorId int colorId) {
     addThemeListener(new ThemeListenerEntry(ThemeListenerEntry.MODE_SPECIAL_FILTER, colorId, target));
   }
 
@@ -532,7 +532,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     if (runnable == null)
       return;
     runOnUiThread(() -> {
-      if (!isDestroyed() && (condition == null || condition.get())) {
+      if (!isDestroyed() && (condition == null || condition.getBoolValue())) {
         runnable.run();
       }
     });
@@ -551,6 +551,16 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
       runnable.run();
     } else {
       runOnUiThread(runnable);
+    }
+  }
+
+  protected final void executeOnUiThreadOptional (@NonNull Runnable runnable) {
+    if (UI.inUiThread()) {
+      if (!isDestroyed()) {
+        runnable.run();
+      }
+    } else {
+      runOnUiThreadOptional(runnable);
     }
   }
 
@@ -613,16 +623,27 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
 
   }
 
-  protected @CallSuper void updateSearchMode (boolean inSearch) {
+  @CallSuper
+  protected void updateSearchMode (boolean inSearch, boolean needUpdateKeyboard) {
     if (inSearch) {
       cachedLockFocusView = lockFocusView;
       lockFocusView = searchHeaderView;
-      Keyboard.show(searchHeaderView);
+      if (needUpdateKeyboard) {
+        Keyboard.show(searchHeaderView);
+      }
     } else {
       lockFocusView = cachedLockFocusView;
-      Keyboard.hide(searchHeaderView);
+      if (needUpdateKeyboard) {
+        Keyboard.hide(searchHeaderView);
+      }
       cachedLockFocusView = null;
     }
+  }
+
+  @CallSuper
+  @Deprecated
+  protected void updateSearchMode (boolean inSearch) {
+    updateSearchMode(inSearch, true);
   }
 
   protected View getCustomFocusView () {
@@ -704,8 +725,8 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     // override
   }
 
-  public @ThemeColorId int getRootColorId () {
-    return R.id.theme_color_filling;
+  public @ColorId int getRootColorId () {
+    return ColorId.filling;
   }
 
   protected final void closeSearchMode (Runnable after) {
@@ -848,8 +869,8 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     return Theme.headerBackColor();
   }
 
-  protected final @ThemeColorId int getBackButtonColorId () {
-    return getHeaderIconColorId(); // R.id.theme_color_headerIcon;
+  protected final @ColorId int getBackButtonColorId () {
+    return getHeaderIconColorId(); // ColorId.headerIcon;
   }*/
 
   protected @DrawableRes int getBackButtonResource () {
@@ -881,15 +902,15 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   }
 
   protected int getSearchHeaderColorId () {
-    return useGraySearchHeader() ? R.id.theme_color_filling : getHeaderColorId();
+    return useGraySearchHeader() ? ColorId.filling : getHeaderColorId();
   }
 
-  protected @ThemeColorId int getSearchHeaderIconColorId () {
-    return useGraySearchHeader() ? R.id.theme_color_icon : getHeaderIconColorId();
+  protected @ColorId int getSearchHeaderIconColorId () {
+    return useGraySearchHeader() ? ColorId.icon : getHeaderIconColorId();
   }
 
   protected int getSearchTextColorId () {
-    return useGraySearchHeader() ? R.id.theme_color_text : getHeaderTextColorId();
+    return useGraySearchHeader() ? ColorId.text : getHeaderTextColorId();
   }
 
   protected int getSearchBackButtonResource () {
@@ -901,11 +922,11 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   }
 
   protected int getSelectHeaderColorId () {
-    return R.id.theme_color_headerLightBackground;
+    return ColorId.headerLightBackground;
   }
 
-  protected @ThemeColorId int getSelectTextColorId () {
-    return R.id.theme_color_headerLightText;
+  protected @ColorId int getSelectTextColorId () {
+    return ColorId.headerLightText;
   }
 
   protected void updateCustomButtonColorFactor (View view, int menuId, float colorFactor) {
@@ -952,12 +973,12 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
 
   // FUTURE
 
-  protected @ThemeColorId int getHeaderIconColorId () {
-    return R.id.theme_color_headerIcon;
+  protected @ColorId int getHeaderIconColorId () {
+    return ColorId.headerIcon;
   }
 
-  protected @ThemeColorId int getSelectHeaderIconColorId () {
-    return R.id.theme_color_headerLightIcon;
+  protected @ColorId int getSelectHeaderIconColorId () {
+    return ColorId.headerLightIcon;
   }
 
   /*protected int getSelectStatusBarColor () {
@@ -1082,7 +1103,11 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     return searchHeaderView;
   }
 
-  protected final String getLastSearchInput () {
+  protected void setSearchInput (String text) {
+    clearSearchInput(text, false);
+  }
+
+  public final String getLastSearchInput () {
     return lastSearchInput;
   }
 
@@ -1099,7 +1124,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
       }
       searchHeaderView.setText(text);
       if (!text.isEmpty()) {
-        Views.setSelection(searchHeaderView, text.length());
+        searchHeaderView.setSelection(text.length());
       }
       updateClearSearchButton(!text.isEmpty(), false);
     }
@@ -1262,8 +1287,8 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     return getFloatingButtonId();
   }
 
-  protected @ThemeColorId int getHeaderColorId () {
-    return R.id.theme_color_headerBackground;
+  protected @ColorId int getHeaderColorId () {
+    return ColorId.headerBackground;
   }
 
   @Deprecated
@@ -1272,7 +1297,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   }
 
   protected int getHeaderTextColorId () {
-    return R.id.theme_color_headerText;
+    return ColorId.headerText;
   }
 
   protected final int getNewStatusBarColor () {
@@ -1345,6 +1370,14 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
 
   public final boolean inSearchMode () {
     return (flags & FLAG_IN_SEARCH_MODE) != 0;
+  }
+
+  public boolean onBeforeLeaveSearchMode () {
+    return true;
+  }
+
+  protected boolean needHideKeyboardOnTouchBackButton () {
+    return true;
   }
 
   protected final void enterSearchMode () {
@@ -1512,7 +1545,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     inputView.getEditText().setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_WEB_EMAIL_ADDRESS);
     if (!StringUtils.isEmpty(value)) {
       inputView.setText(value);
-      Views.setSelection(inputView.getEditText(), 0, value.length());
+      inputView.getEditText().setSelection(0, value.length());
     }
     inputView.getEditText().addTextChangedListener(new TextWatcher() {
       @Override
@@ -1676,14 +1709,18 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     b.addHeaderItem(text);
     b.setSaveStr(R.string.Share);
     b.setIntDelegate((id, result) -> {
-      int resId = result.get(id);
+      final int resId = result.get(id);
       final int time;
-      switch (resId) {
-        case R.id.btn_messageLiveTemp: time = 60; break;
-        case R.id.btn_messageLive15Minutes: time = 60 * 15; break;
-        case R.id.btn_messageLive1Hour: time = 60 * 60; break;
-        case R.id.btn_messageLive8Hours: time = 60 * 60 * 8; break;
-        default: return;
+      if (resId == R.id.btn_messageLiveTemp) {
+        time = 60;
+      } else if (resId == R.id.btn_messageLive15Minutes) {
+        time = 60 * 15;
+      } else if (resId == R.id.btn_messageLive1Hour) {
+        time = 60 * 60;
+      } else if (resId == R.id.btn_messageLive8Hours) {
+        time = 60 * 60 * 8;
+      } else {
+        return;
       }
       callback.runWithInt(time);
     });
@@ -1852,47 +1889,41 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     popupLayout.setDismissListener(b.dismissListener);
 
     final View.OnClickListener onClickListener = v -> {
-      switch (v.getId()) {
-        case R.id.btn_cancel: {
-          if (b.onActionButtonClick == null || !b.onActionButtonClick.onActionButtonClick(settings, v, true)) {
-            popupLayout.hideWindow(true);
-          }
-          break;
-        }
-        case R.id.btn_save: {
-          if (b.onActionButtonClick != null && b.onActionButtonClick.onActionButtonClick(settings, v, false)) {
-            return;
-          }
-          int type = settings.adapter.getCheckResultType();
-
-          switch (type) {
-            case SettingsAdapter.SETTINGS_RESULT_INTS:
-            case SettingsAdapter.SETTINGS_RESULT_UNKNOWN: {
-              if (b.intDelegate != null) {
-                b.intDelegate.onApplySettings(b.id, settings.adapter.getCheckIntResults());
-              }
-              break;
-            }
-            case SettingsAdapter.SETTINGS_RESULT_STRING: {
-              if (b.stringDelegate != null) {
-                b.stringDelegate.onApplySettings(b.id, settings.adapter.getCheckStringResults());
-              }
-              break;
-            }
-          }
-
+      final int viewId = v.getId();
+      if (viewId == R.id.btn_cancel) {
+        if (b.onActionButtonClick == null || !b.onActionButtonClick.onActionButtonClick(settings, v, true)) {
           popupLayout.hideWindow(true);
-          break;
         }
-        default: {
-          Object tag = v.getTag();
-          if (!b.disableToggles) {
-            settings.adapter.processToggle(v);
+      } else if (viewId == R.id.btn_save) {
+        if (b.onActionButtonClick != null && b.onActionButtonClick.onActionButtonClick(settings, v, false)) {
+          return;
+        }
+        int type = settings.adapter.getCheckResultType();
+
+        switch (type) {
+          case SettingsAdapter.SETTINGS_RESULT_INTS:
+          case SettingsAdapter.SETTINGS_RESULT_UNKNOWN: {
+            if (b.intDelegate != null) {
+              b.intDelegate.onApplySettings(b.id, settings.adapter.getCheckIntResults());
+            }
+            break;
           }
-          if (tag != null && tag instanceof ListItem && b.onSettingItemClick != null) {
-            b.onSettingItemClick.onSettingItemClick(v, b.id, (ListItem) tag, settings.doneButton, settings.adapter);
+          case SettingsAdapter.SETTINGS_RESULT_STRING: {
+            if (b.stringDelegate != null) {
+              b.stringDelegate.onApplySettings(b.id, settings.adapter.getCheckStringResults());
+            }
+            break;
           }
-          break;
+        }
+
+        popupLayout.hideWindow(true);
+      } else {
+        Object tag = v.getTag();
+        if (!b.disableToggles) {
+          settings.adapter.processToggle(v);
+        }
+        if (tag != null && tag instanceof ListItem && b.onSettingItemClick != null) {
+          b.onSettingItemClick.onSettingItemClick(v, b.id, (ListItem) tag, settings.doneButton, settings.adapter);
         }
       }
     };
@@ -1935,7 +1966,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
           return true;
         }
       };
-      ViewSupport.setThemedBackground(footerView, R.id.theme_color_filling, this);
+      ViewSupport.setThemedBackground(footerView, ColorId.filling, this);
       footerView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(56f), Gravity.BOTTOM));
 
       for (int i = 0; i < 2; i++) {
@@ -1997,8 +2028,8 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
       popupAdditionalHeight = Screen.getNavigationBarFrameHeight();
 
       View dummyView = new View(context);
-      dummyView.setBackgroundColor(Theme.getColor(R.id.theme_color_filling));
-      addThemeBackgroundColorListener(dummyView, R.id.theme_color_filling);
+      dummyView.setBackgroundColor(Theme.getColor(ColorId.filling));
+      addThemeBackgroundColorListener(dummyView, ColorId.filling);
 
       FrameLayoutFix.LayoutParams modifiedParams = (FrameLayoutFix.LayoutParams) recyclerView.getLayoutParams();
       modifiedParams.bottomMargin += popupAdditionalHeight;
@@ -2067,23 +2098,16 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     final int[] shareState = {0};
 
     showOptions(url, ids.get(), strings.get(), null, icons.get(), (itemView, id) -> {
-      switch (id) {
-        case R.id.btn_copyLink: {
-          UI.copyText(url, R.string.CopiedLink);
-          break;
+      if (id == R.id.btn_copyLink) {
+        UI.copyText(url, R.string.CopiedLink);
+      } else if (id == R.id.btn_shareLink) {
+        if (shareState[0] == 0) {
+          shareState[0] = 1;
+          TD.shareLink(new TdlibContext(context, tdlib), url);
         }
-        case R.id.btn_shareLink: {
-          if (shareState[0] == 0) {
-            shareState[0] = 1;
-            TD.shareLink(new TdlibContext(context, tdlib), url);
-          }
-          break;
-        }
-        case R.id.btn_openLink: {
-          if (openCallback == null || !openCallback.get()) {
-            tdlib.ui().openUrl(ViewController.this, url, options);
-          }
-          break;
+      } else if (id == R.id.btn_openLink) {
+        if (openCallback == null || !openCallback.getBoolValue()) {
+          tdlib.ui().openUrl(ViewController.this, url, options);
         }
       }
       return true;
@@ -2107,15 +2131,10 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
       return;
     }
     showOptions(new int[]{R.id.btn_phone_call, R.id.btn_telegram_call}, new String[]{Lang.getString(R.string.PhoneCall), Lang.getString(R.string.VoipInCallBranding)}, (itemView, id) -> {
-      switch (id) {
-        case R.id.btn_phone_call: {
-          Intents.openNumber(TD.getPhoneNumber(phoneNumber));
-          break;
-        }
-        case R.id.btn_telegram_call: {
-          tdlib.context().calls().makeCall(ViewController.this, userId, null);
-          break;
-        }
+      if (id == R.id.btn_phone_call) {
+        Intents.openNumber(TD.getPhoneNumber(phoneNumber));
+      } else if (id == R.id.btn_telegram_call) {
+        tdlib.context().calls().makeCall(ViewController.this, userId, null);
       }
       return true;
     });
@@ -2284,11 +2303,15 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   }
 
   public final PopupLayout showOptions (CharSequence info, int[] ids, String[] titles, int[] colors, int[] icons, final OptionDelegate delegate, final @Nullable ThemeDelegate forcedTheme) {
+    return showOptions(getOptions(info, ids, titles, colors, icons), delegate, forcedTheme);
+  }
+
+  public final Options getOptions (CharSequence info, int[] ids, String[] titles, int[] colors, int[] icons) {
     OptionItem[] items = new OptionItem[ids.length];
     for (int i = 0; i < ids.length; i++) {
       items[i] = new OptionItem(ids != null ? ids[i] : i, titles[i], colors != null ? colors[i] : OPTION_COLOR_NORMAL, icons != null ? icons[i] : 0);
     }
-    return showOptions(new Options(info, items), delegate, forcedTheme);
+    return new Options(info, items);
   }
 
   public final PopupLayout showOptions (Options options, final OptionDelegate delegate) {
@@ -2404,7 +2427,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
     return showPopup(title, true, (popupLayout, optionsLayout) -> {
       CustomTextView textView = new CustomTextView(context, tdlib);
       textView.setPadding(Screen.dp(16f), Screen.dp(12f), Screen.dp(16f), Screen.dp(16f));
-      textView.setTextColorId(R.id.theme_color_text);
+      textView.setTextColorId(ColorId.text);
       textView.setText(text, entities, false);
       textView.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
       optionsLayout.addView(textView);
@@ -2430,8 +2453,8 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
           int cy = viewHeight / 2;
           int h2 = InfiniteRecyclerView.getItemHeight() / 2;
 
-          c.drawLine(0, cy - h2, viewWidth, cy - h2, Paints.strokeSeparatorPaint(forcedTheme != null ? forcedTheme.getColor(R.id.theme_color_separator) : Theme.separatorColor()));
-          c.drawLine(0, cy + h2, viewWidth, cy + h2, Paints.strokeSeparatorPaint(forcedTheme != null ? forcedTheme.getColor(R.id.theme_color_separator) : Theme.separatorColor()));
+          c.drawLine(0, cy - h2, viewWidth, cy - h2, Paints.strokeSeparatorPaint(forcedTheme != null ? forcedTheme.getColor(ColorId.separator) : Theme.separatorColor()));
+          c.drawLine(0, cy + h2, viewWidth, cy + h2, Paints.strokeSeparatorPaint(forcedTheme != null ? forcedTheme.getColor(ColorId.separator) : Theme.separatorColor()));
         }
 
         @Override
@@ -2512,7 +2535,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
         return c.getTimeInMillis();
       };
       InfiniteRecyclerView.ItemChangeListener<SimpleStringItem> listener = (v, index) -> {
-        updateSendButton.runWithLong(calculateDate.get());
+        updateSendButton.runWithLong(calculateDate.getLongValue());
       };
       dayPicker.setNeedSeparators(false);
       dayPicker.setMinMaxProvider((v, index) -> {
@@ -2528,7 +2551,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
         return index;
       });
       dayPicker.setItemChangeListener((v, index) -> {
-        long millis = calculateDate.get();
+        long millis = calculateDate.getLongValue();
         if (millis < tdlib.currentTimeMillis()) {
           c.setTimeInMillis(tdlib.currentTimeMillis());
           c.add(Calendar.MINUTE, minAddMinutes);
@@ -2607,17 +2630,17 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
       sendView.setGravity(Gravity.CENTER);
       sendView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 16f);
       sendView.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(56f)));
-      FillingDrawable drawable = ViewSupport.setThemedBackground(sendView, R.id.theme_color_fillingPositive, forcedTheme != null ? null : this);
+      FillingDrawable drawable = ViewSupport.setThemedBackground(sendView, ColorId.fillingPositive, forcedTheme != null ? null : this);
       drawable.setForcedTheme(forcedTheme);
       if (forcedTheme != null) {
-        sendView.setTextColor(forcedTheme.getColor(R.id.theme_color_fillingPositiveContent));
+        sendView.setTextColor(forcedTheme.getColor(ColorId.fillingPositiveContent));
       } else {
-        sendView.setTextColor(Theme.getColor(R.id.theme_color_fillingPositiveContent));
-        addThemeTextColorListener(sendView, R.id.theme_color_fillingPositiveContent);
+        sendView.setTextColor(Theme.getColor(ColorId.fillingPositiveContent));
+        addThemeTextColorListener(sendView, ColorId.fillingPositiveContent);
       }
       contentHeight += Screen.dp(56f);
       sendView.setOnClickListener(v -> {
-        long millis = calculateDate.get();
+        long millis = calculateDate.getLongValue();
         if (tdlib.currentTimeMillis() < millis) {
           callback.runWithLong(millis);
           popupLayout.hideWindow(true);
@@ -2698,7 +2721,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   }
 
   @Override
-  public final View get () {
+  public final View getValue () {
     if (contentView == null) {
       contentView = onCreateView(context());
       contentView.setTag(this);
@@ -2998,7 +3021,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
         UI.showKeyboardDelayed(lockFocusView);
       }
     } else {
-      get().requestFocus();
+      getValue().requestFocus();
     }
     trackUserActivity();
     onFocusStateChanged();
@@ -3253,13 +3276,10 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   public final void openInAppCamera (@NonNull CameraOpenOptions options) {
     if (options.allowSystem && Settings.instance().getCameraType() == Settings.CAMERA_TYPE_SYSTEM) {
       showOptions(null, new int[] {R.id.btn_takePhoto, R.id.btn_takeVideo}, new String[] {Lang.getString(R.string.TakePhoto), Lang.getString(R.string.TakeVideo)}, null, new int[] {R.drawable.baseline_camera_alt_24, R.drawable.baseline_videocam_24}, (itemView, id) -> {
-        switch (id) {
-          case R.id.btn_takePhoto:
-            Intents.openCamera(context, options.noTrace, false);
-            break;
-          case R.id.btn_takeVideo:
-            Intents.openCamera(context, options.noTrace, true);
-            break;
+        if (id == R.id.btn_takePhoto) {
+          Intents.openCamera(context, options.noTrace, false);
+        } else if (id == R.id.btn_takeVideo) {
+          Intents.openCamera(context, options.noTrace, true);
         }
         return true;
       });
@@ -3306,7 +3326,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   public final void maximizeFromPreview () {
     if (isInForceTouchMode() && (flags & FLAG_MAXIMIZING) == 0) {
       flags |= FLAG_MAXIMIZING;
-      UI.forceVibrate(get(), false);
+      UI.forceVibrate(getValue(), false);
       context.closeForceTouch();
     }
   }
@@ -3316,6 +3336,10 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   }
 
   protected void onForceTouchModeChanged (boolean inForceTouchMode) {
+    // Override
+  }
+
+  protected void onTranslationChanged (float newTranslationX) {
     // Override
   }
 

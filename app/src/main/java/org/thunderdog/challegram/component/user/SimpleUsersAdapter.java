@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -29,6 +29,7 @@ import org.thunderdog.challegram.component.attach.MeasuredAdapterDelegate;
 import org.thunderdog.challegram.data.TGUser;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Views;
@@ -196,13 +197,13 @@ public class SimpleUsersAdapter extends RecyclerView.Adapter<SimpleUsersAdapter.
     if (getItemCount() == 0) {
       return 0;
     }
-    int fullHeight = Screen.dp(UserView.HEIGHT) * users.size() + (needCounter ? Screen.dp(42f) : 0);
+    int fullHeight = Screen.dp(UserView.DEFAULT_HEIGHT) * users.size() + (needCounter ? Screen.dp(42f) : 0);
     return maxHeight < 0 ? fullHeight : Math.min(maxHeight, fullHeight);
   }
 
   @Override
   public int measureScrollTop (int position) {
-    return Screen.dp(UserView.HEIGHT) * position;
+    return Screen.dp(UserView.DEFAULT_HEIGHT) * position;
   }
 
   static class SimpleUserHolder extends RecyclerView.ViewHolder {
@@ -238,7 +239,7 @@ public class SimpleUsersAdapter extends RecyclerView.Adapter<SimpleUsersAdapter.
           if (onClickListener != null || onLongClickListener != null) {
             userView.setOnClickListener(onClickListener);
             userView.setOnLongClickListener(onLongClickListener);
-            ViewUtils.setBackground(userView, Theme.fillingSelector(R.id.theme_color_chatBackground));
+            ViewUtils.setBackground(userView, Theme.fillingSelector(ColorId.chatBackground));
             Views.setClickable(userView);
           }
 

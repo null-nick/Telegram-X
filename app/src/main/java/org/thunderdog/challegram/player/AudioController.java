@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@ package org.thunderdog.challegram.player;
 
 import android.content.Intent;
 import android.os.Build;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -33,14 +34,13 @@ import com.google.android.exoplayer2.PlaybackException;
 import com.google.android.exoplayer2.PlaybackParameters;
 import com.google.android.exoplayer2.Player;
 import com.google.android.exoplayer2.Timeline;
+import com.google.android.exoplayer2.Tracks;
 import com.google.android.exoplayer2.metadata.Metadata;
 import com.google.android.exoplayer2.metadata.id3.ApicFrame;
 import com.google.android.exoplayer2.source.MediaSource;
 import com.google.android.exoplayer2.source.TrackGroup;
-import com.google.android.exoplayer2.source.TrackGroupArray;
-import com.google.android.exoplayer2.trackselection.TrackSelectionArray;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
@@ -155,11 +155,18 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
     return (playFlags & TGPlayerController.PLAY_FLAG_SHUFFLE) != 0;
   }*/
 
+  private CancellationSignal serviceLaunchCancellationSignal;
+
   private void setPlaybackMode (int mode, boolean needForeground) {
     if (this.playbackMode != mode) {
       this.playbackMode = mode;
+      if (serviceLaunchCancellationSignal != null) {
+        serviceLaunchCancellationSignal.cancel();
+        serviceLaunchCancellationSignal = null;
+      }
       if (mode == PLAYBACK_MODE_EXOPLAYER_LIST) {
-        UI.startService(new Intent(UI.getAppContext(), AudioService.class), needForeground, false);
+        serviceLaunchCancellationSignal = new CancellationSignal();
+        UI.startService(new Intent(UI.getAppContext(), AudioService.class), needForeground, false, serviceLaunchCancellationSignal);
       }
     }
   }
@@ -357,7 +364,7 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
       exoPlayer = null;
     }
 
-    exoPlayer = U.newExoPlayer(UI.getAppContext(), true);
+    ExoPlayer exoPlayer = this.exoPlayer = U.newExoPlayer(UI.getAppContext(), true);
     exoPlayer.addListener(this);
     setExoPlayerParameters();
     exoPlayer.setVolume(volume);
@@ -609,6 +616,9 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
   // ExoPlayer seek
 
   private static void seekTo (@NonNull Player player, int windowIndex, int totalSize, boolean reverse) {
+    if (player == null) {
+      throw new NullPointerException();
+    }
     Log.i(Log.TAG_PLAYER, "seekTo windowIndex:%d size:%d, reverse:%b", windowIndex, totalSize, reverse);
     try {
       player.seekToDefaultPosition(reverse ? totalSize - windowIndex - 1 : windowIndex);
@@ -717,13 +727,14 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
   // ExoPlayer
 
   @Override
-  public void onTimelineChanged (Timeline timeline, int reason) {
+  public void onTimelineChanged (@NonNull Timeline timeline, int reason) {
     Log.d(Log.TAG_PLAYER, "[state] onTimeLineChanged reason:%d", reason);
   }
 
-  private static ApicFrame findApic (TrackGroupArray trackGroups) {
-    for (int i = 0; i < trackGroups.length; i++) {
-      TrackGroup trackGroup = trackGroups.get(i);
+  private static ApicFrame findApic (@NonNull Tracks tracks) {
+    List<Tracks.Group> groups = tracks.getGroups();
+    for (Tracks.Group group : groups) {
+      TrackGroup trackGroup = group.getMediaTrackGroup();
       for (int j = 0; j < trackGroup.length; j++) {
         Metadata trackMetadata = trackGroup.getFormat(j).metadata;
         if (trackMetadata != null) {
@@ -741,7 +752,7 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
   }
 
   @Override
-  public void onTracksChanged (TrackGroupArray trackGroups, TrackSelectionArray trackSelections) {
+  public void onTracksChanged (@NonNull Tracks trackGroups) {
     Log.d(Log.TAG_PLAYER, "[state] onTracksChanged");
     if (playbackMode != PLAYBACK_MODE_EXOPLAYER_LIST || playIndex == -1) {
       return;
@@ -757,7 +768,7 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
       if (playIndex != -1 && playIndex >= 0 && playIndex < playList.size()) {
         TdApi.Message track = playList.get(playIndex);
         if (!TGPlayerController.compareTracks(currentApicMessage, track)) {
-          ApicFrame frame = findApic(exoPlayer.getCurrentTrackGroups());
+          ApicFrame frame = findApic(exoPlayer.getCurrentTracks());
           if (frame != null) {
             dispatchApic(tdlib, track, frame);
           }
@@ -1058,7 +1069,7 @@ public class AudioController extends BasePlaybackController implements TGAudio.P
 
   private void setExoPlayerParameters () {
     if (exoPlayer != null) {
-      context.player().proximityManager().modifyExoPlayer(exoPlayer, C.CONTENT_TYPE_MUSIC);
+      context.player().proximityManager().modifyExoPlayer(exoPlayer, C.AUDIO_CONTENT_TYPE_MUSIC);
     }
   }
 

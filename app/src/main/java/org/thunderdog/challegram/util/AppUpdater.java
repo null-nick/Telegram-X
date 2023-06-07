@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,7 +32,7 @@ import com.google.android.play.core.install.model.InstallErrorCode;
 import com.google.android.play.core.install.model.InstallStatus;
 import com.google.android.play.core.install.model.UpdateAvailability;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.Log;
@@ -55,6 +55,7 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 
 import me.vkryl.core.StringUtils;
+import me.vkryl.core.lambda.RunnableBool;
 import me.vkryl.core.reference.ReferenceList;
 import me.vkryl.td.Td;
 
@@ -306,23 +307,30 @@ public class AppUpdater implements InstallStateUpdatedListener, FileUpdateListen
       onUpdateUnavailable();
       return;
     }
-    tdlib.findUpdateFile(updateFile -> tdlib.ui().post(() -> {
+    tdlib.findUpdateFile(updateFile -> {
+      RunnableBool act = updateFileLoadedAndExists -> tdlib.ui().post(() -> {
+        if (updateFile != null) {
+          this.telegramChannelTdlib = tdlib;
+          this.telegramChannelFile = updateFile;
+          TdApi.File file = updateFile.document.document;
+          tdlib.listeners().addFileListener(file.id, this);
+          onUpdateAvailable(FlowType.TELEGRAM_CHANNEL,
+            file.local.downloadedSize,
+            file.expectedSize,
+            updateFile.version,
+            updateFile.commit,
+            updateFileLoadedAndExists
+          );
+        } else {
+          onUpdateUnavailable();
+        }
+      });
       if (updateFile != null) {
-        this.telegramChannelTdlib = tdlib;
-        this.telegramChannelFile = updateFile;
-        TdApi.File file = updateFile.document.document;
-        tdlib.listeners().addFileListener(file.id, this);
-        onUpdateAvailable(FlowType.TELEGRAM_CHANNEL,
-          file.local.downloadedSize,
-          file.expectedSize,
-          updateFile.version,
-          updateFile.commit,
-          TD.isFileLoadedAndExists(file)
-        );
+        tdlib.files().isFileLoadedAndExists(updateFile.document.document, act);
       } else {
-        onUpdateUnavailable();
+        act.runWithBool(false);
       }
-    }));
+    });
   }
 
   private boolean offerTelegramChannelUpdate () {
@@ -346,13 +354,10 @@ public class AppUpdater implements InstallStateUpdatedListener, FileUpdateListen
           }
           b.cancelItem();
           c.showOptions(b.build(), (optionItemView, id) -> {
-            switch (id) {
-              case R.id.btn_update:
-                downloadUpdate();
-                break;
-              case R.id.btn_sourceCode:
-                UI.openUrl(changesUrl);
-                break;
+            if (id == R.id.btn_update) {
+              downloadUpdate();
+            } else if (id == R.id.btn_sourceCode) {
+              UI.openUrl(changesUrl);
             }
             return true;
           });

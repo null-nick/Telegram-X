@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,7 +38,7 @@ import org.thunderdog.challegram.navigation.TooltipOverlayView;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Fonts;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Strings;
@@ -109,10 +109,10 @@ public class MaterialEditTextGroup extends FrameLayoutFix implements View.OnFocu
     this.heightChangeListener = heightChangeListener;
   }
 
-  @ThemeColorId
-  private int textColorId = R.id.theme_color_text;
+  @ColorId
+  private int textColorId = ColorId.text;
 
-  public void setTextColorId (@ThemeColorId int colorId) {
+  public void setTextColorId (@ColorId int colorId) {
     if (this.textColorId != colorId) {
       this.textColorId = colorId;
       editText.setTextColor(Theme.getColor(colorId));
@@ -124,7 +124,7 @@ public class MaterialEditTextGroup extends FrameLayoutFix implements View.OnFocu
 
   public void setInputEnabled (boolean enabled) {
     editText.setEnabled(enabled);
-    setTextColorId(enabled ? R.id.theme_color_text : R.id.theme_color_textLight);
+    setTextColorId(enabled ? ColorId.text : ColorId.textLight);
   }
 
   public interface NextCallback {
@@ -145,8 +145,8 @@ public class MaterialEditTextGroup extends FrameLayoutFix implements View.OnFocu
 
     editText = new MaterialEditText(context) {
       @Override
-      public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
-        InputConnection conn = super.onCreateInputConnection(outAttrs);
+      public InputConnection createInputConnection (EditorInfo outAttrs) {
+        InputConnection conn = super.createInputConnection(outAttrs);
         if (nextCallback != null && nextCallback.needNextButton(MaterialEditTextGroup.this)) {
           outAttrs.imeOptions &= ~EditorInfo.IME_FLAG_NO_ENTER_ACTION;
         }
@@ -208,26 +208,41 @@ public class MaterialEditTextGroup extends FrameLayoutFix implements View.OnFocu
   }
 
   private int maxLength = -1;
+  private boolean calculateMaxLengthInCodePoints;
+
+  private int getTextLength () {
+    if (calculateMaxLengthInCodePoints) {
+      CharSequence text = editText.getText();
+      return Character.codePointCount(text, 0, text.length());
+    } else {
+      return editText.getText().length();
+    }
+  }
 
   private void updateRemainingCharCount () {
     if (lengthCounter != null) {
       if (maxLength == -1) {
         lengthCounter.setText("");
       } else {
-        int remaining = maxLength - editText.getText().length();
+        final int remaining = maxLength - getTextLength();
         if (remaining > 50) {
           lengthCounter.setText("");
         } else {
           lengthCounter.setText(Strings.buildCounter(remaining));
-          lengthCounter.setTextColor(Theme.getColor(remaining <= 0 ? R.id.theme_color_textNegative : R.id.theme_color_textLight));
+          lengthCounter.setTextColor(Theme.getColor(remaining <= 0 ? ColorId.textNegative : ColorId.textLight));
         }
       }
     }
   }
 
   public void setMaxLength (int maxLength) {
-    if (this.maxLength != maxLength) {
+    setMaxLength(maxLength, true);
+  }
+
+  public void setMaxLength (int maxLength, boolean calculateMaxLengthInCodePoints) {
+    if (this.maxLength != maxLength || this.calculateMaxLengthInCodePoints != calculateMaxLengthInCodePoints) {
       this.maxLength = maxLength;
+      this.calculateMaxLengthInCodePoints = calculateMaxLengthInCodePoints;
       addLengthCounter(false);
       updateRemainingCharCount();
     }
@@ -278,12 +293,12 @@ public class MaterialEditTextGroup extends FrameLayoutFix implements View.OnFocu
     if (themeProvider != null) {
       themeProvider.addThemeTextColorListener(editText, textColorId);
       if (hintView != null)
-        themeProvider.addThemeTextColorListener(hintView, R.id.theme_color_textPlaceholder);
+        themeProvider.addThemeTextColorListener(hintView, ColorId.textPlaceholder);
       themeProvider.addThemeInvalidateListener(editText);
-      themeProvider.addThemeHighlightColorListener(editText, R.id.theme_color_textSelectionHighlight);
-      themeProvider.addThemeHintTextColorListener(editText, R.id.theme_color_textPlaceholder);
+      themeProvider.addThemeHighlightColorListener(editText, ColorId.textSelectionHighlight);
+      themeProvider.addThemeHintTextColorListener(editText, ColorId.textPlaceholder);
       if (lengthCounter != null) {
-        themeProvider.addThemeTextColorListener(lengthCounter, R.id.theme_color_textLight);
+        themeProvider.addThemeTextColorListener(lengthCounter, ColorId.textLight);
       }
       if (radioView != null) {
         themeProvider.addThemeInvalidateListener(radioView);
@@ -478,7 +493,7 @@ public class MaterialEditTextGroup extends FrameLayoutFix implements View.OnFocu
 
   private void setTextImpl (CharSequence text) {
     editText.setText(text);
-    Views.setSelection(editText, text != null ? text.length() : 0);
+    editText.setSelection(text != null ? text.length() : 0);
   }
 
   public void setText (CharSequence text, boolean animated) {
@@ -732,7 +747,7 @@ public class MaterialEditTextGroup extends FrameLayoutFix implements View.OnFocu
       editText.setIsPassword(pendingTextIsPassword);
       if (!StringUtils.isEmpty(pendingText)) {
         editText.setText(pendingText);
-        Views.setSelection(editText, pendingText.length());
+        editText.setSelection(pendingText.length());
       } else {
         editText.setText("");
       }

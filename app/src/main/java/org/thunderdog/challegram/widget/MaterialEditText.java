@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -21,17 +21,18 @@ import android.text.method.PasswordTransformationMethod;
 import android.view.KeyEvent;
 
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Fonts;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
-import org.thunderdog.challegram.v.EditTextBase;
 
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.ColorUtils;
+import me.vkryl.core.lambda.Destroyable;
 
-public class MaterialEditText extends EditTextBase implements FactorAnimator.Target {
+public class MaterialEditText extends EmojiEditText implements FactorAnimator.Target, Destroyable {
   // private static final ColorChanger goodChanger = new ColorChanger(0, 0xff18A81F);
   // private static final ColorChanger errorChanger = new ColorChanger(0xff63BAF7, 0xffED5454);
   // private static final ColorChanger globalChanger = new ColorChanger(0xffe6e6e6, 0xff63baf7);
@@ -178,11 +179,11 @@ public class MaterialEditText extends EditTextBase implements FactorAnimator.Tar
       RectF rectF = Paints.getRectF();
       rectF.set(scrollLeft, height - scaledSize, width + scrollLeft, height);
 
-      int color = forceColorId != 0 ? Theme.getColor(forceColorId) : ColorUtils.fromToArgb(Theme.getColor(R.id.theme_color_inputInactive), Theme.getColor(R.id.theme_color_inputActive), factor);
+      int color = forceColorId != 0 ? Theme.getColor(forceColorId) : ColorUtils.fromToArgb(Theme.getColor(ColorId.inputInactive), Theme.getColor(ColorId.inputActive), factor);
       if (goodFactor != 0f)
-        color = ColorUtils.fromToArgb(color, Theme.getColor(R.id.theme_color_inputPositive), goodFactor);
+        color = ColorUtils.fromToArgb(color, Theme.getColor(ColorId.inputPositive), goodFactor);
       if (errorFactor != 0f)
-        color = ColorUtils.fromToArgb(color, Theme.getColor(R.id.theme_color_inputNegative), errorFactor);
+        color = ColorUtils.fromToArgb(color, Theme.getColor(ColorId.inputNegative), errorFactor);
       c.drawRoundRect(rectF, scaledSize / 2, scaledSize / 2, Paints.fillingPaint(color));
     }
 

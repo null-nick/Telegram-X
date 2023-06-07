@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -30,7 +30,7 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.U;
@@ -44,13 +44,13 @@ import org.thunderdog.challegram.loader.ImageFilteredFile;
 import org.thunderdog.challegram.loader.ImageReader;
 import org.thunderdog.challegram.mediaview.paint.PaintState;
 import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.theme.PropertyId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.theme.ThemeColors;
 import org.thunderdog.challegram.theme.ThemeDelegate;
 import org.thunderdog.challegram.theme.ThemeId;
 import org.thunderdog.challegram.theme.ThemeManager;
 import org.thunderdog.challegram.theme.ThemeProperties;
-import org.thunderdog.challegram.theme.ThemeProperty;
 import org.thunderdog.challegram.theme.ThemeSet;
 import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
@@ -74,9 +74,9 @@ import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
-import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.unit.ByteUnit;
 import okhttp3.Call;
 import okhttp3.Callback;
@@ -139,7 +139,8 @@ public final class TdlibFileGenerationManager {
   private static final int TASK_COPY_FILE = 7;
   private static final int TASK_EXPORT_LANGUAGE = 8;
   private static final int TASK_EXPORT_THEME = 9;
-  private static final int TASK_GENERATE_ANIMATED_STICKER_PREVIEW = 10;
+  private static final int TASK_GENERATE_LOTTIE_STICKER_PREVIEW = 10;
+  private static final int TASK_GENERATE_VIDEO_STICKER_PREVIEW = 11;
 
   private final Tdlib tdlib;
 
@@ -252,9 +253,16 @@ public final class TdlibFileGenerationManager {
         obj[2] = null;
         break;
       }
-      case TASK_GENERATE_ANIMATED_STICKER_PREVIEW: {
+      case TASK_GENERATE_LOTTIE_STICKER_PREVIEW:
+      case TASK_GENERATE_VIDEO_STICKER_PREVIEW:{
         Object[] obj = (Object[]) msg.obj;
-        generateAnimatedStickerThumb((String) obj[0], (String) obj[1], BitwiseUtils.mergeLong(msg.arg1, msg.arg2), (String) obj[2]);
+        generateAnimatedStickerThumb(
+          (String) obj[0],
+          (String) obj[1],
+          BitwiseUtils.mergeLong(msg.arg1, msg.arg2),
+          (String) obj[2],
+          msg.what == TASK_GENERATE_VIDEO_STICKER_PREVIEW
+        );
         obj[0] = null;
         obj[1] = null;
         break;
@@ -361,8 +369,12 @@ public final class TdlibFileGenerationManager {
       }
       return;
     }
-    if (conversion.startsWith(GenerationInfo.TYPE_STICKER_PREVIEW)) {
-      generateAnimatedStickerThumb(originalPath, conversion, generationId, destinationPath);
+    if (conversion.startsWith(GenerationInfo.TYPE_LOTTIE_STICKER_PREVIEW)) {
+      generateAnimatedStickerThumb(originalPath, conversion, generationId, destinationPath, false);
+      return;
+    }
+    if (conversion.startsWith(GenerationInfo.TYPE_VIDEO_STICKER_PREVIEW)) {
+      generateAnimatedStickerThumb(originalPath, conversion, generationId, destinationPath, true);
       return;
     }
     if (conversion.startsWith("copy")) {
@@ -374,7 +386,7 @@ public final class TdlibFileGenerationManager {
       String[] args = arg.split(",");
       final int themeId = StringUtils.parseInt(args[0]);
       final int flags = args.length > 1 ? StringUtils.parseInt(args[1]) : 0;
-      if (ThemeManager.isCustomTheme(themeId) || BitwiseUtils.getFlag(flags, Theme.EXPORT_FLAG_INCLUDE_DEFAULT_VALUES) || ThemeSet.getProperty(themeId, ThemeProperty.PARENT_THEME) != 0) {
+      if (ThemeManager.isCustomTheme(themeId) || BitwiseUtils.hasFlag(flags, Theme.EXPORT_FLAG_INCLUDE_DEFAULT_VALUES) || ThemeSet.getProperty(themeId, PropertyId.PARENT_THEME) != 0) {
         String author = args.length > 2 ? args[2] : null;
         exportTheme(generationId, themeId, flags, author, destinationPath);
       } else {
@@ -657,16 +669,31 @@ public final class TdlibFileGenerationManager {
     return ok && !canceled;
   }
 
-  private void generateAnimatedStickerThumb (final String fromPath, final String conversion, final long generationId, final String destinationPath) {
+  private void generateAnimatedStickerThumb (final String fromPath, final String conversion, final long generationId, final String destinationPath, boolean isVideo) {
     if (Thread.currentThread() != queue()) {
-      queue().sendMessage(Message.obtain(queue().getHandler(), TASK_GENERATE_ANIMATED_STICKER_PREVIEW, BitwiseUtils.splitLongToFirstInt(generationId), BitwiseUtils.splitLongToSecondInt(generationId), new Object[] {fromPath, conversion, destinationPath}), 0);
+      queue().sendMessage(Message.obtain(
+        queue().getHandler(),
+        isVideo ?
+          TASK_GENERATE_VIDEO_STICKER_PREVIEW :
+          TASK_GENERATE_LOTTIE_STICKER_PREVIEW,
+        BitwiseUtils.splitLongToFirstInt(generationId),
+        BitwiseUtils.splitLongToSecondInt(generationId),
+        new Object[] {
+          fromPath, conversion, destinationPath
+        }
+      ), 0);
       return;
     }
 
     getContentExecutor().execute(() -> {
       boolean success = false;
       try {
-        Bitmap result = ImageReader.decodeLottieFrame(fromPath, 512);
+        Bitmap result;
+        if (isVideo) {
+          result = ImageReader.decodeVideoFrame(fromPath, 512);
+        } else {
+          result = ImageReader.decodeLottieFrame(fromPath, 512);
+        }
         if (result != null) {
           try (FileOutputStream out = new FileOutputStream(destinationPath)) {
             success = result.compress(U.compressFormat(true), COMPRESSION_LEVEL, out);
@@ -1111,7 +1138,7 @@ public final class TdlibFileGenerationManager {
     compress(info, bitmap, info.isFiltered() ? 100 : applyLessCompression ? COMPRESSION_LEVEL_LESS : COMPRESSION_LEVEL, isTransparent && info.getAllowTransparency());
 
     if (saveToGallery) {
-      Background.instance().post(() -> U.savePhotoToGallery(originalBitmap, isTransparent), 750);
+      Background.instance().post(() -> U.savePhotoToGallery(UI.getUiContext(), originalBitmap, isTransparent), 750);
     }
   }
 

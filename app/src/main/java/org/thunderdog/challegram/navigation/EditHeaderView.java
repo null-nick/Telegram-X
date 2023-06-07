@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -38,9 +38,11 @@ import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.unsorted.Size;
+import org.thunderdog.challegram.util.CharacterStyleFilter;
 import org.thunderdog.challegram.v.HeaderEditText;
 
 import me.vkryl.android.ViewUtils;
+import me.vkryl.android.text.CodePointCountFilter;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.lambda.Destroyable;
 import me.vkryl.td.TdConstants;
@@ -84,7 +86,10 @@ public class EditHeaderView extends FrameLayoutFix implements RtlCheckListener, 
     input.addTextChangedListener(this);
     input.checkRtl();
     input.setLayoutParams(params);
-    input.setFilters(new InputFilter[] {new InputFilter.LengthFilter(TdConstants.MAX_CHAT_TITLE_LENGTH)});
+    input.setFilters(new InputFilter[] {
+      new CodePointCountFilter(TdConstants.MAX_CHAT_TITLE_LENGTH),
+      new CharacterStyleFilter()
+    });
     addView(input);
   }
 
@@ -173,7 +178,7 @@ public class EditHeaderView extends FrameLayoutFix implements RtlCheckListener, 
     if (text != null) {
       flags |= FLAG_IGNORE_READY;
       input.setText(text);
-      Views.setSelection(input, text.length());
+      input.setSelection(text.length());
       flags &= ~FLAG_IGNORE_READY;
     }
   }

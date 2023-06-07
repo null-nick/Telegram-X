@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,10 +19,9 @@ import android.graphics.Path;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.sticker.StickerSetWrap;
-import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.loader.gif.GifFile;
@@ -51,15 +50,26 @@ public class TGStickerSetInfo {
   private @Nullable TdApi.StickerSet stickerSet;
 
   private @Nullable ArrayList<TGStickerSetInfo> boundList;
+  private TdApi.Sticker[] allStickers;
 
-  public TGStickerSetInfo (Tdlib tdlib, TdApi.Sticker[] recentStickers) {
+  public TGStickerSetInfo (Tdlib tdlib, TdApi.Sticker[] stickers, boolean areFavorite, int trimToSize) {
     this.tdlib = tdlib;
-    this.size = recentStickers.length;
+    this.allStickers = stickers;
+    if (trimToSize > 0 && stickers.length > trimToSize) {
+      this.size = trimToSize;
+    } else {
+      this.size = stickers.length;
+    }
     this.info = null;
     this.previewImage = null;
     this.previewAnimation = null;
     this.previewOutline = null;
     this.previewWidth = this.previewHeight = 0;
+    if (areFavorite) {
+      setIsFavorite();
+    } else {
+      setIsRecent();
+    }
   }
 
   public TGStickerSetInfo (Tdlib tdlib, @NonNull TdApi.StickerSetInfo info) {
@@ -83,6 +93,9 @@ public class TGStickerSetInfo {
         case TdApi.ThumbnailFormatGif.CONSTRUCTOR:
           gifType = GifFile.TYPE_GIF;
           break;
+        case TdApi.ThumbnailFormatJpeg.CONSTRUCTOR:
+        case TdApi.ThumbnailFormatPng.CONSTRUCTOR:
+        case TdApi.ThumbnailFormatWebp.CONSTRUCTOR:
         default:
           gifType = -1;
           break;
@@ -98,10 +111,10 @@ public class TGStickerSetInfo {
       this.previewOutline = info.covers[0].outline;
       this.previewWidth = info.covers[0].width;
       this.previewHeight = info.covers[0].height;
-      if (Td.isAnimated(info.covers[0].type)) {
+      if (Td.isAnimated(info.covers[0].format)) {
         this.previewImage = null;
-        this.previewAnimation = new GifFile(tdlib, info.covers[0].sticker, info.covers[0].type);
-        this.previewAnimation.setOptimize(true);
+        this.previewAnimation = new GifFile(tdlib, info.covers[0].sticker, info.covers[0].format);
+        this.previewAnimation.setOptimizationMode(GifFile.OptimizationMode.STICKER_PREVIEW);
       } else if (info.covers[0].thumbnail != null) {
         this.previewImage = TD.toImageFile(tdlib, info.covers[0].thumbnail);
         this.previewAnimation = null;
@@ -121,13 +134,13 @@ public class TGStickerSetInfo {
       this.previewImage.setWebp();
     }
     if (this.previewAnimation != null) {
-      this.previewAnimation.setOptimize(true);
+      this.previewAnimation.setOptimizationMode(GifFile.OptimizationMode.STICKER_PREVIEW);
       this.previewAnimation.setScaleType(ImageFile.FIT_CENTER);
     }
   }
 
   public TGStickerSetInfo (Tdlib tdlib, TdApi.StickerSet info) {
-    this(tdlib, new TdApi.StickerSetInfo(info.id, info.title, info.name, info.thumbnail, info.thumbnailOutline, info.isInstalled, info.isArchived, info.isOfficial, info.stickerType, info.isViewed, info.stickers.length, info.stickers));
+    this(tdlib, Td.toStickerSetInfo(info));
   }
 
   public void setBoundList (@Nullable ArrayList<TGStickerSetInfo> list) {
@@ -228,10 +241,19 @@ public class TGStickerSetInfo {
     if (info != null) {
       return info.size + 1;
     }
-    if (isFavorite() || (Config.HEADLESS_RECENT_PACK && isRecent())) {
+    if (isFavorite()) {
       return size;
     }
     return size + 1;
+  }
+
+  public void setStickers (TdApi.Sticker[] stickers, int visibleSize) {
+    this.allStickers = stickers;
+    setSize(visibleSize);
+  }
+
+  public TdApi.Sticker[] getAllStickers () {
+    return allStickers;
   }
 
   public void setSize (int size) {
@@ -317,7 +339,7 @@ public class TGStickerSetInfo {
   }
 
   public Path getPreviewContour (int targetSize) {
-    return previewWidth != 0 && previewHeight != 0 ? Td.buildOutline(previewOutline, Math.min((float) targetSize / (float) previewWidth, (float) targetSize / (float) previewHeight)) : null;
+    return previewWidth != 0 && previewHeight != 0 ? Td.buildOutline(previewOutline, previewWidth, previewHeight, targetSize, targetSize) : null;
   }
 
   public GifFile getPreviewAnimation () {
@@ -325,11 +347,19 @@ public class TGStickerSetInfo {
   }
 
   public boolean isAnimated () {
-    return info != null && Td.isAnimated(info.stickerType);
+    return info != null && Td.isAnimated(info.stickerFormat);
   }
 
   public int getSize () {
     return info != null ? info.size : size;
+  }
+
+  public int getFullSize () {
+    return allStickers != null ? allStickers.length : getSize();
+  }
+
+  public boolean isCollapsed () {
+    return getFullSize() > getSize();
   }
 
   public String getName () {

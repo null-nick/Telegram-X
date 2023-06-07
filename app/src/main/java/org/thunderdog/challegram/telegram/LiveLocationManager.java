@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,6 +16,7 @@ package org.thunderdog.challegram.telegram;
 
 import android.content.Intent;
 import android.location.Location;
+import android.os.CancellationSignal;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
@@ -25,7 +26,7 @@ import android.text.TextUtils;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
@@ -260,14 +261,21 @@ public class LiveLocationManager implements LocationHelper.LocationChangeListene
     handler.sendMessage(Message.obtain(handler, ACTION_DISPATCH_LOCATION_CHANGED, heading, 0, location));
   }
 
+  private CancellationSignal serviceLaunchCancellationSignal;
+
   @Override
   public void onFullnessStateChanged (ReferenceList<?> list, boolean isFull) {
     synchronized (this) {
       if (this.isActive != isFull) {
         this.isActive = isFull;
+        if (serviceLaunchCancellationSignal != null) {
+          serviceLaunchCancellationSignal.cancel();
+          serviceLaunchCancellationSignal = null;
+        }
         Intent serviceIntent = new Intent(UI.getAppContext(), LiveLocationService.class);
         if (isFull) {
-          UI.startService(serviceIntent, true, true);
+          serviceLaunchCancellationSignal = new CancellationSignal();
+          UI.startService(serviceIntent, true, true, serviceLaunchCancellationSignal);
           if (location == null) {
             performWorker(null);
           } else {

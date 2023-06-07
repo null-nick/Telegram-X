@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,6 +22,7 @@ import com.android.build.gradle.AppExtension
 import com.android.build.gradle.BaseExtension
 import com.android.build.gradle.LibraryExtension
 import com.android.build.gradle.ProguardFiles
+import com.android.build.gradle.internal.dsl.BaseAppModuleExtension
 import getLongOrThrow
 import getOrThrow
 import loadProperties
@@ -67,6 +68,7 @@ open class ModulePlugin : Plugin<Project> {
     }
 
     val properties = loadProperties()
+    val sampleProperties = loadProperties("local.properties.sample")
     val keystoreFilePath = properties.getProperty("keystore.file", "")
     val disableSigning = properties.getProperty("app.disable_signing", "false") == "true"
     val keystore = if (keystoreFilePath.isNotEmpty() && !disableSigning) {
@@ -74,12 +76,24 @@ open class ModulePlugin : Plugin<Project> {
     } else {
       null
     }
+    val safetyNetToken = if (keystore != null) {
+      properties.getProperty("safetynet.api_key", "")
+    } else {
+      null
+    }
+    fun getOrSample (key: String): String {
+      return properties.getProperty(key, null) ?: sampleProperties.getOrThrow(key)
+    }
     val appVersionOverride = properties.getProperty("app.version", "0").toInt()
-    val appId = properties.getOrThrow("app.id")
-    val isExperimentalBuild = keystore == null || properties.getProperty("app.experimental", "false") == "true"
-    val dontObfuscate = properties.getProperty("app.dontobfuscate", "false") == "true"
+    val appId = getOrSample("app.id")
+    val appName = getOrSample("app.name")
+    val appDownloadUrl = getOrSample("app.download_url")
+    val isExampleBuild = appId.startsWith("com.example.") || appId.startsWith("org.example.")
+    val isExperimentalBuild = isExampleBuild || keystore == null || properties.getProperty("app.experimental", "false") == "true"
+    val dontObfuscate = isExampleBuild || properties.getProperty("app.dontobfuscate", "false") == "true"
 
     project.extra.set("experimental", isExperimentalBuild)
+    project.extra.set("app_name", appName)
 
     val versions = loadProperties("version.properties")
     val appVersion = if (appVersionOverride > 0) appVersionOverride else versions.getOrThrow("version.app").toInt()
@@ -145,8 +159,74 @@ open class ModulePlugin : Plugin<Project> {
           }
 
           is AppExtension -> {
+            if (properties.getProperty("telegram.api_id", "").isEmpty() || properties.getProperty("telegram.api_hash").isEmpty()) {
+              error("""
+                Telegram API credentials missing.
+                
+                Set them in your local.properties file:
+                telegram.api_id=YOUR_API_ID_HERE
+                telegram.api_hash=YOUR_API_HASH_HERE
+                
+                Obtain them at https://core.telegram.org/api/obtaining_api_id
+              """.trimIndent())
+            }
+
+            var openSslVersion: String = ""
+            val openSslVersionFile = File(project.rootDir.absoluteFile, "tdlib/source/openssl/include/openssl/opensslv.h")
+            openSslVersionFile.bufferedReader().use { reader ->
+              val regex = Regex("^#\\s*define OPENSSL_VERSION_NUMBER\\s*((?:0x)[0-9a-fAF]+)L?\$")
+              while (true) {
+                val line = reader.readLine() ?: break
+                val result = regex.find(line)
+                if (result != null) {
+                  val rawVersion = result.groupValues[1]
+                  val version = if (rawVersion.startsWith("0x")) {
+                    rawVersion.substring(2).toLong(16)
+                  } else {
+                    rawVersion.toLong()
+                  }
+                  // MNNFFPPS: major minor fix patch status
+                  val major = ((version shr 28) and 0xf).toInt()
+                  val minor = ((version shr 20) and 0xff).toInt()
+                  val fix = ((version shr 12) and 0xff).toInt()
+                  val patch = ((version shr 4) and 0xff).toInt()
+                  val status = (version and 0xf).toInt()
+                  if (status != 0xf) {
+                    error("Using non-stable OpenSSL version: $rawVersion (status = ${status.toString(16)})")
+                  }
+                  openSslVersion = "${major}.${minor}.${fix}${('a'.code - 1 + patch).toChar()}"
+                  break
+                }
+              }
+            }
+            if (openSslVersion.isEmpty()) {
+              error("OpenSSL not found!")
+            }
+
+            var tdlibVersion = ""
+            val tdlibCommit = File(project.rootDir.absoluteFile, "tdlib/version.txt").bufferedReader().readLine().take(7)
+            val tdlibVerisonFile = File(project.rootDir.absoluteFile, "tdlib/source/td/CMakeLists.txt")
+            tdlibVerisonFile.bufferedReader().use { reader ->
+              val regex = Regex("^project\\(TDLib VERSION (\\d+\\.\\d+\\.\\d+) LANGUAGES CXX C\\)$")
+              while (true) {
+                val line = reader.readLine() ?: break
+                val result = regex.find(line)
+                if (result != null) {
+                  tdlibVersion = "${result.groupValues[1]}-${tdlibCommit}"
+                  break
+                }
+              }
+            }
+            if (tdlibVersion.isEmpty()) {
+              error("TDLib not found!")
+            }
+
             var git: List<String>
-            val process = ProcessBuilder("bash", "-c", "echo \"$(git rev-parse --short HEAD) $(git rev-parse HEAD) $(git show -s --format=%ct) $(git config --get remote.origin.url) $(git log -1 --pretty=format:'%an')\"").start()
+            val process = if (System.getProperty("os.name").startsWith("Windows")) {
+              ProcessBuilder("cmd", "/C", "${project.rootDir.absolutePath}\\scripts\\windows\\git-info.cmd").start()
+            } else {
+              ProcessBuilder("bash", "-c", "echo \"$(git rev-parse --short HEAD) $(git rev-parse HEAD) $(git show -s --format=%ct) $(git config --get remote.origin.url) $(git log -1 --pretty=format:'%an')\"").start()
+            }
             process.inputStream.reader(Charsets.UTF_8).use {
               git = it.readText().trim().split(' ', limit = 5)
             }
@@ -157,7 +237,7 @@ open class ModulePlugin : Plugin<Project> {
             val commitHashShort = git[0]
             val commitHashLong = git[1]
             val commitDate = git[2].toLong()
-            val commitAuthor = git[4]
+            // val commitAuthor = git[4]
             val remoteUrl = if (git[3].startsWith("git@")) {
               val index = git[3].indexOf(':', 4)
               val domain = git[3].substring(4, index)
@@ -185,15 +265,18 @@ open class ModulePlugin : Plugin<Project> {
               PullRequest(it.toLong(), properties)
             }.sortedBy { it.id }
 
-            namespace = "org.thunderdog.challegram"
-
             defaultConfig {
               applicationId = appId
 
-              buildConfigString("PROJECT_NAME", properties.getOrThrow("app.name"))
+              buildConfigString("PROJECT_NAME", appName)
               buildConfigString("MARKET_URL", "https://play.google.com/store/apps/details?id=${appId}")
 
-              buildConfigString("DOWNLOAD_URL", properties.getOrThrow("app.download_url"))
+              buildConfigString("SAFETYNET_API_KEY", safetyNetToken)
+
+              buildConfigString("DOWNLOAD_URL", appDownloadUrl)
+
+              buildConfigString("OPENSSL_VERSION", openSslVersion)
+              buildConfigString("TDLIB_VERSION", tdlibVersion)
 
               buildConfigString("REMOTE_URL", remoteUrl)
               buildConfigString("COMMIT_URL", commitUrl)
@@ -201,8 +284,6 @@ open class ModulePlugin : Plugin<Project> {
               buildConfigString("COMMIT_FULL", commitHashLong)
               buildConfigLong("COMMIT_DATE", commitDate)
               buildConfigString("SOURCES_URL", properties.getProperty("app.sources_url", remoteUrl))
-
-              buildConfigField("boolean", "EXPERIMENTAL", isExperimentalBuild.toString())
 
               buildConfigField("long[]", "PULL_REQUEST_ID", "{${
                 pullRequests.joinToString(", ") { it.id.toString() }
@@ -264,10 +345,11 @@ open class ModulePlugin : Plugin<Project> {
               }
             }
 
-            buildTypes {
-              lintOptions {
-                disable("MissingTranslation")
-                isCheckDependencies = true
+            if (this is BaseAppModuleExtension) {
+              // FIXME[gradle]: lint is still not available through AppExtension
+              lint {
+                disable += "MissingTranslation"
+                checkDependencies = true
               }
             }
 

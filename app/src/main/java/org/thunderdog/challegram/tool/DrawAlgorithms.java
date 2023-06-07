@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -36,16 +36,17 @@ import androidx.annotation.ColorInt;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.core.Lang;
+import org.thunderdog.challegram.loader.AvatarReceiver;
 import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.mediaview.paint.PaintState;
 import org.thunderdog.challegram.telegram.TdlibStatusManager;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.util.DrawableProvider;
 import org.thunderdog.challegram.util.text.Text;
 import org.thunderdog.challegram.util.text.TextColorSet;
@@ -85,18 +86,87 @@ public class DrawAlgorithms {
     }
   }
 
-  public static void drawReceiver (Canvas c, Receiver preview, Receiver receiver, boolean clearPreview, boolean needPlaceholder, int left, int top, int right, int bottom) {
-    if (receiver.needPlaceholder()) {
-      preview.setBounds(left, top, right, bottom);
-      if (needPlaceholder && preview.needPlaceholder()) {
-        preview.drawPlaceholder(c);
+  public static void drawRoundRect (Canvas c, float radius, float left, float top, float right, float bottom, Paint paint) {
+    drawRoundRect(c, radius, radius, radius, radius, left, top, right, bottom, paint);
+  }
+  public static void drawRoundRect (Canvas c, float topLeftRadius, float topRightRadius, float bottomRightRadius, float bottomLeftRadius, float left, float top, float right, float bottom, Paint paint) {
+    float radius = Math.max(topLeftRadius, Math.max(topRightRadius, Math.max(bottomRightRadius, bottomLeftRadius)));
+    if (radius > 0) {
+      RectF rectF = Paints.getRectF();
+      rectF.set(left, top, right, bottom);
+      if (topLeftRadius != radius || topRightRadius != radius || bottomRightRadius != radius || bottomLeftRadius != radius) {
+        Path path = Paints.getPath();
+        path.reset();
+        buildPath(path, rectF, topLeftRadius, topRightRadius, bottomRightRadius, bottomLeftRadius);
+        c.drawPath(path, paint);
+        path.reset();
+      } else {
+        c.drawRoundRect(rectF, radius, radius, paint);
       }
-      preview.draw(c);
-    } else if (clearPreview) {
-      preview.clear();
+    } else {
+      c.drawRect(left, top, right, bottom, paint);
     }
-    receiver.setBounds(left, top, right, bottom);
-    receiver.draw(c);
+  }
+
+  public static void drawParticles (Canvas c, float radius, float left, float top, float right, float bottom, float alpha) {
+    drawParticles(c, radius, radius, radius, radius, left, top, right, bottom, alpha);
+  }
+
+  public static void drawParticles (Canvas c, float topLeftRadius, float topRightRadius, float bottomRightRadius, float bottomLeftRadius, float left, float top, float right, float bottom, float alpha) {
+    // TODO
+
+    float centerX = left + (right - left) / 2f;
+    float centerY = top + (bottom - top) / 2f;
+
+    Drawable drawable = Drawables.get(R.drawable.deproko_baseline_whatshot_16);
+
+    c.drawCircle(centerX, centerY,
+      Math.max(drawable.getMinimumWidth(), drawable.getMinimumHeight()) / 2f * 1.65f,
+      Paints.fillingPaint(ColorUtils.alphaColor(alpha, 0x44000000))
+    );
+
+    Drawables.drawCentered(c, drawable, centerX, centerY, PorterDuffPaint.get(ColorId.white, alpha));
+  }
+  public static void drawReceiver (Canvas c, Receiver preview, Receiver receiver, boolean clearPreview, boolean needPlaceholder, int left, int top, int right, int bottom) {
+    drawReceiver(c, preview, receiver, clearPreview, needPlaceholder, left, top, right, bottom, 1f, 1f);
+  }
+
+  public static void drawReceiver (Canvas c, Receiver preview, Receiver receiver, boolean clearPreview, boolean needPlaceholder, int left, int top, int right, int bottom, float previewScale, float scale) {
+    if (preview != null) {
+      if (receiver == null || receiver.needPlaceholder()) {
+        boolean needScale = previewScale != 1f;
+        int saveCount = needScale ? Views.save(c) : -1;
+        if (needScale) {
+          c.scale(previewScale, previewScale, left + (right - left) / 2f, top + (bottom - top) / 2f);
+        }
+
+        preview.setBounds(left, top, right, bottom);
+        if (needPlaceholder && preview.needPlaceholder()) {
+          preview.drawPlaceholder(c);
+        }
+        preview.draw(c);
+        if (needScale) {
+          Views.restore(c, saveCount);
+        }
+      } else {
+        preview.setBounds(left, top, right, bottom);
+        if (clearPreview) {
+          preview.clear();
+        }
+      }
+    }
+    if (receiver != null) {
+      boolean needScale = scale != 1f;
+      int saveCount = needScale ? Views.save(c) : -1;
+      if (needScale) {
+        c.scale(scale, scale, left + (right - left) / 2f, top + (bottom - top) / 2f);
+      }
+      receiver.setBounds(left, top, right, bottom);
+      receiver.draw(c);
+      if (needScale) {
+        Views.restore(c, saveCount);
+      }
+    }
   }
 
   public static void drawCross (Canvas c, float cx, float cy, float factor, @ColorInt int iconColor, @ColorInt int backgroundColor) {
@@ -217,14 +287,27 @@ public class DrawAlgorithms {
   }
 
   public static void drawOnline (Canvas c, Receiver receiver, float onlineFactor) {
+    drawOnline(c, receiver, onlineFactor, Theme.fillingColor(), Theme.getColor(ColorId.online));
+  }
+
+  public static void drawOnline (Canvas c, Receiver receiver, float onlineFactor, int contentCutOutColor, int onlineColor) {
     if (onlineFactor > 0f) {
       float innerRadius = Screen.dp(4.5f);
       float outerRadius = innerRadius + Screen.dp(2f);
       double radians = Math.toRadians(45f);
-      float x = receiver.centerX() + (float) ((double) (receiver.getWidth() / 2) * Math.sin(radians));
-      float y = receiver.centerY() + (float) ((double) (receiver.getHeight() / 2) * Math.cos(radians));
-      c.drawCircle(x, y, outerRadius * onlineFactor, Paints.fillingPaint(Theme.fillingColor()));
-      c.drawCircle(x, y, innerRadius * onlineFactor, Paints.fillingPaint(Theme.getColor(R.id.theme_color_online)));
+      float x, y;
+      if (receiver instanceof AvatarReceiver) {
+        float displayRadius = ((AvatarReceiver) receiver).getDisplayRadius();
+        float centerX = receiver.getRight() - displayRadius;
+        float centerY = receiver.getBottom() - displayRadius;
+        x = centerX + (float) ((double) displayRadius * Math.sin(radians));
+        y = centerY + (float) ((double) displayRadius * Math.cos(radians));
+      } else {
+        x = receiver.centerX() + (float) ((double) (receiver.getWidth() / 2) * Math.sin(radians));
+        y = receiver.centerY() + (float) ((double) (receiver.getHeight() / 2) * Math.cos(radians));
+      }
+      c.drawCircle(x, y, outerRadius * onlineFactor, Paints.fillingPaint(contentCutOutColor));
+      c.drawCircle(x, y, innerRadius * onlineFactor, Paints.fillingPaint(onlineColor));
     }
   }
 
@@ -236,7 +319,7 @@ public class DrawAlgorithms {
       float x = cx + (float) ((double) (radius) * Math.sin(radians));
       float y = cy + (float) ((double) (radius) * Math.cos(radians));
       c.drawCircle(x, y, outerRadius * onlineFactor, Paints.fillingPaint(Theme.fillingColor()));
-      c.drawCircle(x, y, innerRadius * onlineFactor, Paints.fillingPaint(Theme.getColor(R.id.theme_color_online)));
+      c.drawCircle(x, y, innerRadius * onlineFactor, Paints.fillingPaint(Theme.getColor(ColorId.online)));
     }
   }
 
@@ -311,9 +394,18 @@ public class DrawAlgorithms {
     if (checkFactor > 0f) {
       boolean rtl = Lang.rtl();
       final double radians = Math.toRadians(rtl ? 315f : 45f);
-      final int x = receiver.centerX() + (int) ((float) receiver.getWidth() / 2 * Math.sin(radians));
-      final int y = receiver.centerY() + (int) ((float) receiver.getHeight() / 2 * Math.cos(radians));
-      SimplestCheckBox.draw(c, x, y, checkFactor, null);
+      float x, y;
+      if (receiver instanceof AvatarReceiver) {
+        float displayRadius = ((AvatarReceiver) receiver).getDisplayRadius();
+        float centerX = receiver.getRight() - displayRadius;
+        float centerY = receiver.getBottom() - displayRadius;
+        x = centerX + (float) ((double) displayRadius * Math.sin(radians));
+        y = centerY + (float) ((double) displayRadius * Math.cos(radians));
+      } else {
+        x = receiver.centerX() + (int) ((float) receiver.getWidth() / 2 * Math.sin(radians));
+        y = receiver.centerY() + (int) ((float) receiver.getHeight() / 2 * Math.cos(radians));
+      }
+      SimplestCheckBox.draw(c, (int) x, (int) y, checkFactor, null);
       RectF rectF = Paints.getRectF();
       int radius = Screen.dp(11f);
       rectF.set(x - radius, y - radius, x + radius, y + radius);
@@ -322,7 +414,11 @@ public class DrawAlgorithms {
   }
 
   public static float getCounterWidth (float textSize, boolean needBackground, CounterAnimator<?> counter, int drawableWidth) {
-    float contentWidth = counter.getWidth() + drawableWidth;
+    return getCounterWidth(textSize, needBackground, counter.getWidth(), drawableWidth);
+  }
+
+  public static float getCounterWidth (float textSize, boolean needBackground, float counterWidth, int drawableWidth) {
+    float contentWidth = counterWidth + drawableWidth;
     if (needBackground) {
       return Math.max(Screen.dp(textSize - 2f) * 2, contentWidth + Screen.dp(3f) * 2);
     } else {
@@ -330,7 +426,7 @@ public class DrawAlgorithms {
     }
   }
 
-  public static void drawCounter (Canvas c, float cx, float cy, int gravity, CounterAnimator<Text> counter, float textSize, boolean needBackground, TextColorSet colorSet, Drawable drawable, int drawableGravity, int drawableColorId, int drawableMargin, float alpha, float scale) {
+  public static void drawCounter (Canvas c, float cx, float cy, int gravity, CounterAnimator<Text> counter, float textSize, boolean needBackground, TextColorSet colorSet, Drawable drawable, int drawableGravity, int drawableColorId, int drawableMargin, float alpha, float drawableAlpha, float scale) {
     scale = .6f + .4f * scale;
     final boolean needScale = scale != 1f;
 
@@ -392,7 +488,9 @@ public class DrawAlgorithms {
 
     float startX = rectF.centerX() - contentWidth / 2f;
     if (drawable != null) {
-      Paint paint = PorterDuffPaint.get(drawableColorId, alpha);
+      Paint paint = drawableColorId != 0 ?
+        PorterDuffPaint.get(drawableColorId, drawableAlpha):
+        Paints.getPorterDuffPaint(ColorUtils.alphaColor(drawableAlpha, colorSet.iconColor()));
       float iconY = cy - drawable.getMinimumHeight() / 2f;
       switch (drawableGravity) {
         case Gravity.RIGHT:
@@ -887,7 +985,7 @@ public class DrawAlgorithms {
     return 0;
   }
 
-  public static int drawStatus (Canvas c, TdlibStatusManager.ChatState state, float cx, float cy, int color, DrawableProvider provider, @ThemeColorId int knownThemeId) {
+  public static int drawStatus (Canvas c, TdlibStatusManager.ChatState state, float cx, float cy, int color, DrawableProvider provider, @ColorId int knownThemeId) {
     TdApi.ChatAction action = state.action();
     if (action == null) {
       return 0;
@@ -1080,11 +1178,11 @@ public class DrawAlgorithms {
         if (drawable != null) {
           Paint paint;
           switch (knownThemeId) {
-            case R.id.theme_color_textLight:
+            case ColorId.textLight:
               paint = Paints.getDecentPorterDuffPaint();
               break;
-            case R.id.theme_color_chatListAction:
-            case R.id.theme_color_headerText:
+            case ColorId.chatListAction:
+            case ColorId.headerText:
             default:
               paint = Paints.getPorterDuffPaint(color);
               break;

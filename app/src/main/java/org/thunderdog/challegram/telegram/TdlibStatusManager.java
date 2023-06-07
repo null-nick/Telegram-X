@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
@@ -704,7 +704,7 @@ public class TdlibStatusManager implements CleanupStartupDelegate {
     if (supergroup == null) {
       return "channel unavailable";
     }
-    int resource = supergroup.isChannel ? (StringUtils.isEmpty(supergroup.username) ? R.string.ChannelPrivate : R.string.Channel) : (!StringUtils.isEmpty(supergroup.username) ? R.string.PublicGroup : R.string.Group);
+    int resource = supergroup.isChannel ? (!Td.hasUsername(supergroup) ? R.string.ChannelPrivate : R.string.Channel) : (!Td.isEmpty(supergroup.usernames) ? R.string.PublicGroup : R.string.Group);
     return Lang.lowercase(Lang.getString(resource));
   }
 }

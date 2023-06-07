@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,9 +41,9 @@ public abstract class ThemeObject implements ThemeDelegate {
   @Override
   public float getProperty (int propertyId) {
     switch (propertyId) {
-      case ThemeProperty.WALLPAPER_ID:
+      case PropertyId.WALLPAPER_ID:
         return TGBackground.getDefaultWallpaperId(id);
-      case ThemeProperty.PARENT_THEME:
+      case PropertyId.PARENT_THEME:
         return ThemeId.NONE;
     }
     throw Theme.newError(propertyId, "propertyId");

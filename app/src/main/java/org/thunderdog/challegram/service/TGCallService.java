@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -51,7 +51,7 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.Nullable;
 import androidx.core.app.NotificationManagerCompat;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
@@ -64,13 +64,16 @@ import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccount;
 import org.thunderdog.challegram.telegram.TdlibCache;
 import org.thunderdog.challegram.telegram.TdlibManager;
+import org.thunderdog.challegram.telegram.TdlibNotificationChannelGroup;
 import org.thunderdog.challegram.telegram.TdlibNotificationManager;
 import org.thunderdog.challegram.telegram.TdlibNotificationUtils;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Intents;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.unsorted.Settings;
 import org.thunderdog.challegram.util.SoundPoolMap;
+import org.thunderdog.challegram.voip.NetworkStats;
 import org.thunderdog.challegram.voip.VoIPController;
 import org.thunderdog.challegram.voip.gui.CallSettings;
 import org.thunderdog.challegram.voip.gui.VoIPFeedbackActivity;
@@ -81,6 +84,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 
 import me.vkryl.core.StringUtils;
+import me.vkryl.core.lambda.RunnableBool;
 import me.vkryl.td.ChatId;
 
 public class TGCallService extends Service implements
@@ -312,6 +316,7 @@ public class TGCallService extends Service implements
       am.registerMediaButtonEventReceiver(new ComponentName(this, VoIPMediaButtonReceiver.class));
 
       if (btAdapter != null && btAdapter.isEnabled()) {
+        //noinspection MissingPermission
         int headsetState = btAdapter.getProfileConnectionState(BluetoothProfile.HEADSET);
         updateBluetoothHeadsetState(headsetState == BluetoothProfile.STATE_CONNECTED);
         if (headsetState == BluetoothProfile.STATE_CONNECTED) {
@@ -333,14 +338,18 @@ public class TGCallService extends Service implements
     }
     cpuWakelock.release();
     final AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
-    if (isBtHeadsetConnected && !soundPoolMap.isProbablyPlaying()) {
+    boolean isBtHeadsetConnected = this.isBtHeadsetConnected;
+    RunnableBool disconnectBt = isBtHeadsetConnected ? (delayed) -> {
       am.stopBluetoothSco();
-      Log.d(Log.TAG_VOIP, "AudioManager.stopBluetoothSco (in onDestroy)");
+      Log.d(Log.TAG_VOIP, "AudioManager.stopBluetoothSco (in onDestroy), delayed: %b", delayed);
       am.setSpeakerphoneOn(false);
-      Log.d(Log.TAG_VOIP, "AudioManager.setSpeakerphoneOn(false) (in onDestroy)");
-    }
+      Log.d(Log.TAG_VOIP, "AudioManager.setSpeakerphoneOn(false) (in onDestroy), delayed: %b", delayed);
+    } : null;
     try {
       if (!soundPoolMap.isProbablyPlaying()) {
+        if (disconnectBt != null) {
+          disconnectBt.runWithBool(false);
+        }
         am.setMode(AudioManager.MODE_NORMAL);
         Log.d(Log.TAG_VOIP, "AudioManager.setMode(AudioManager.MODE_NORMAL) (in onDestroy)");
       } else {
@@ -348,6 +357,9 @@ public class TGCallService extends Service implements
         UI.post(() -> {
           if (amChangeCounterFinal == amChangeCounter) {
             try {
+              if (disconnectBt != null) {
+                disconnectBt.runWithBool(true);
+              }
               Log.d(Log.TAG_VOIP, "AudioManager.setMode(AudioManager.MODE_NORMAL) (in onDestroy, delayed)");
               am.setMode(AudioManager.MODE_NORMAL);
             } catch (Throwable ignored) { }
@@ -444,7 +456,7 @@ public class TGCallService extends Service implements
           .setAction("RATE_CALL_" + call.id)
           .putExtra("account_id", tdlib.id())
           .putExtra("call_id", call.id)
-          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP), 0).send();
+          .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP), Intents.mutabilityFlags(false)).send();
       } catch (Throwable t) {
         Log.e(Log.TAG_VOIP, "Error starting rate activity", t);
       }
@@ -688,7 +700,11 @@ public class TGCallService extends Service implements
       channel.enableVibration(false);
       channel.enableLights(false);
       channel.setSound(null, null);
-      m.createNotificationChannel(channel);
+      try {
+        m.createNotificationChannel(channel);
+      } catch (Throwable t) {
+        Log.v("Unable to create notification channel for call", new TdlibNotificationChannelGroup.ChannelCreationFailureException(t));
+      }
       builder = new Notification.Builder(this, callChannelId);
     } else {
       builder = new Notification.Builder(this);
@@ -698,7 +714,7 @@ public class TGCallService extends Service implements
       .setContentTitle(Lang.getString(R.string.OutgoingCall))
       .setContentText(TD.getUserName(user))
       .setSmallIcon(CALL_ICON_RES)
-      .setContentIntent(PendingIntent.getActivity(UI.getContext(), 0, Intents.valueOfCall(), PendingIntent.FLAG_ONE_SHOT));
+      .setContentIntent(PendingIntent.getActivity(UI.getContext(), 0, Intents.valueOfCall(), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(false)));
     if (tdlib.context().isMultiUser()) {
       String shortName = tdlib.accountShortName();
       if (shortName != null) {
@@ -709,7 +725,7 @@ public class TGCallService extends Service implements
       Intent endIntent = new Intent();
       Intents.secureIntent(endIntent, false);
       endIntent.setAction(Intents.ACTION_END_CALL);
-      builder.addAction(R.drawable.round_call_end_24_white, Lang.getString(R.string.VoipEndCall), PendingIntent.getBroadcast(this, 0, endIntent, PendingIntent.FLAG_UPDATE_CURRENT));
+      builder.addAction(R.drawable.round_call_end_24_white, Lang.getString(R.string.VoipEndCall), PendingIntent.getBroadcast(this, 0, endIntent, Intents.mutabilityFlags(false)));
       builder.setPriority(Notification.PRIORITY_MAX);
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
@@ -787,7 +803,11 @@ public class TGCallService extends Service implements
       channel.enableVibration(false);
       channel.enableLights(false);
       channel.setSound(null, null);
-      m.createNotificationChannel(channel);
+      try {
+        m.createNotificationChannel(channel);
+      } catch (Throwable t) {
+        Log.v("Unable to create notification channel for call", new TdlibNotificationChannelGroup.ChannelCreationFailureException(t));
+      }
       builder = new Notification.Builder(this, callChannelId);
     } else {
       builder = new Notification.Builder(this);
@@ -797,7 +817,7 @@ public class TGCallService extends Service implements
       .setContentTitle(Lang.getString(R.string.CallBrandingIncoming))
       .setContentText(TD.getUserName(user))
       .setSmallIcon(CALL_ICON_RES)
-      .setContentIntent(PendingIntent.getActivity(UI.getContext(), 0, Intents.valueOfCall(), PendingIntent.FLAG_ONE_SHOT));
+      .setContentIntent(PendingIntent.getActivity(UI.getContext(), 0, Intents.valueOfCall(), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(false)));
     if (tdlib.context().isMultiUser()) {
       String shortName = tdlib.accountShortName();
       if (shortName != null) {
@@ -811,18 +831,18 @@ public class TGCallService extends Service implements
       CharSequence endTitle = Lang.getString(R.string.DeclineCall);
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         endTitle = new SpannableString(endTitle);
-        ((SpannableString) endTitle).setSpan(new ForegroundColorSpan(Theme.getColor(R.id.theme_color_circleButtonNegative)), 0, endTitle.length(), 0);
+        ((SpannableString) endTitle).setSpan(new ForegroundColorSpan(Theme.getColor(ColorId.circleButtonNegative)), 0, endTitle.length(), 0);
       }
-      builder.addAction(R.drawable.round_call_end_24_white, endTitle, PendingIntent.getBroadcast(this, 0, endIntent, PendingIntent.FLAG_ONE_SHOT));
+      builder.addAction(R.drawable.round_call_end_24_white, endTitle, PendingIntent.getBroadcast(this, 0, endIntent, PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(false)));
       Intent answerIntent = new Intent();
       Intents.secureIntent(answerIntent, false);
       answerIntent.setAction(Intents.ACTION_ANSWER_CALL);
       CharSequence answerTitle = Lang.getString(R.string.AnswerCall);
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
         answerTitle = new SpannableString(answerTitle);
-        ((SpannableString) answerTitle).setSpan(new ForegroundColorSpan(Theme.getColor(R.id.theme_color_circleButtonPositive)), 0, answerTitle.length(), 0);
+        ((SpannableString) answerTitle).setSpan(new ForegroundColorSpan(Theme.getColor(ColorId.circleButtonPositive)), 0, answerTitle.length(), 0);
       }
-      builder.addAction(R.drawable.round_call_24_white, answerTitle, PendingIntent.getBroadcast(this, 0, answerIntent, PendingIntent.FLAG_ONE_SHOT));
+      builder.addAction(R.drawable.round_call_24_white, answerTitle, PendingIntent.getBroadcast(this, 0, answerIntent, PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(false)));
       builder.setPriority(Notification.PRIORITY_MAX);
     }
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
@@ -832,7 +852,7 @@ public class TGCallService extends Service implements
       builder.setColor(tdlib.accountColor());
       builder.setVibrate(new long[0]);
       builder.setCategory(Notification.CATEGORY_CALL);
-      builder.setFullScreenIntent(PendingIntent.getActivity(this, PendingIntent.FLAG_ONE_SHOT, Intents.valueOfCall(), 0), true);
+      builder.setFullScreenIntent(PendingIntent.getActivity(this, PendingIntent.FLAG_ONE_SHOT, Intents.valueOfCall(), Intents.mutabilityFlags(false)), true);
     }
     Bitmap bitmap = user != null ? TdlibNotificationUtils.buildLargeIcon(tdlib, user.profilePhoto != null ? user.profilePhoto.small : null, TD.getAvatarColorId(user, tdlib.myUserId()), TD.getLetters(user), false, true) : null;
     if (bitmap != null) {
@@ -944,19 +964,12 @@ public class TGCallService extends Service implements
       setIsRinging(false);
     }
     if (callSound != 0) {
-      switch (callSound) {
-        case R.raw.voip_end:
-        case R.raw.voip_fail:
-          soundPoolMap.playUnique(callSound, 1, 1, 0, 0, 1);
-          break;
-        case R.raw.voip_busy:
-          soundPoolMap.playUnique(callSound, 1, 1, 0, 2, 1);
-          break;
-        case R.raw.voip_connecting:
-        case R.raw.voip_ringback:
-        default:
-          soundPoolMap.playUnique(callSound, 1, 1, 0, call.state.getConstructor() == TdApi.CallStateExchangingKeys.CONSTRUCTOR ? 0 : -1, 1);
-          break;
+      if (callSound == R.raw.voip_end || callSound == R.raw.voip_fail) {
+        soundPoolMap.playUnique(callSound, 1, 1, 0, 0, 1);
+      } else if (callSound == R.raw.voip_busy) {
+        soundPoolMap.playUnique(callSound, 1, 1, 0, 2, 1);
+      } else {
+        soundPoolMap.playUnique(callSound, 1, 1, 0, call.state.getConstructor() == TdApi.CallStateExchangingKeys.CONSTRUCTOR ? 0 : -1, 1);
       }
     } else {
       soundPoolMap.stopLastSound();
@@ -1099,7 +1112,7 @@ public class TGCallService extends Service implements
     }
   }
 
-  private VoIPController.Stats stats = new VoIPController.Stats(), prevStats = new VoIPController.Stats();
+  private NetworkStats stats = new NetworkStats(), prevStats = new NetworkStats();
   private long prevDuration;
 
   private void updateStats () {
@@ -1116,7 +1129,7 @@ public class TGCallService extends Service implements
     long mobileReceivedDiff = stats.bytesRecvdMobile - prevStats.bytesRecvdMobile;
     double durationDiff = (double) Math.max(0, newDuration - prevDuration) / 1000d;
 
-    VoIPController.Stats tmp = stats;
+    NetworkStats tmp = stats;
     stats = prevStats;
     prevStats = tmp;
     prevDuration = newDuration;
@@ -1168,17 +1181,12 @@ public class TGCallService extends Service implements
     int proxyId = Settings.instance().getEffectiveCallsProxyId();
     if (proxyId != Settings.PROXY_ID_NONE) {
       Settings.Proxy proxy = Settings.instance().getProxyConfig(proxyId);
-      if (proxy != null && proxy.canUseForCalls()) {
-        switch (proxy.type.getConstructor()) {
-          case TdApi.ProxyTypeSocks5.CONSTRUCTOR: {
-            TdApi.ProxyTypeSocks5 socks5 = (TdApi.ProxyTypeSocks5) proxy.type;
-            controller.setProxy(proxy.server, proxy.port, socks5.username, socks5.password);
-            break;
-          }
-          default: {
-            Log.e("Unsupported proxy type for calls: %s", proxy.type);
-            break;
-          }
+      if (proxy != null && proxy.proxy != null && proxy.canUseForCalls()) {
+        if (proxy.proxy.type.getConstructor() == TdApi.ProxyTypeSocks5.CONSTRUCTOR) {
+          TdApi.ProxyTypeSocks5 socks5 = (TdApi.ProxyTypeSocks5) proxy.proxy.type;
+          controller.setProxy(proxy.proxy.server, proxy.proxy.port, socks5.username, socks5.password);
+        } else {
+          Log.e("Unsupported proxy type for calls: %s", proxy.proxy.type);
         }
       }
     }

@@ -72,6 +72,10 @@
   <!--<uses-permission android:name="android.permission.PROCESS_OUTGOING_CALLS" />-->
   <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
   <!--<uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE" />-->
+  <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+  <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+  <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+  <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
 
   <uses-permission android:name="com.google.android.providers.gsf.permission.READ_GSERVICES" />
   <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
@@ -136,7 +140,8 @@
         android:name="com.google.mlkit.vision.DEPENDENCIES"
         android:value="barcode,model2,model3" />
 
-    <service android:name=".service.FirebaseListenerService">
+    <service android:name=".service.FirebaseListenerService"
+      android:exported="false">
       <intent-filter>
         <action android:name="com.google.firebase.MESSAGING_EVENT" />
       </intent-filter>
@@ -230,20 +235,23 @@
       android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
       android:excludeFromRecents="true"
       android:taskAffinity="${applicationId}.voip"
-      android:theme="@style/TransparentTheme" />
+      android:theme="@style/TransparentTheme"
+      android:exported="false" />
     <activity
       android:name=".voip.gui.VoIPFeedbackActivity"
       android:configChanges="keyboard|keyboardHidden|orientation|screenSize"
       android:excludeFromRecents="true"
       android:taskAffinity="${applicationId}.voip"
-      android:theme="@style/TransparentTheme" />
+      android:theme="@style/TransparentTheme"
+      android:exported="false" />
 
     <!-- VoIP -->
     <service
       android:name=".service.TGCallService"
       android:exported="false"
       android:foregroundServiceType="phoneCall" />
-    <receiver android:name=".receiver.VoIPMediaButtonReceiver">
+    <receiver android:name=".receiver.VoIPMediaButtonReceiver"
+      android:exported="false">
       <intent-filter>
         <action android:name="android.intent.action.MEDIA_BUTTON" />
       </intent-filter>
@@ -291,6 +299,7 @@
     <!-- Music -->
     <receiver
       android:name=".receiver.AudioMediaReceiver"
+      android:exported="false"
       android:enabled="true">
       <intent-filter>
         <action android:name="org.thunderdog.challegram.ACTION_PLAY_SKIP_PREVIOUS" />
@@ -324,13 +333,15 @@
       android:name=".ManageSpaceActivity"
       android:configChanges="keyboard|keyboardHidden|orientation|screenSize|locale|layoutDirection|uiMode"
       android:launchMode="singleTask"
-      android:windowSoftInputMode="adjustPan" />
+      android:windowSoftInputMode="adjustPan"
+      android:exported="true" />
 
     <activity
       android:name=".MainActivity"
       android:configChanges="keyboard|keyboardHidden|orientation|screenSize|locale|layoutDirection|uiMode"
       android:launchMode="singleTask"
-      android:windowSoftInputMode="stateHidden|adjustPan">
+      android:windowSoftInputMode="stateHidden|adjustPan"
+      android:exported="true">
       <intent-filter android:label="@string/AppName">
         <action android:name="android.intent.action.MAIN" />
         <category android:name="android.intent.category.LAUNCHER" />
@@ -445,6 +456,6 @@
 
     <meta-data
       android:name="com.samsung.android.icon_container.has_icon_container"
-      android:value="true" />
+      android:value="@bool/com_samsung_android_icon_container_has_icon_container"/>
   </application>
 </manifest>

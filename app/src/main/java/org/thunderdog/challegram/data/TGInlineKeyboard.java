@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,8 +31,8 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.collection.SparseArrayCompat;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
@@ -44,8 +44,8 @@ import org.thunderdog.challegram.navigation.TooltipOverlayView;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
@@ -592,7 +592,7 @@ public class TGInlineKeyboard {
 
       int textX = cx + getButtonPadding();
       if (customIconRes != 0) {
-        Drawable drawable = view.getSparseDrawable(customIconRes, ThemeColorId.NONE);
+        Drawable drawable = view.getSparseDrawable(customIconRes, ColorId.NONE);
         int iconWidth = drawable.getMinimumWidth();
         int contentWidth = wrapper.getTextWidth();
         int totalWidth = iconWidth + contentWidth;
@@ -635,7 +635,7 @@ public class TGInlineKeyboard {
               default:
                 throw new UnsupportedOperationException();
             }
-            Drawable icon = getSparseDrawable(iconRes, ThemeColorId.NONE);
+            Drawable icon = getSparseDrawable(iconRes, ColorId.NONE);
             int padding = Screen.dp(paddingDp);
             Drawables.draw(c, icon, dirtyRect.right - icon.getMinimumWidth() - padding, dirtyRect.top + padding, useBubbleMode ?
               (progressFactor == 0f ? Paints.getInlineBubbleIconPaint(textColor) : Paints.getPorterDuffPaint(ColorUtils.alphaColor(1f - progressFactor, textColor))) :
@@ -644,12 +644,12 @@ public class TGInlineKeyboard {
             break;
           }
           case TdApi.InlineKeyboardButtonTypeUrl.CONSTRUCTOR: {
-            Drawable icon = getSparseDrawable(R.drawable.deproko_baseline_link_arrow_20, ThemeColorId.NONE);
+            Drawable icon = getSparseDrawable(R.drawable.deproko_baseline_link_arrow_20, ColorId.NONE);
             Drawables.draw(c, icon, dirtyRect.right - icon.getMinimumWidth(), dirtyRect.top, useBubbleMode ? Paints.getInlineBubbleIconPaint(textColor) : textColorFactor == 0f ? Paints.getInlineIconPorterDuffPaint(isOutBubble) : Paints.getPorterDuffPaint(ColorUtils.fromToArgb(iconColor, Theme.inlineTextActiveColor(), textColorFactor)));
             break;
           }
           case TdApi.InlineKeyboardButtonTypeLoginUrl.CONSTRUCTOR: {
-            Drawable icon = getSparseDrawable(R.drawable.deproko_baseline_link_arrow_20, ThemeColorId.NONE);
+            Drawable icon = getSparseDrawable(R.drawable.deproko_baseline_link_arrow_20, ColorId.NONE);
             Drawables.draw(c, icon, dirtyRect.right - icon.getMinimumWidth(), dirtyRect.top, useBubbleMode ? Paints.getInlineBubbleIconPaint(ColorUtils.alphaColor(1f - progressFactor, textColor)) : textColorFactor == 0f && progressFactor == 1f ? Paints.getInlineIconPorterDuffPaint(isOutBubble) : Paints.getPorterDuffPaint(ColorUtils.alphaColor(1f - progressFactor, ColorUtils.fromToArgb(iconColor, Theme.inlineTextActiveColor(), textColorFactor))));
             drawProgress(c, useBubbleMode, textColorFactor);
             break;
@@ -1186,10 +1186,15 @@ public class TGInlineKeyboard {
             break;
           }
 
+          TdApi.MessageGame game = ((TdApi.MessageGame) parent.getMessage().content);
+          final String data = game.game.shortName;
+          if (!context.context.messagesController().callNonAnonymousProtection(context.context.getId() + game.game.id, context.context, (targetView, outRect) -> outRect.set(dirtyRect))) {
+            break;
+          }
+
           makeActive();
           showProgressDelayed();
 
-          final String data = ((TdApi.MessageGame) parent.getMessage().content).game.shortName;
           context.context.tdlib().client().send(new TdApi.GetCallbackQueryAnswer(parent.getChatId(), context.messageId, new TdApi.CallbackQueryPayloadGame(data)), getAnswerCallback(currentContextId, view, true));
           break;
         }
@@ -1254,7 +1259,7 @@ public class TGInlineKeyboard {
             context.context.tdlib().ui()
               .openUrl(context.context.controller(), open.url, openParameters(currentContextId, view)
               .disableInstantView()
-              .requireOpenPrompt(!open.skipConfirm));
+              .requireOpenPrompt(!open.skipConfirmation));
             break;
           }
           case TdApi.LoginUrlInfoRequestConfirmation.CONSTRUCTOR:
@@ -1264,7 +1269,7 @@ public class TGInlineKeyboard {
               R.id.btn_signIn, 0,
               Lang.getString(R.string.LogInAsOn,
                 (target, argStart, argEnd, argIndex, needFakeBold) -> argIndex == 1 ?
-                  new CustomTypefaceSpan(null, R.id.theme_color_textLink) :
+                  new CustomTypefaceSpan(null, ColorId.textLink) :
                   Lang.newBoldSpan(needFakeBold),
                 context.context.tdlib().accountName(),
                 confirm.domain),
@@ -1280,7 +1285,7 @@ public class TGInlineKeyboard {
             }
             context.context.controller().showSettings(
               new SettingsWrapBuilder(R.id.btn_open)
-              .addHeaderItem(Lang.getString(R.string.OpenLinkConfirm, (target, argStart, argEnd, spanIndex, needFakeBold) -> new CustomTypefaceSpan(null, R.id.theme_color_textLink), confirm.url))
+              .addHeaderItem(Lang.getString(R.string.OpenLinkConfirm, (target, argStart, argEnd, spanIndex, needFakeBold) -> new CustomTypefaceSpan(null, ColorId.textLink), confirm.url))
               .setRawItems(items)
               .setIntDelegate((id, result) -> {
                 boolean needSignIn = items.get(0).isSelected();
@@ -1303,24 +1308,20 @@ public class TGInlineKeyboard {
                   }
                 })
               .setOnSettingItemClick(confirm.requestWriteAccess ? (itemView, settingsId, item, doneButton, settingsAdapter) -> {
-                switch (item.getId()) {
-                  case R.id.btn_signIn: {
-                    boolean needSignIn = settingsAdapter.getCheckIntResults().get(R.id.btn_signIn) == R.id.btn_signIn;
-                    if (!needSignIn) {
-                      // settingsAdapter.setToggledById(R.id.btn_allowWriteAccess, false);
-                      items.get(1).setSelected(false);
-                      settingsAdapter.updateValuedSettingById(R.id.btn_allowWriteAccess);
-                    }
-                    break;
+                final int itemId = item.getId();
+                if (itemId == R.id.btn_signIn) {
+                  boolean needSignIn = settingsAdapter.getCheckIntResults().get(R.id.btn_signIn) == R.id.btn_signIn;
+                  if (!needSignIn) {
+                    // settingsAdapter.setToggledById(R.id.btn_allowWriteAccess, false);
+                    items.get(1).setSelected(false);
+                    settingsAdapter.updateValuedSettingById(R.id.btn_allowWriteAccess);
                   }
-                  case R.id.btn_allowWriteAccess: {
-                    boolean needWriteAccess = settingsAdapter.getCheckIntResults().get(R.id.btn_allowWriteAccess) == R.id.btn_allowWriteAccess;
-                    if (needWriteAccess) {
-                      // settingsAdapter.setToggledById(R.id.btn_signIn, true);
-                      items.get(0).setSelected(true);
-                      settingsAdapter.updateValuedSettingById(R.id.btn_signIn);
-                    }
-                    break;
+                } else if (itemId == R.id.btn_allowWriteAccess) {
+                  boolean needWriteAccess = settingsAdapter.getCheckIntResults().get(R.id.btn_allowWriteAccess) == R.id.btn_allowWriteAccess;
+                  if (needWriteAccess) {
+                    // settingsAdapter.setToggledById(R.id.btn_signIn, true);
+                    items.get(0).setSelected(true);
+                    settingsAdapter.updateValuedSettingById(R.id.btn_signIn);
                   }
                 }
               } : null)

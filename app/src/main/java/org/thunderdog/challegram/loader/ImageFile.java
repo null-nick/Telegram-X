@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@ import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.palette.graphics.Palette;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.mediaview.crop.CropState;
 import org.thunderdog.challegram.mediaview.data.FiltersState;
@@ -32,9 +32,9 @@ import java.lang.ref.Reference;
 import java.util.ArrayList;
 import java.util.List;
 
+import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.reference.ReferenceList;
 import me.vkryl.core.reference.ReferenceUtils;
-import me.vkryl.core.BitwiseUtils;
 import me.vkryl.td.Td;
 
 public class ImageFile {
@@ -109,6 +109,10 @@ public class ImageFile {
     return tdlib != null ? tdlib.tdlib() : null;
   }
 
+  public boolean isRemote () {
+    return tdlib() != null && getId() > 0;
+  }
+
   public byte[] getBytes () {
     return bytes;
   }
@@ -126,7 +130,7 @@ public class ImageFile {
   }
 
   public boolean needPalette () {
-    return BitwiseUtils.getFlag(flags, FLAG_NEED_PALETTE);
+    return BitwiseUtils.hasFlag(flags, FLAG_NEED_PALETTE);
   }
 
   public void setNeedPalette (boolean needPalette) {

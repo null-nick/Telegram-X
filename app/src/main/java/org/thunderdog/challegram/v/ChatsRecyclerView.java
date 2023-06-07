@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.component.dialogs.ChatView;
 import org.thunderdog.challegram.component.dialogs.ChatsAdapter;
 import org.thunderdog.challegram.helper.LiveLocationHelper;
@@ -170,6 +170,13 @@ public class ChatsRecyclerView extends CustomRecyclerView implements ClickHelper
     }
   }
 
+  public void updateChatUnreadReactionCount (long chatId, int unreadReactionCount) {
+    int updated = adapter.updateChatUnreadReactionCount(chatId, unreadReactionCount);
+    if (updated != -1) {
+      invalidateViewAt(updated);
+    }
+  }
+
   public void updateChatUnreadMentionCount (long chatId, int unreadMentionCount) {
     int updated = adapter.updateChatUnreadMentionCount(chatId, unreadMentionCount);
     if (updated != -1) {
@@ -217,7 +224,7 @@ public class ChatsRecyclerView extends CustomRecyclerView implements ClickHelper
         break;
       View view = manager.findViewByPosition(updated);
       if (view instanceof ChatView && ((ChatView) view).getChatId() == adapter.getChatAt(updated).getChatId()) {
-        ((ChatView) view).updateOnline();
+        // ((ChatView) view).updateOnline();
         view.invalidate();
       } else {
         adapter.notifyItemChanged(updated);
@@ -310,8 +317,8 @@ public class ChatsRecyclerView extends CustomRecyclerView implements ClickHelper
     int updated = adapter.updateChatPhoto(chatId, photo);
     if (updated != -1) {
       View view = manager.findViewByPosition(updated);
-      if (view != null && view instanceof ChatView) {
-        ((ChatView) view).invalidateContentReceiver();
+      if (view instanceof ChatView) {
+        ((ChatView) view).invalidateAvatarReceiver();
       } else {
         adapter.notifyItemChanged(updated);
       }

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,8 +14,8 @@ package org.thunderdog.challegram.tool;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BuildConfig;
 
 import me.vkryl.core.StringUtils;
@@ -42,6 +42,28 @@ public class TGMimeType {
      if ("tgs".equals(extension)) {
        return TdConstants.ANIMATED_STICKER_MIME_TYPE;
      }
+
+     // credits: https://github.com/angryziber/gnome-raw-thumbnailer/blob/master/data/raw-thumbnailer.xml
+     switch (extension) {
+       case "dng": return "image/x-adobe-dng";
+       case "arw": return "image/x-sony-arw";
+       case "cr2": return "image/x-canon-cr2";
+       case "crw": return "image/x-canon-crw";
+       case "dcr": return "image/x-kodak-dcr";
+       case "erf": return "image/x-epson-erf";
+       case "k25": return "image/x-kodak-k25";
+       case "kdc": return "image/x-kodak-kdc";
+       case "mrw": return "image/x-minolta-mrw";
+       case "nef": return "image/x-nikon-nef";
+       case "orf": return "image/x-olympus-orf";
+       case "pef": return "image/x-pentax-pef";
+       case "raf": return "image/x-fuji-raf";
+       case "raw": return "image/x-panasonic-raw";
+       case "sr2": return "image/x-sony-sr2";
+       case "srf": return "image/x-sony-srf";
+       case "x3f": return "image/x-sigma-x3f";
+     }
+
      return null;
   }
   public static @Nullable String extensionForMimeType (@Nullable String mimeType) {
@@ -124,6 +146,18 @@ public class TGMimeType {
         return true;
     }
     return false;
+  }
+  
+  public static boolean isTransparentImageMimeType (@Nullable String mimeType) {
+     if (!StringUtils.isEmpty(mimeType)) {
+       switch (mimeType) {
+         case "image/png":
+         case "image/webp":
+         case "image/gif":
+           return true;
+       }
+     }
+     return false;
   }
 
   public static boolean isImageMimeType (@Nullable String mimeType) {

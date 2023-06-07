@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,7 +24,7 @@ import androidx.annotation.StringRes;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TGChat;
@@ -307,6 +307,14 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
   public int updateChatReadInbox (long chatId, final long lastReadInboxMessageId, final int unreadCount) {
     int index = indexOfChat(chatId);
     if (index != -1 && chats.get(index).updateChatReadInbox(chatId, lastReadInboxMessageId, unreadCount)) {
+      return index;
+    }
+    return -1;
+  }
+
+  public int updateChatUnreadReactionCount (long chatId, int unreadReactionCount) {
+    int index = indexOfChat(chatId);
+    if (index != -1 && chats.get(index).updateChatUnreadReactionCount(chatId, unreadReactionCount)) {
       return index;
     }
     return -1;

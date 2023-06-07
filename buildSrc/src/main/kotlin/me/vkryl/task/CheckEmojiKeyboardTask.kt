@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -15,6 +15,7 @@ package me.vkryl.task
 import com.beust.klaxon.Klaxon
 import org.gradle.api.tasks.TaskAction
 import java.io.File
+import java.util.*
 import kotlin.contracts.ExperimentalContracts
 import kotlin.streams.asSequence
 
@@ -28,7 +29,7 @@ open class CheckEmojiKeyboardTask : BaseTask() {
   }
 
   private fun hex(text: String): String {
-    return text.chars().asSequence().joinToString("") { "\\u" + it.toString(16).toUpperCase() }
+    return text.chars().asSequence().joinToString("") { "\\u" + it.toString(16).uppercase(Locale.US) }
   }
 
   private fun javaWrap(text: String): String {

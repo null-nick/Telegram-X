@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,7 +34,7 @@ import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Views;
@@ -120,13 +120,13 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
     }
   }
 
-  @ThemeColorId
+  @ColorId
   protected int getDrawerReplacementColorId () {
-    return R.id.theme_color_filling;
+    return ColorId.filling;
   }
 
   @Override
-  protected final View onCreateView (Context context) {
+  protected View onCreateView (Context context) {
     FrameLayoutFix contentView = new FrameLayoutFix(context) {
       @Override
       protected void onDraw (Canvas c) {
@@ -169,7 +169,7 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
             headerCell.getTopView().setTextPadding(Screen.dp(12f));
             TextView title = SimpleHeaderView.newTitle(context);
             title.setTextColor(Theme.headerTextColor());
-            addThemeTextColorListener(title, R.id.theme_color_headerText);
+            addThemeTextColorListener(title, ColorId.headerText);
             title.setId(R.id.text_title);
             Views.setMediumText(title, getName());
             ((ViewPagerHeaderViewCompact) headerCell).addView(title);
@@ -197,6 +197,20 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
     pager = new RtlViewPager(context);
     pager.setLayoutParams(params);
     pager.setOverScrollMode(Config.HAS_NICE_OVER_SCROLL_EFFECT ? View.OVER_SCROLL_IF_CONTENT_SCROLLS : View.OVER_SCROLL_NEVER);
+    pager.addOnPageChangeListener(new androidx.viewpager.widget.ViewPager.OnPageChangeListener() {
+      @Override
+      public void onPageScrolled (int position, float positionOffset, int positionOffsetPixels) {
+        currentPosition = position;
+        currentPositionOffset = positionOffset;
+        context().checkDisallowScreenshots();
+      }
+
+      @Override
+      public void onPageSelected (int position) { }
+
+      @Override
+      public void onPageScrollStateChanged (int state) { }
+    });
     pager.addOnPageChangeListener(this);
     pager.setAdapter(adapter);
     if (!overridePagerParent()) {
@@ -300,7 +314,7 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
   }
 
   @Override
-  protected final int getHeaderHeight () {
+  protected int getHeaderHeight () {
     switch (getTitleStyle()) {
       case TITLE_STYLE_BIG:
       case TITLE_STYLE_COMPACT_BIG:
@@ -352,7 +366,7 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
   }
 
   @Override
-  public final void onPageScrolled (int position, float positionOffset, int positionOffsetPixels) {
+  public void onPageScrolled (int position, float positionOffset, int positionOffsetPixels) {
     if (headerCell != null) {
       headerCell.getTopView().setSelectionFactor((float) position + positionOffset);
     }
@@ -398,7 +412,33 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
     return getCachedControllerForPosition(getCurrentPagerItemPosition());
   }
 
-  protected final void setCurrentPagerPosition (int position, boolean animated) {
+  private int currentPosition;
+  private float currentPositionOffset;
+
+  @Override
+  public boolean shouldDisallowScreenshots () {
+    if (super.shouldDisallowScreenshots()) {
+      return true;
+    }
+    if (isSearchAntagonistHidden()) {
+      return false;
+    }
+    ViewController<?> controller = getCurrentPagerItem();
+    if (controller != null && controller.shouldDisallowScreenshots()) {
+      return true;
+    }
+    if (currentPositionOffset != 0f) {
+      int targetPosition = currentPosition + (currentPositionOffset > 0f ? 1 : -1);
+      int position = adapter.reversePosition(targetPosition);
+      ViewController<?> otherController = getCachedControllerForPosition(position);
+      if (otherController != null && otherController.shouldDisallowScreenshots()) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  protected void setCurrentPagerPosition (int position, boolean animated) {
     if (headerCell != null && animated) {
       headerCell.getTopView().setFromTo(pager.getCurrentItem(), position);
     }
@@ -425,9 +465,9 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
 
   public final @NonNull ViewController<?> getPreparedControllerForPosition (int position) {
     if (adapter == null)
-      get();
+      getValue();
     ViewController<?> c = adapter.prepareViewController(position);
-    c.get();
+    c.getValue();
     return c;
   }
 
@@ -438,7 +478,7 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
         if (after != null) {
           c.postOnAnimationExecute(after);
         }
-        c.get();
+        c.getValue();
         return;
       }
     }
@@ -510,7 +550,7 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
 
     @Override
     public void destroyItem (ViewGroup container, int position, @NonNull Object object) {
-      container.removeView(((ViewController<?>) object).get());
+      container.removeView(((ViewController<?>) object).getValue());
     }
 
     public void destroyCachedItems () {
@@ -554,7 +594,10 @@ public abstract class ViewPagerController<T> extends TelegramViewController<T> i
     @NonNull
     public Object instantiateItem (@NonNull ViewGroup container, int position) {
       ViewController<?> c = prepareViewController(reversePosition(position));
-      container.addView(c.get());
+      container.addView(c.getValue());
+      if ((position == parent.currentPosition || (parent.currentPositionOffset != 0f && position == parent.currentPosition + (parent.currentPositionOffset > 0f ? 1 : -1))) && c.shouldDisallowScreenshots()) {
+        parent.context().checkDisallowScreenshots();
+      }
       return c;
     }
 

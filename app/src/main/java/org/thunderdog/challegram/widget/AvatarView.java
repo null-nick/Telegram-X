@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.dialogs.ChatView;
 import org.thunderdog.challegram.data.AvatarPlaceholder;
@@ -32,14 +32,14 @@ import org.thunderdog.challegram.telegram.ChatListener;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccount;
 import org.thunderdog.challegram.telegram.TdlibCache;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 
-import me.vkryl.core.lambda.Destroyable;
 import me.vkryl.core.BitwiseUtils;
+import me.vkryl.core.lambda.Destroyable;
 
 public class AvatarView extends View implements Destroyable, TdlibCache.UserDataChangeListener, ChatListener, AttachDelegate {
   private static final int FLAG_NO_PLACEHOLDERS = 0x01;
@@ -147,6 +147,8 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
     this.tdlib = null;
     this.chat = null;
     this.user = null;
+    this.userId = 0;
+    this.chatId = 0;
   }
 
   @Override
@@ -168,16 +170,18 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
   }
 
   public long getUserId () {
-    return user != null ? user.id : 0;
+    return user != null ? user.id : userId;
   }
 
   public long getChatId () {
-    return chat != null ? chat.id : 0;
+    return chat != null ? chat.id : chatId;
   }
 
   private TdlibAccount account;
   private TdApi.User user;
   private TdApi.Chat chat;
+  private long userId;
+  private long chatId;
   private Tdlib tdlib;
   private boolean hasPhoto, allowSavedMessages;
   private AvatarPlaceholder.Metadata avatarPlaceholderMetadata;
@@ -207,16 +211,23 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
 
   public void setUser (Tdlib tdlib, @Nullable TdApi.User user, boolean allowSavedMessages) {
     long newUserId = user != null ? user.id : 0;
+    setUser(tdlib, user, newUserId, allowSavedMessages, false);
+  }
+
+  private void setUser (Tdlib tdlib, @Nullable TdApi.User user, long newUserId, boolean allowSavedMessages, boolean ignoreChecks) {
     long oldUserId = getUserId();
-    if (oldUserId != newUserId) {
+    if (oldUserId != newUserId || ignoreChecks) {
       if (oldUserId != 0) {
         this.tdlib.cache().removeUserDataListener(oldUserId, this);
       }
       this.user = user;
+      this.userId = newUserId;
       this.tdlib = tdlib;
       if (newUserId != 0) {
-        setPhoto(tdlib, user, allowSavedMessages);
         tdlib.cache().addUserDataListener(newUserId, this);
+      }
+      if (user != null) {
+        setPhoto(tdlib, user, allowSavedMessages);
       } else {
         receiver.clear();
       }
@@ -225,20 +236,44 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
 
   public void setChat (Tdlib tdlib, @Nullable TdApi.Chat chat) {
     long newChatId = chat != null ? chat.id : 0;
+    setChat(tdlib, chat, newChatId, false);
+  }
+
+  private void setChat (Tdlib tdlib, @Nullable TdApi.Chat chat, long newChatId, boolean ignoreChecks) {
     long oldChatId = getChatId();
-    if (oldChatId != newChatId) {
+    if (oldChatId != newChatId || ignoreChecks) {
       if (oldChatId != 0) {
         this.tdlib.listeners().unsubscribeFromChatUpdates(oldChatId, this);
       }
       this.chat = chat;
       this.tdlib = tdlib;
       if (newChatId != 0) {
-        setPhoto(tdlib, chat);
         tdlib.listeners().subscribeToChatUpdates(newChatId, this);
+      }
+      if (chat != null) {
+        setPhoto(tdlib, chat);
       } else {
         receiver.clear();
       }
     }
+  }
+
+  public void setMessageSender (Tdlib tdlib, @Nullable TdApi.MessageSender sender) {
+    if (sender == null) {
+      receiver.clear();
+      return;
+    };
+    if (sender.getConstructor() == TdApi.MessageSenderUser.CONSTRUCTOR) {
+      long userId = ((TdApi.MessageSenderUser) sender).userId;
+      setUser(tdlib, tdlib.cache().user(userId), userId, false, true);
+      return;
+    }
+    if (sender.getConstructor() == TdApi.MessageSenderChat.CONSTRUCTOR) {
+      long chatId = ((TdApi.MessageSenderChat) sender).chatId;
+      setChat(tdlib, tdlib.chat(chatId), chatId, true);
+      return;
+    }
+    receiver.clear();
   }
 
   private static final int BLURRED_SIZE = 160;
@@ -270,6 +305,7 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
       setPhotoImpl(tdlib, chat.photo.small, chat.photo.big);
     } else {
       avatarPlaceholderMetadata = tdlib.chatPlaceholderMetadata(chat, true);
+      avatarPlaceholder = null;
       receiver.clear();
     }
     invalidate();
@@ -281,6 +317,7 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
       setPhotoImpl(tdlib, user.profilePhoto.small, user.profilePhoto.big);
     } else {
       avatarPlaceholderMetadata = tdlib.cache().userPlaceholderMetadata(user, allowSavedMessages);
+      avatarPlaceholder = null;
       receiver.clear();
     }
     invalidate();
@@ -308,6 +345,7 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
     post(() -> {
       if (tdlib != null && getUserId() == user.id) {
         AvatarView.this.user = user;
+        AvatarView.this.userId = user.id;
         setPhoto(tdlib, user, allowSavedMessages);
       }
     });
@@ -330,7 +368,7 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
     return (flags & FLAG_NO_ROUND) == 0;
   }
 
-  private void drawPlaceholder (Canvas c, @ThemeColorId int colorId) {
+  private void drawPlaceholder (Canvas c, @ColorId int colorId) {
     if (needRounds()) {
       c.drawCircle(receiver.centerX(), receiver.centerY(), receiver.getRadius(), Paints.fillingPaint(
         Theme.getColor(colorId)
@@ -345,7 +383,7 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
     if (account != null || getUserId() != 0 || getChatId() != 0) {
       if (hasPhoto) {
         if (receiver.needPlaceholder() && (preview == null || preview.needPlaceholder())) {
-          drawPlaceholder(c, R.id.theme_color_placeholder);
+          drawPlaceholder(c, ColorId.placeholder);
         }
         if (preview != null && receiver.needPlaceholder()) {
           preview.draw(c);
@@ -359,13 +397,13 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
             avatarPlaceholder.draw(c, receiver.centerX(), receiver.centerY());
           }
         } else {
-          drawPlaceholder(c, avatarPlaceholderMetadata != null ? avatarPlaceholderMetadata.colorId : R.id.theme_color_placeholder);
+          drawPlaceholder(c, avatarPlaceholderMetadata != null ? avatarPlaceholderMetadata.colorId : ColorId.placeholder);
         }
       }
     }
     if ((flags & FLAG_NEED_OVERLAY) != 0) {
       if (hasPhoto) {
-        drawPlaceholder(c, R.id.theme_color_statusBar);
+        drawPlaceholder(c, ColorId.statusBar);
       }
       if (overlayIcon != null)
         Drawables.draw(c, overlayIcon, receiver.centerX() - overlayIcon.getMinimumWidth() / 2, receiver.centerY() - overlayIcon.getMinimumHeight() / 2, Paints.getPorterDuffPaint(0xffffffff));

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,10 +16,10 @@ package org.thunderdog.challegram.data;
 
 import android.view.View;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
-import org.thunderdog.challegram.loader.ImageFile;
+import org.thunderdog.challegram.loader.AvatarReceiver;
 import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.telegram.TdlibCache;
 import org.thunderdog.challegram.telegram.TdlibUi;
@@ -85,12 +85,12 @@ public class TGSourceUser extends TGSource implements TdlibCache.UserDataChangeL
   }
 
   @Override
-  public ImageFile getAvatar () {
-    return user == null || TD.isPhotoEmpty(user.profilePhoto) ? null : new ImageFile(msg.tdlib(), user.profilePhoto.small);
+  public int getAuthorNameColorId () {
+    return TD.getNameColorId(msg.tdlib.cache().userAvatarColorId(senderUserId));
   }
 
   @Override
-  public AvatarPlaceholder.Metadata getAvatarPlaceholderMetadata () {
-    return msg.tdlib.cache().userPlaceholderMetadata(senderUserId, msg.tdlib.cache().user(senderUserId), false);
+  public void requestAvatar (AvatarReceiver receiver) {
+    receiver.requestUser(msg.tdlib, senderUserId, AvatarReceiver.Options.NONE);
   }
 }

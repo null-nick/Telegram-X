@@ -24,6 +24,14 @@ case "${PLATFORM}" in
     DEFAULT_ANDROID_SDK_ROOT=~/Android/Sdk
     SED="sed"
     ;;
+  MINGW*|MSYS*)
+    PLATFORM=windows
+    BUILD_PLATFORM=windows-x86_64
+    CPU_COUNT=$(nproc --all)
+    DEFAULT_ANDROID_SDK_ROOT=~/AppData/Local/Android/Sdk
+    SED="sed"
+    WIN_PATCH_REQUIRED=true
+    ;;
   *)
     echo -e "${STYLE_ERROR}Unsupported platform: ${PLATFORM}. Aborting.${STYLE_END}"
     exit 1
@@ -46,8 +54,8 @@ if [ ! "$IGNORE_SDK" ]; then
     fi
   fi
 
-  NDK_VERSION=$("$(dirname "$0")"/read-property.sh version.properties version.ndk)
-  CMAKE_VERSION=$("$(dirname "$0")"/read-property.sh version.properties version.cmake)
+  NDK_VERSION=$(scripts/./read-property.sh version.properties version.ndk)
+  CMAKE_VERSION=$(scripts/./read-property.sh version.properties version.cmake)
   if [[ ! "$NDK_VERSION" =~ ^[_0-9\.]+$ ]]; then
     echo "${STYLE_ERROR}Invalid NDK version: $NDK_VERSION!${STYLE_END}"
     exit 1
@@ -89,5 +97,17 @@ export SED
 THIRDPARTY_LIBRARIES=$(pwd)/app/jni/thirdparty
 export THIRDPARTY_LIBRARIES
 
-PATH=$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$(pwd)/scripts:$PATH
+PATH="$ANDROID_SDK_ROOT/cmdline-tools/latest/bin:$(pwd)/scripts:$(pwd)/scripts/private:$PATH"
 export PATH
+
+export WIN_PATCH_REQUIRED
+
+function validate_file {
+  test -f "$1" || (echo "File not found: $1" && false)
+}
+function validate_dir {
+  test -d "$1" || (echo "Directory not found: $1" && false)
+}
+
+export -f validate_dir
+export -f validate_file

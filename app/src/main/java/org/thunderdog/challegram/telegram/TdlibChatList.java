@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -17,7 +17,7 @@ import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.data.TD;
 
 import java.lang.annotation.Retention;
@@ -158,6 +158,16 @@ public class TdlibChatList implements Comparator<TdlibChatList.Entry>, CounterCh
     synchronized (list) {
       for (Entry entry : list) {
         if (entry.chat.unreadMentionCount > 0)
+          return true;
+      }
+      return false;
+    }
+  }
+
+  public boolean hasUnreadReactions () {
+    synchronized (list) {
+      for (Entry entry : list) {
+        if (entry.chat.unreadReactionCount > 0)
           return true;
       }
       return false;

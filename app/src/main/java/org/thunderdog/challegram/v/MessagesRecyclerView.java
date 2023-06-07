@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,6 +42,8 @@ import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.MathUtils;
 
 public class MessagesRecyclerView extends RecyclerView implements FactorAnimator.Target {
+  public static final long ITEM_ANIMATOR_DURATION = Config.DEBUG_REACTIONS_ANIMATIONS ? 1400l : 140L;
+
   private MessagesManager manager;
   private CustomTouchHelper touchHelper;
   private MessagesTouchHelperCallback callback;
@@ -94,7 +96,7 @@ public class MessagesRecyclerView extends RecyclerView implements FactorAnimator
 
   private void init () {
     setOverScrollMode(Config.HAS_NICE_OVER_SCROLL_EFFECT ? OVER_SCROLL_IF_CONTENT_SCROLLS : OVER_SCROLL_NEVER);
-    itemAnimator = new CustomItemAnimator(AnimatorUtils.DECELERATE_INTERPOLATOR, 140l);
+    itemAnimator = new CustomItemAnimator(AnimatorUtils.DECELERATE_INTERPOLATOR, ITEM_ANIMATOR_DURATION);
     itemAnimator.setSupportsChangeAnimations(false);
     setItemAnimator(null);
     callback = new MessagesTouchHelperCallback();

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -40,7 +40,7 @@ import androidx.annotation.Nullable;
 import com.google.android.exoplayer2.C;
 import com.google.android.exoplayer2.metadata.id3.ApicFrame;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.drinkmore.Tracer;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
@@ -630,7 +630,7 @@ public class AudioService extends Service implements TGPlayerController.TrackLis
   }
 
   private PendingIntent valueOfPlayer (int accountId) {
-    return PendingIntent.getActivity(this, 0, Intents.valueOfPlayer(accountId), PendingIntent.FLAG_UPDATE_CURRENT);
+    return PendingIntent.getActivity(this, 0, Intents.valueOfPlayer(accountId), Intents.mutabilityFlags(true));
   }
 
   private Notification buildNotification () {
@@ -644,9 +644,9 @@ public class AudioService extends Service implements TGPlayerController.TrackLis
 
     b.setContentIntent(valueOfPlayer(currentTdlib.id()));
 
-    PendingIntent prevIntent = PendingIntent.getBroadcast(this, 100, valueOf(Intents.ACTION_PLAYBACK_SKIP_PREVIOUS), PendingIntent.FLAG_UPDATE_CURRENT);
-    PendingIntent playPauseIntent = PendingIntent.getBroadcast(this, 100, valueOf(Intents.ACTION_PLAYBACK_PAUSE), PendingIntent.FLAG_UPDATE_CURRENT);
-    PendingIntent nextIntent = PendingIntent.getBroadcast(this, 100, valueOf(Intents.ACTION_PLAYBACK_SKIP_NEXT), PendingIntent.FLAG_UPDATE_CURRENT);
+    PendingIntent prevIntent = PendingIntent.getBroadcast(this, 100, valueOf(Intents.ACTION_PLAYBACK_SKIP_PREVIOUS), Intents.mutabilityFlags(false));
+    PendingIntent playPauseIntent = PendingIntent.getBroadcast(this, 100, valueOf(Intents.ACTION_PLAYBACK_PAUSE), Intents.mutabilityFlags(false));
+    PendingIntent nextIntent = PendingIntent.getBroadcast(this, 100, valueOf(Intents.ACTION_PLAYBACK_SKIP_NEXT), Intents.mutabilityFlags(false));
 
     // PendingIntent pIntent = PendingIntent.getActivity(this, (int) SystemClock.uptimeMillis(), new Intent(this, MainActivity.class), 0);
 
@@ -658,7 +658,7 @@ public class AudioService extends Service implements TGPlayerController.TrackLis
     }
     b.addAction(R.drawable.baseline_skip_next_24_white, Lang.getString(R.string.PlaySkipNext), nextIntent);
     if (playState != TGPlayerController.STATE_PLAYING) {
-      PendingIntent stopIntent = PendingIntent.getBroadcast(this, 100, valueOf(Intents.ACTION_PLAYBACK_STOP), PendingIntent.FLAG_UPDATE_CURRENT);
+      PendingIntent stopIntent = PendingIntent.getBroadcast(this, 100, valueOf(Intents.ACTION_PLAYBACK_STOP), Intents.mutabilityFlags(false));
       b.addAction(R.drawable.baseline_stop_24_white, Lang.getString(R.string.PlayStop), stopIntent);
     }
 

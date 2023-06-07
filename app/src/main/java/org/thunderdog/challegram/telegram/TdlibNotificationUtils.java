@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,9 +25,14 @@ import android.graphics.drawable.Drawable;
 import android.os.Build;
 import android.text.TextPaint;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.TDLib;
+import org.thunderdog.challegram.TokenRetrieverFactory;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.config.Device;
@@ -35,14 +40,16 @@ import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.loader.ImageCache;
 import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.loader.ImageReader;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Fonts;
 import org.thunderdog.challegram.tool.Intents;
 import org.thunderdog.challegram.tool.PorterDuffPaint;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
+import org.thunderdog.challegram.util.DeviceTokenType;
+import org.thunderdog.challegram.util.TokenRetriever;
 import org.thunderdog.challegram.util.text.Letters;
 
 public class TdlibNotificationUtils {
@@ -92,7 +99,7 @@ public class TdlibNotificationUtils {
         Bitmap createdBitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888);
         Canvas c = new Canvas(createdBitmap);
 
-        final int color = Theme.getColor(R.id.theme_color_avatarSavedMessages, tdlib.settings().globalTheme());
+        final int color = Theme.getColor(ColorId.avatarSavedMessages, tdlib.settings().globalTheme());
 
         bitmapPaint.setColor(color);
         if (Device.ROUND_NOTIFICAITON_IMAGE) {
@@ -108,7 +115,7 @@ public class TdlibNotificationUtils {
           c.save();
           c.scale(scale, scale, size / 2, size / 2);
         }
-        Drawables.draw(c, d, size / 2 - d.getMinimumWidth() / 2, size / 2 - d.getMinimumHeight() / 2, PorterDuffPaint.get(R.id.theme_color_avatar_content));
+        Drawables.draw(c, d, size / 2 - d.getMinimumWidth() / 2, size / 2 - d.getMinimumHeight() / 2, PorterDuffPaint.get(ColorId.avatar_content));
         if (scale != 1f) {
           c.restore();
         }
@@ -123,13 +130,13 @@ public class TdlibNotificationUtils {
     return bitmap;
   }
 
-  public static Bitmap buildLargeIcon (Tdlib tdlib, TdApi.File rawFile, @ThemeColorId int colorId, Letters letters, boolean allowSyncDownload, boolean allowDownload) {
+  public static Bitmap buildLargeIcon (Tdlib tdlib, TdApi.File rawFile, @ColorId int colorId, Letters letters, boolean allowSyncDownload, boolean allowDownload) {
     Bitmap avatarBitmap = null;
     if (rawFile != null) {
       tdlib.files().syncFile(rawFile, null, 500);
       boolean fileLoaded = TD.isFileLoadedAndExists(rawFile);
       if (!fileLoaded && allowSyncDownload && allowDownload) {
-        tdlib.files().downloadFileSync(rawFile, 1000, null, null);
+        tdlib.files().downloadFileSync(rawFile, 1000, null, null, null);
         fileLoaded = TD.isFileLoadedAndExists(rawFile);
       }
       if (fileLoaded) {
@@ -211,10 +218,71 @@ public class TdlibNotificationUtils {
   }
 
   static PendingIntent newIntent (int accountId, long forLocalChatId, long specificMessageId) {
-    return PendingIntent.getActivity(UI.getContext(), 0, forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId) : Intents.valueOfMain(accountId), PendingIntent.FLAG_ONE_SHOT);
+    return PendingIntent.getActivity(UI.getContext(), 0, forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId) : Intents.valueOfMain(accountId), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(true));
   }
 
   static Intent newCoreIntent (int accountId, long forLocalChatId, long specificMessageId) {
     return forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId) : Intents.valueOfMain(accountId);
+  }
+
+  public static class NotificationInitializationFailedError extends RuntimeException {
+    public NotificationInitializationFailedError () {
+      super("Notifications not initialized");
+    }
+  }
+
+  private static TokenRetriever tokenRetriever;
+
+  public static synchronized boolean initialize () {
+    if (tokenRetriever == null) {
+      TokenRetriever retriever = TokenRetrieverFactory.newRetriever(UI.getAppContext());
+      //noinspection ConstantConditions
+      if (retriever == null) {
+        return false;
+      }
+      tokenRetriever = retriever;
+    }
+    return tokenRetriever.initialize(UI.getAppContext());
+  }
+
+  @DeviceTokenType
+  public static int getDeviceTokenType (TdApi.DeviceToken deviceToken) {
+    switch (deviceToken.getConstructor()) {
+      // TODO more push services
+      case TdApi.DeviceTokenFirebaseCloudMessaging.CONSTRUCTOR:
+        return DeviceTokenType.FIREBASE_CLOUD_MESSAGING;
+      default:
+        throw new UnsupportedOperationException(deviceToken.toString());
+    }
+  }
+
+  public static void getDeviceToken (int retryCount, TokenRetriever.RegisterCallback callback) {
+    if (retryCount > 0) {
+      getDeviceTokenImpl(retryCount, new TokenRetriever.RegisterCallback() {
+        @Override
+        public void onSuccess (@NonNull TdApi.DeviceToken token) {
+          callback.onSuccess(token);
+        }
+
+        @Override
+        public void onError (@NonNull String errorKey, @Nullable Throwable e) {
+          UI.post(() ->
+            getDeviceToken(retryCount - 1, callback),
+            3500
+          );
+        }
+      });
+    } else {
+      getDeviceTokenImpl(0, callback);
+    }
+  }
+
+  private static void getDeviceTokenImpl (int retryCount, TokenRetriever.RegisterCallback callback) {
+    if (initialize()) {
+      tokenRetriever.retrieveDeviceToken(retryCount, callback);
+    } else {
+      TDLib.Tag.notifications("Token fetch failed because TokenRetriever was not initialized, retryCount: %d", retryCount);
+      callback.onError("INITIALIZATION_ERROR", new NotificationInitializationFailedError());
+    }
   }
 }

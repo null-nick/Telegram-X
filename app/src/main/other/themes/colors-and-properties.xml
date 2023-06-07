@@ -40,6 +40,11 @@
     <item name="subtitleAlpha" />
     <item name="lightStatusBar" />
 
+    <item name="avatarRadius" />
+    <item name="avatarRadiusForum" />
+    <item name="avatarRadiusChatList" />
+    <item name="avatarRadiusChatListForum" />
+
     <item name="wallpaperOverrideDate" />
     <item name="wallpaperOverrideUnread" />
     <item name="wallpaperOverrideMediaReply" />
@@ -233,6 +238,10 @@
     <item name="headerBackground" tinted="true" />
     <item name="headerText" porterDuff="true" />
     <item name="headerIcon" porterDuff="true" />
+
+    <item name="headerBadge" />
+    <item name="headerBadgeMuted" />
+    <item name="headerBadgeFailed" />
 
     <item name="drawer" />
     <item name="drawerText" />
@@ -514,6 +523,7 @@
 
     <item name="white" porterDuff="true" /> <!-- Just white -->
     <item name="black" />
+    <item name="spoilerMediaOverlay" />
 
     <item name="photoShadowTint1" />
     <item name="photoShadowTint2" />

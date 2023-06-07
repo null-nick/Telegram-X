@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -32,23 +32,26 @@ import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.config.Config;
+import org.thunderdog.challegram.core.Background;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.data.TGMessage;
 import org.thunderdog.challegram.filegen.VideoGen;
+import org.thunderdog.challegram.mediaview.MediaViewController;
+import org.thunderdog.challegram.mediaview.data.MediaItem;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.player.TGPlayerController;
 import org.thunderdog.challegram.telegram.MediaDownloadType;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibFilesManager;
 import org.thunderdog.challegram.telegram.TdlibManager;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.tool.DrawAlgorithms;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
@@ -113,6 +116,9 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
   }
 
   private static final int FLAG_THEME = 1;
+  private static final int FLAG_MEDIA_DOCUMENT = 1 << 1;
+
+  private TdApi.Document originalDocument;
 
   private final BaseActivity context;
   private final Tdlib tdlib;
@@ -121,15 +127,14 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
   private @Nullable String mimeType;
   private boolean invalidateContentReceiver;
   private boolean useGenerationProgress;
-  private boolean isDownloaded;
+  private boolean isDownloaded, isDestroyed;
   private int flags;
 
   private int backgroundColor;
   private int downloadedIconRes;
   private int pausedIconRes;
 
-  private long chatId;
-  private long messageId;
+  private long chatId, messageId;
   private boolean isLocal;
 
   private boolean ignoreLoaderClicks;
@@ -149,7 +154,7 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
   private Drawable vsUniqueIconRef;
   private int vsUniqueIconRefId;
 
-  private float requestedAlpha;
+  private float requestedAlpha = 1f, cloudAlpha = 1f;
 
   private @Nullable SimpleListener listener;
   private @Nullable FallbackFileProvider fallbackFileProvider;
@@ -168,7 +173,6 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
     this.invalidateContentReceiver = invalidateContentReceiver;
     this.backgroundColor = 0x66000000; // 40% of black
     this.alpha = 1f;
-    this.requestedAlpha = 1f;
     this.chatId = chatId;
     this.messageId = messageId;
   }
@@ -251,8 +255,12 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
   }
 
   public void setRequestedAlpha (float alpha) {
-    if (this.requestedAlpha != alpha) {
+    setRequestedAlpha(alpha, alpha);
+  }
+  public void setRequestedAlpha (float alpha, float cloudAlpha) {
+    if (this.requestedAlpha != alpha || this.cloudAlpha != cloudAlpha) {
       this.requestedAlpha = alpha;
+      this.cloudAlpha = cloudAlpha;
       invalidate();
     }
   }
@@ -313,7 +321,7 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
 
   private boolean backgroundColorIsId;
 
-  public void setBackgroundColorId (@ThemeColorId int colorId) {
+  public void setBackgroundColorId (@ColorId int colorId) {
     this.backgroundColorIsId = true;
     this.backgroundColor = colorId;
   }
@@ -351,10 +359,14 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
     setDownloadedIconRes(icon, shouldAnimate());
   }
 
-  public void setDownloadedIconRes (TdApi.Document doc) {
-    boolean isTheme = Config.isThemeDoc(doc);
-    setDownloadedIconRes(isTheme ? R.drawable.baseline_palette_24 : R.drawable.baseline_insert_drive_file_24);
+  public void setDocumentMetadata (TdApi.Document document, boolean needIcon) {
+    boolean isTheme = Config.isThemeDoc(document);
+    if (needIcon) {
+      setDownloadedIconRes(isTheme ? R.drawable.baseline_palette_24 : R.drawable.baseline_insert_drive_file_24);
+    }
     flags = BitwiseUtils.setFlag(flags, FLAG_THEME, isTheme);
+    flags = BitwiseUtils.setFlag(flags, FLAG_MEDIA_DOCUMENT, MediaItem.isMediaDocument(document));
+    this.originalDocument = document;
   }
 
   public void setHideDownloadedIcon (boolean hide) {
@@ -510,23 +522,60 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
   // File opening
 
   private boolean openFile () {
-    if (mimeType == null)
+    if (mimeType == null || file == null || fileType != TdlibFilesManager.DOWNLOAD_FLAG_FILE)
       return false;
-    ViewController<?> c = UI.getCurrentStackItem(context);
+    ViewController<?> c = context.navigation().getCurrentStackItem();
     if (c == null)
       return false;
     Runnable after = () -> U.openFile(c, U.getFileName(file.local.path), new File(file.local.path), mimeType, 0);
     return openFile(c, after);
   }
 
+  private void runOnUiThreadOptional (ViewController<?> c, Runnable runnable) {
+    c.runOnUiThreadOptional(() -> {
+      if (!isDestroyed) {
+        runnable.run();
+      }
+    });
+  }
+
   public boolean openFile (ViewController<?> c, Runnable defaultOpen) {
     if (file != null && fileType == TdlibFilesManager.DOWNLOAD_FLAG_FILE) {
       if (c != null && c.tdlib() == tdlib) {
-        if ((flags & FLAG_THEME) != 0) {
-          c.tdlib().ui().readCustomTheme(c, file, null, defaultOpen);
-        } else {
-          defaultOpen.run();
-        }
+        tdlib.files().downloadFile(file, TdlibFilesManager.DEFAULT_DOWNLOAD_PRIORITY, 0, 0, result -> {
+          switch (result.getConstructor()) {
+            case TdApi.File.CONSTRUCTOR: {
+              TdApi.File downloadedFile = (TdApi.File) result;
+              if (TD.isFileLoaded(downloadedFile)) {
+                if (BitwiseUtils.hasFlag(flags, FLAG_THEME)) {
+                  runOnUiThreadOptional(c, () -> {
+                    c.tdlib().ui().readCustomTheme(c, file, null, defaultOpen);
+                  });
+                } else if (BitwiseUtils.hasFlag(flags, FLAG_MEDIA_DOCUMENT)) {
+                  Background.instance().post(() -> {
+                    MediaItem item = MediaItem.valueOf(context, tdlib, originalDocument, null);
+                    if (item != null) {
+                      runOnUiThreadOptional(c, () -> {
+                        item.setSourceMessageId(chatId, messageId);
+                        MediaViewController.openFromMedia(c, item, new TdApi.SearchMessagesFilterDocument(), true);
+                      });
+                    } else {
+                      runOnUiThreadOptional(c, defaultOpen);
+                    }
+                  });
+                } else {
+                  runOnUiThreadOptional(c, defaultOpen);
+                }
+              }
+              break;
+            }
+            case TdApi.Error.CONSTRUCTOR: {
+              // TODO show tooltip instead
+              UI.showError(result);
+              break;
+            }
+          }
+        });
       }
       return true;
     }
@@ -1080,7 +1129,7 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
 
   public void invalidateContent () {
     if (invalidateContentReceiver) {
-      if ((viewProvider == null || !viewProvider.invalidateContent())) {
+      if ((viewProvider == null || !viewProvider.invalidateContent(this))) {
         Log.i("Warning: FileProgressComponent.invalidateContent ignored");
       }
     }
@@ -1205,8 +1254,8 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
       cloudColor = Theme.getColor(backgroundColor);
     } else {
       float colorFactor = playPauseFactor;
-      int activeColor = colorFactor != 0f ? Theme.getColor(R.id.theme_color_file) : 0;
-      int inactiveColor = colorFactor != 1f ? (backgroundColorProvider != null ? backgroundColorProvider.getDecentIconColor() : Theme.getColor(R.id.theme_color_iconLight)) : 0;
+      int activeColor = colorFactor != 0f ? Theme.getColor(ColorId.file) : 0;
+      int inactiveColor = colorFactor != 1f ? (backgroundColorProvider != null ? backgroundColorProvider.getDecentIconColor() : Theme.getColor(ColorId.iconLight)) : 0;
       cloudColor = ColorUtils.fromToArgb(inactiveColor, activeColor, colorFactor);
     }
     int fillingColor;
@@ -1388,8 +1437,9 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
 
   public <T extends View & DrawableProvider> void draw (T view, final Canvas c) {
     final boolean cloudPlayback = Config.useCloudPlayback(playPauseFile) && !noCloud;
-    final float alpha = this.alpha * requestedAlpha;
-    final boolean drawContent = file != null && alpha != 0f && !isTrack;
+    final float playPauseAlpha = this.alpha * requestedAlpha;
+    final float alpha = this.alpha * (isVideoStreaming() ? cloudAlpha : requestedAlpha);
+    final boolean drawContent = file != null && alpha > 0f && !isTrack;
     boolean isCanvasAltered = false;
     if (drawContent) {
       int cx = centerX();
@@ -1405,15 +1455,15 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
       }
 
       final int fillingColor;
-      if (alpha == 1f) {
+      if (playPauseAlpha == 1f) {
         fillingColor = backgroundColorIsId ? Theme.getColor(backgroundColor) : backgroundColor;
       } else {
-        fillingColor = ColorUtils.alphaColor(alpha, backgroundColorIsId ? Theme.getColor(backgroundColor) : backgroundColor);
+        fillingColor = ColorUtils.alphaColor(playPauseAlpha, backgroundColorIsId ? Theme.getColor(backgroundColor) : backgroundColor);
       }
 
       if (isVideoStreaming()) {
         c.drawCircle(centerX(), centerY(), Screen.dp(videoStreamingUiMode == STREAMING_UI_MODE_LARGE ? DEFAULT_RADIUS : DEFAULT_STREAMING_RADIUS), Paints.fillingPaint(fillingColor));
-        drawPlayPause(c, centerX(), centerY(), alpha, true);
+        drawPlayPause(c, centerX(), centerY(), playPauseAlpha, true);
 
         if (!vsClipRect.isEmpty() && !isVideoStreamingCloudNeeded) {
           c.save();
@@ -1423,14 +1473,14 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
         }
 
         if (isVideoStreamingCloudNeeded) {
-          drawCloudState(c, alpha);
+          drawCloudState(c, playPauseAlpha);
         }
       } else {
         c.drawCircle(cx, cy, getRadius(), Paints.fillingPaint(fillingColor));
       }
 
       if (cloudPlayback) {
-        drawPlayPause(c, cx, cy, alpha, true);
+        drawPlayPause(c, cx, cy, playPauseAlpha, true);
       } else if (currentBitmapRes != 0 && (currentBitmapRes != downloadedIconRes || !hideDownloadedIcon) && !(isVideoStreaming() && isVideoStreamingCloudNeeded)) {
         boolean ignoreScale = isVideoStreaming() && !isVideoStreamingSmallUi() && vsOnDownloadedAnimator != null && vsOnDownloadedAnimator.isAnimating();
         Paint bitmapPaint = Paints.getPorterDuffPaint(0xffffffff);
@@ -1484,7 +1534,7 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
       }
     }
     if (cloudPlayback) {
-      drawCloudState(c, alpha); 
+      drawCloudState(c, playPauseAlpha);
     }
     if (progress != null && !isVideoStreamingProgressHidden) {
       progress.setAlpha(alpha);
@@ -1540,6 +1590,7 @@ public class FileProgressComponent implements TdlibFilesManager.FileListener, Fa
 
   @Override
   public void performDestroy () {
+    isDestroyed = true;
     if (file != null) {
       tdlib.files().unsubscribe(file.id, this);
     }

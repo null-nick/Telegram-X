@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -22,25 +22,20 @@ import android.view.ViewConfiguration;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.GridLayoutManager;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
-import org.thunderdog.challegram.component.MediaCollectorDelegate;
 import org.thunderdog.challegram.component.attach.GridSpacingItemDecoration;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
-import org.thunderdog.challegram.data.AvatarPlaceholder;
 import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.mediaview.MediaCellView;
 import org.thunderdog.challegram.mediaview.MediaViewController;
-import org.thunderdog.challegram.mediaview.MediaViewDelegate;
 import org.thunderdog.challegram.mediaview.MediaViewThumbLocation;
 import org.thunderdog.challegram.mediaview.data.MediaItem;
-import org.thunderdog.challegram.mediaview.data.MediaStack;
-import org.thunderdog.challegram.navigation.ComplexHeaderView;
-import org.thunderdog.challegram.navigation.HeaderView;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibSender;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.unsorted.Settings;
@@ -56,7 +51,7 @@ import java.util.concurrent.TimeUnit;
 import me.vkryl.android.util.ClickHelper;
 import me.vkryl.core.collection.IntList;
 
-public class SharedMediaController extends SharedBaseController<MediaItem> implements MediaCollectorDelegate, MediaViewDelegate, ClickHelper.Delegate, ForceTouchView.ActionListener {
+public class SharedMediaController extends SharedBaseController<MediaItem> implements ClickHelper.Delegate, ForceTouchView.ActionListener {
   public SharedMediaController (Context context, Tdlib tdlib) {
     super(context, tdlib);
   }
@@ -145,7 +140,7 @@ public class SharedMediaController extends SharedBaseController<MediaItem> imple
     spanCount = calculateSpanCount(Screen.currentWidth(), Screen.currentHeight());
     decoration = new GridSpacingItemDecoration(spanCount, Screen.dp(3f), false, true, true);
     decoration.setNeedDraw(true, ListItem.TYPE_SMALL_MEDIA);
-    decoration.setDrawColorId(R.id.theme_color_filling);
+    decoration.setDrawColorId(ColorId.filling);
     decoration.setSpanSizeLookup(lookup);
     GridLayoutManager manager = new RtlGridLayoutManager(context, spanCount);
     manager.setSpanSizeLookup(lookup);
@@ -299,7 +294,7 @@ public class SharedMediaController extends SharedBaseController<MediaItem> imple
   @Override
   protected MediaItem parseObject (TdApi.Object object) {
     TdApi.Message message = (TdApi.Message) object;
-    if (message.ttl > 0 && message.ttl <= 60) {
+    if (message.selfDestructTime > 0 && message.selfDestructTime <= 60) {
       return null;
     }
     MediaItem item = MediaItem.valueOf(context(), tdlib, message);
@@ -377,80 +372,12 @@ public class SharedMediaController extends SharedBaseController<MediaItem> imple
     return false;
   }
 
+  // Media viewer
+
   @Override
-  public MediaStack collectMedias (long fromMessageId, @Nullable TdApi.SearchMessagesFilter filter) {
-    if (data == null || data.isEmpty()) {
-      return null;
-    }
-
-    ArrayList<MediaItem> items = null;
-
-    int foundIndex = -1;
-    int i = 0;
-    for (MediaItem mediaItem : data) {
-      MediaItem copy = MediaItem.copyOf(mediaItem);
-      if (copy == null) {
-        continue;
-      }
-      if (items == null) {
-        items = new ArrayList<>();
-      }
-      if (foundIndex == -1 && copy.getSourceMessageId() == fromMessageId) {
-        foundIndex = i;
-      }
-      items.add(copy);
-      i++;
-    }
-
-    if (foundIndex == -1) {
-      return null;
-    }
-
-    MediaStack stack;
-
-    stack = new MediaStack(context, tdlib);
-    stack.set(foundIndex, items);
-
-    return stack;
+  protected MediaItem toMediaItem (int index, MediaItem item, @Nullable TdApi.SearchMessagesFilter filter) {
+    return MediaItem.copyOf(item);
   }
-
-  @Override
-  public void modifyMediaArguments (Object cause, MediaViewController.Args args) {
-    args.delegate = this;
-  }
-
-  private MediaViewThumbLocation location = new MediaViewThumbLocation();
-
-  @Override
-  public MediaViewThumbLocation getTargetLocation (int index, MediaItem item) {
-    int i = adapter.indexOfViewByLongId(item.getSourceMessageId());
-    if (i == -1) {
-      return null;
-    }
-    View view = recyclerView.getLayoutManager().findViewByPosition(i);
-    if (view != null) {
-      int viewTop = view.getTop();
-      int viewBottom = view.getBottom();
-      int top = viewTop + recyclerView.getTop() + HeaderView.getSize(true);
-      int bottom = top + view.getMeasuredHeight();
-      int left = view.getLeft();
-      int right = view.getRight();
-
-      viewTop -= SettingHolder.measureHeightForType(ListItem.TYPE_FAKE_PAGER_TOPVIEW);
-      int clipTop = viewTop < 0 ? -viewTop : 0;
-      int clipBottom = viewBottom < 0 ? -viewBottom : 0;
-
-      location.set(left, top, right, bottom);
-      location.setClip(0, clipTop, 0, clipBottom);
-
-      return location;
-    }
-
-    return null;
-  }
-
-  @Override
-  public void setMediaItemVisible (int index, MediaItem item, boolean isVisible) { }
 
   // Base touch events
 
@@ -476,10 +403,10 @@ public class SharedMediaController extends SharedBaseController<MediaItem> imple
       MediaItem mediaItem = (MediaItem) item.getData();
       if (mediaItem.isVideo()) {
         if (mediaItem.isLoaded()) {
-          MediaViewController.openFromMedia(this, mediaItem);
+          MediaViewController.openFromMedia(this, mediaItem, null, false);
         } else {
           if (!mediaItem.performClick(v, x, y)) {
-            MediaViewController.openFromMedia(this, mediaItem);
+            MediaViewController.openFromMedia(this, mediaItem, null, false);
           }
         }
       } else if (mediaItem.getType() == MediaItem.TYPE_VIDEO_MESSAGE) {
@@ -489,7 +416,7 @@ public class SharedMediaController extends SharedBaseController<MediaItem> imple
           mediaItem.performClick(v);
         }
       } else {
-        MediaViewController.openFromMedia(this, mediaItem);
+        MediaViewController.openFromMedia(this, mediaItem, filter, false);
       }
     }
   }
@@ -573,7 +500,7 @@ public class SharedMediaController extends SharedBaseController<MediaItem> imple
         TdlibSender sender = new TdlibSender(tdlib, message.chatId, message.senderId);
         String title = sender.isSelf() ? Lang.getString(R.string.FromYou) : sender.getName();
         context.setHeader(title, Lang.getRelativeTimestamp(mediaItemCopy.getSourceDate(), TimeUnit.SECONDS));
-        context.setHeaderAvatar(sender.getAvatar(), new AvatarPlaceholder(ComplexHeaderView.getBaseAvatarRadiusDp(), sender.getPlaceholderMetadata(), null));
+        context.setHeaderAvatar(sender.toSender(), null);
       }
       if (parent != null) {
         context.setAllowFullscreen(!parent.inSearchMode());
@@ -605,29 +532,25 @@ public class SharedMediaController extends SharedBaseController<MediaItem> imple
 
   @Override
   public void onForceTouchAction (ForceTouchView.ForceTouchContext context, int actionId, Object arg) {
-    switch (actionId) {
-      case R.id.btn_messageDelete: {
-        tdlib.ui().showDeleteOptions(this, ((MediaItem) ((ListItem) arg).getData()).getMessage());
-        break;
-      }
-      case R.id.btn_messageSelect: {
-        toggleSelected((ListItem) arg);
-        break;
-      }
-      case R.id.btn_messageShare: {
-        ShareController c = new ShareController(this.context, tdlib);
-        c.setArguments(new ShareController.Args(((MediaItem) ((ListItem) arg).getData()).getMessage()).setAllowCopyLink(true));
-        c.show();
-        break;
-      }
-      case R.id.btn_showInChat: {
-        TdApi.Message message = ((MediaItem) ((ListItem) arg).getData()).getMessage();
-        tdlib.ui().openChat(this, message.chatId, new TdlibUi.ChatOpenParameters().highlightMessage(message).passcodeUnlocked());
-        break;
-      }
+    if (actionId == R.id.btn_messageDelete) {
+      tdlib.ui().showDeleteOptions(this, ((MediaItem) ((ListItem) arg).getData()).getMessage());
+    } else if (actionId == R.id.btn_messageSelect) {
+      toggleSelected((ListItem) arg);
+    } else if (actionId == R.id.btn_messageShare) {
+      ShareController c = new ShareController(this.context, tdlib);
+      c.setArguments(new ShareController.Args(((MediaItem) ((ListItem) arg).getData()).getMessage()).setAllowCopyLink(true));
+      c.show();
+    } else if (actionId == R.id.btn_showInChat) {
+      TdApi.Message message = ((MediaItem) ((ListItem) arg).getData()).getMessage();
+      tdlib.ui().openChat(this, message.chatId, new TdlibUi.ChatOpenParameters().highlightMessage(message).passcodeUnlocked());
     }
   }
 
   @Override
   public void onAfterForceTouchAction (ForceTouchView.ForceTouchContext context, int actionId, Object arg) { }
+
+  @Override
+  protected boolean setThumbLocation (MediaViewThumbLocation location, View view, MediaItem mediaItem) {
+    return true;
+  }
 }

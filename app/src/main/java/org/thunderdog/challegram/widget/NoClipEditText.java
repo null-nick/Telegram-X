@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -20,12 +20,13 @@ import android.view.View;
 
 import java.lang.reflect.Field;
 
-public class NoClipEditText extends EditText {
+public class NoClipEditText extends EmojiEditText {
   private static Field mScrollYField;
   private int ignoreTopCount, ignoreBottomCount, scrollY;
 
   public NoClipEditText(Context context) {
     super(context);
+    initDefault();
 
     if (mScrollYField == null) {
       try {

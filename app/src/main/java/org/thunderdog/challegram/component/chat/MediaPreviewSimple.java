@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,9 +16,9 @@ import android.graphics.Canvas;
 import android.graphics.Path;
 import android.view.View;
 
-import org.drinkless.td.libcore.telegram.TdApi;
-import org.thunderdog.challegram.R;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.U;
+import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.data.FileComponent;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.loader.ComplexReceiver;
@@ -31,7 +31,10 @@ import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.loader.gif.GifFile;
 import org.thunderdog.challegram.loader.gif.GifReceiver;
 import org.thunderdog.challegram.telegram.Tdlib;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
+import org.thunderdog.challegram.tool.DrawAlgorithms;
+import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.TGMimeType;
 import org.thunderdog.challegram.unsorted.Settings;
@@ -43,7 +46,10 @@ import me.vkryl.core.ColorUtils;
 import me.vkryl.td.Td;
 
 public class MediaPreviewSimple extends MediaPreview {
+  private TdApi.Sticker sticker;
   private Path outline;
+  private int outlineWidth, outlineHeight;
+  private boolean hasSpoiler;
 
   private ImageFile previewImage;
   private GifFile previewGif;
@@ -53,9 +59,38 @@ public class MediaPreviewSimple extends MediaPreview {
 
   private boolean drawColoredFileBackground;
 
-  public MediaPreviewSimple (Tdlib tdlib, int size, int cornerRadius, TdApi.ProfilePhoto profilePhoto, TdApi.Thumbnail thumbnail) {
+  public MediaPreviewSimple (Tdlib tdlib, int size, int cornerRadius, TdApi.ProfilePhoto profilePhoto) {
     super(size, cornerRadius);
-    // TODO avatar preview
+    if (profilePhoto.minithumbnail != null) {
+      this.previewImage = new ImageFileLocal(profilePhoto.minithumbnail);
+      this.previewImage.setSize(size);
+      this.previewImage.setScaleType(ImageFile.CENTER_CROP);
+      this.previewImage.setDecodeSquare(true);
+    }
+    if (profilePhoto.small != null) {
+      this.targetImage = new ImageFile(tdlib, profilePhoto.small, null);
+      this.targetImage.setSize(size);
+      this.targetImage.setScaleType(ImageFile.CENTER_CROP);
+      this.targetImage.setDecodeSquare(true);
+      this.targetImage.setNoBlur();
+    }
+  }
+
+  public MediaPreviewSimple (Tdlib tdlib, int size, int cornerRadius, TdApi.ChatPhoto chatPhoto) {
+    super(size, cornerRadius);
+    if (chatPhoto.minithumbnail != null) {
+      this.previewImage = new ImageFileLocal(chatPhoto.minithumbnail);
+      this.previewImage.setSize(size);
+      this.previewImage.setScaleType(ImageFile.CENTER_CROP);
+      this.previewImage.setDecodeSquare(true);
+    }
+    if (chatPhoto.sizes.length > 0) {
+      this.targetImage = new ImageFile(tdlib, chatPhoto.sizes[0].photo);
+      this.targetImage.setSize(size);
+      this.targetImage.setScaleType(ImageFile.CENTER_CROP);
+      this.targetImage.setDecodeSquare(true);
+    }
+    // TODO handle animation?
   }
 
   public MediaPreviewSimple (Tdlib tdlib, int size, int cornerRadius, TdApi.ChatPhotoInfo chatPhotoInfo) {
@@ -66,8 +101,8 @@ public class MediaPreviewSimple extends MediaPreview {
       this.previewImage.setScaleType(ImageFile.CENTER_CROP);
       this.previewImage.setDecodeSquare(true);
     }
-    if (chatPhotoInfo.big != null) {
-      this.targetImage = new ImageFile(tdlib, chatPhotoInfo.big, null);
+    if (chatPhotoInfo.small != null) {
+      this.targetImage = new ImageFile(tdlib, chatPhotoInfo.small, null);
       this.targetImage.setSize(size);
       this.targetImage.setScaleType(ImageFile.CENTER_CROP);
       this.targetImage.setDecodeSquare(true);
@@ -91,8 +126,8 @@ public class MediaPreviewSimple extends MediaPreview {
       }
       this.previewGif = TD.toGifFile(tdlib, thumbnail);
       if (this.previewGif != null) {
-        this.previewGif.setOptimize(true);
-        this.previewGif.setSize(size);
+        this.previewGif.setOptimizationMode(GifFile.OptimizationMode.STICKER_PREVIEW);
+        this.previewGif.setRequestedSize(size);
         this.previewGif.setScaleType(GifFile.CENTER_CROP);
         this.previewGif.setPlayOnce();
       }
@@ -130,12 +165,20 @@ public class MediaPreviewSimple extends MediaPreview {
   }
 
   public MediaPreviewSimple (Tdlib tdlib, int size, int cornerRadius, TdApi.Thumbnail thumbnail, TdApi.Minithumbnail minithumbnail) {
+    this(tdlib, size, cornerRadius, thumbnail, minithumbnail, false);
+  }
+
+  public MediaPreviewSimple (Tdlib tdlib, int size, int cornerRadius, TdApi.Thumbnail thumbnail, TdApi.Minithumbnail minithumbnail, boolean hasSpoiler) {
     super(size, cornerRadius);
+    this.hasSpoiler = hasSpoiler;
     if (minithumbnail != null) {
       this.previewImage = new ImageFileLocal(minithumbnail);
       this.previewImage.setSize(size);
       this.previewImage.setScaleType(ImageFile.CENTER_CROP);
       this.previewImage.setDecodeSquare(true);
+      if (hasSpoiler) {
+        this.previewImage.setIsPrivate();
+      }
     }
     if (thumbnail != null) {
       this.targetImage = TD.toImageFile(tdlib, thumbnail);
@@ -144,13 +187,18 @@ public class MediaPreviewSimple extends MediaPreview {
         this.targetImage.setScaleType(ImageFile.CENTER_CROP);
         this.targetImage.setDecodeSquare(true);
         this.targetImage.setNoBlur();
+        if (hasSpoiler) {
+          this.targetImage.setIsPrivate();
+        }
       }
-      this.targetGif = TD.toGifFile(tdlib, thumbnail);
-      if (this.targetGif != null) {
-        this.targetGif.setOptimize(true);
-        this.targetGif.setSize(size);
-        this.targetGif.setScaleType(GifFile.CENTER_CROP);
-        this.targetGif.setPlayOnce();
+      if (!hasSpoiler) {
+        this.targetGif = TD.toGifFile(tdlib, thumbnail);
+        if (this.targetGif != null) {
+          this.targetGif.setOptimizationMode(GifFile.OptimizationMode.STICKER_PREVIEW);
+          this.targetGif.setRequestedSize(size);
+          this.targetGif.setScaleType(GifFile.CENTER_CROP);
+          this.targetGif.setPlayOnce();
+        }
       }
     }
   }
@@ -171,10 +219,8 @@ public class MediaPreviewSimple extends MediaPreview {
 
   public MediaPreviewSimple (Tdlib tdlib, int size, int cornerRadius, TdApi.Sticker sticker) {
     super(size, cornerRadius);
-    this.outline = Td.buildOutline(sticker.outline,
-      Math.min((float) size / (float) sticker.width, (float) size / (float) sticker.height),
-      outline
-    );
+    this.sticker = sticker;
+    this.outline = Td.buildOutline(sticker, outlineWidth = size, outlineHeight = size);
     if (sticker.thumbnail != null) {
       this.previewImage = TD.toImageFile(tdlib, sticker.thumbnail);
       if (this.previewImage != null) {
@@ -183,14 +229,14 @@ public class MediaPreviewSimple extends MediaPreview {
       }
       this.previewGif = TD.toGifFile(tdlib, sticker.thumbnail);
       if (this.previewGif != null) {
-        this.previewGif.setSize(size);
+        this.previewGif.setRequestedSize(size);
         this.previewGif.setScaleType(GifFile.FIT_CENTER);
       }
     }
-    if (Td.isAnimated(sticker.type)) {
+    if (Td.isAnimated(sticker.format)) {
       this.targetGif = new GifFile(tdlib, sticker);
-      this.targetGif.setOptimize(true);
-      this.targetGif.setSize(size);
+      this.targetGif.setOptimizationMode(GifFile.OptimizationMode.STICKER_PREVIEW);
+      this.targetGif.setRequestedSize(size);
       this.targetGif.setScaleType(GifFile.FIT_CENTER);
       this.targetGif.setPlayOnce();
     } else {
@@ -258,6 +304,10 @@ public class MediaPreviewSimple extends MediaPreview {
       target.setPaintAlpha(alpha);
     }
 
+    if (outline != null && (outlineWidth != preview.getWidth() || outlineHeight != preview.getHeight())) {
+      outline = Td.buildOutline(sticker, outlineWidth = preview.getWidth(), outlineHeight = preview.getHeight());
+    }
+
     if (target.needPlaceholder()) {
       if (preview.needPlaceholder()) {
         if (outline != null) {
@@ -270,13 +320,22 @@ public class MediaPreviewSimple extends MediaPreview {
     }
 
     if (drawColoredFileBackground) {
-      target.drawPlaceholderRounded(c, cornerRadius, Theme.getColor(R.id.theme_color_file));
+      target.drawPlaceholderRounded(c, cornerRadius, Theme.getColor(ColorId.file));
     }
 
     target.draw(c);
 
     if (drawColoredFileBackground) {
       target.drawPlaceholderRounded(c, cornerRadius, ColorUtils.alphaColor(target.getAlpha() * alpha, 0x44000000));
+    }
+
+    if (Config.DEBUG_STICKER_OUTLINES) {
+      preview.drawPlaceholderContour(c, outline);
+    }
+
+    if (hasSpoiler) {
+      DrawAlgorithms.drawRoundRect(c, cornerRadius, target.getLeft(), target.getTop(), target.getRight(), target.getBottom(), Paints.fillingPaint(Theme.getColor(ColorId.spoilerMediaOverlay)));
+      DrawAlgorithms.drawParticles(c, cornerRadius, target.getLeft(), target.getTop(), target.getRight(), target.getBottom(), 1f);
     }
 
     if (alpha != 1f) {

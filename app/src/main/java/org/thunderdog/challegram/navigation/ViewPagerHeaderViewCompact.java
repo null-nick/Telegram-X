@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,9 +24,9 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.thunderdog.challegram.Log;
-import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.unsorted.Size;
 
@@ -103,8 +103,8 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
     super(context);
 
     ViewPagerTopView topView = new ViewPagerTopView(context);
-    topView.setSelectionColorId(R.id.theme_color_headerTabActive);
-    topView.setTextFromToColorId(R.id.theme_color_headerTabInactiveText, R.id.theme_color_headerTabActiveText);
+    topView.setSelectionColorId(ColorId.headerTabActive);
+    topView.setTextFromToColorId(ColorId.headerTabInactiveText, ColorId.headerTabActiveText);
     topView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.WRAP_CONTENT, Size.getHeaderPortraitSize()));
     topView.setSelectionChangeListener(this);
 

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,7 +18,7 @@ import android.view.View;
 import androidx.annotation.CallSuper;
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.loader.ComplexReceiver;
 import org.thunderdog.challegram.telegram.Tdlib;
@@ -43,7 +43,7 @@ public abstract class MediaPreview implements ListAnimator.Measurable {
     }
   }*/
 
-  public static MediaPreview valueOf (Tdlib tdlib, TdApi.Video video, int size, int cornerRadius) {
+  public static MediaPreview valueOf (Tdlib tdlib, TdApi.Video video, int size, int cornerRadius, boolean hasSpoiler) {
     if (video.thumbnail != null || video.minithumbnail != null) {
       return new MediaPreviewSimple(tdlib, size, cornerRadius, video.thumbnail, video.minithumbnail);
     }
@@ -88,15 +88,25 @@ public abstract class MediaPreview implements ListAnimator.Measurable {
   }
 
   public static MediaPreview valueOf (Tdlib tdlib, TdApi.ProfilePhoto profilePhoto, TdApi.Thumbnail thumbnail, int size, int cornerRadius) {
-    if (profilePhoto != null || thumbnail != null) {
-      return new MediaPreviewSimple(tdlib, size, cornerRadius, profilePhoto, thumbnail);
+    if (thumbnail != null) {
+      return new MediaPreviewSimple(tdlib, size, cornerRadius, thumbnail, profilePhoto != null ? profilePhoto.minithumbnail : null);
+    } else if (profilePhoto != null) {
+      return new MediaPreviewSimple(tdlib, size, cornerRadius, profilePhoto);
+    } else {
+      return null;
+    }
+  }
+
+  public static MediaPreview valueOf (Tdlib tdlib, TdApi.ChatPhoto chatPhoto, int size, int cornerRadius) {
+    if (chatPhoto != null) {
+      return new MediaPreviewSimple(tdlib, size, cornerRadius, chatPhoto);
     }
     return null;
   }
 
-  public static MediaPreview valueOf (Tdlib tdlib, TdApi.ChatPhotoInfo photoInfo, int size, int cornerRadius) {
-    if (photoInfo != null) {
-      return new MediaPreviewSimple(tdlib, size, cornerRadius, photoInfo);
+  public static MediaPreview valueOf (Tdlib tdlib, TdApi.ChatPhotoInfo chatPhotoInfo, int size, int cornerRadius) {
+    if (chatPhotoInfo != null) {
+      return new MediaPreviewSimple(tdlib, size, cornerRadius, chatPhotoInfo);
     }
     return null;
   }
@@ -139,7 +149,7 @@ public abstract class MediaPreview implements ListAnimator.Measurable {
         if (webPage != null) {
           if (webPage.video != null) {
             // video preview
-            return valueOf(tdlib, webPage.video, size, cornerRadius);
+            return valueOf(tdlib, webPage.video, size, cornerRadius, false);
           } else if (webPage.sticker != null) {
             // sticker preview
             return new MediaPreviewSimple(tdlib, cornerRadius, size, webPage.sticker);
@@ -165,10 +175,11 @@ public abstract class MediaPreview implements ListAnimator.Measurable {
         break;
       }
       case TdApi.MessagePhoto.CONSTRUCTOR: {
-        TdApi.Photo photo = ((TdApi.MessagePhoto) message.content).photo;
+        TdApi.MessagePhoto messagePhoto = (TdApi.MessagePhoto) message.content;
+        TdApi.Photo photo = messagePhoto.photo;
         TdApi.PhotoSize thumbnail = Td.findSmallest(photo);
         if (thumbnail != null || photo.minithumbnail != null) {
-          return new MediaPreviewSimple(tdlib, size, cornerRadius, TD.toThumbnail(thumbnail), photo.minithumbnail);
+          return new MediaPreviewSimple(tdlib, size, cornerRadius, TD.toThumbnail(thumbnail), photo.minithumbnail, messagePhoto.hasSpoiler);
         }
         break;
       }
@@ -190,13 +201,14 @@ public abstract class MediaPreview implements ListAnimator.Measurable {
         break;
       }
       case TdApi.MessageVideo.CONSTRUCTOR: {
-        TdApi.Video video = ((TdApi.MessageVideo) message.content).video;
-        return valueOf(tdlib, video, size, cornerRadius);
+        TdApi.MessageVideo messageVideo = (TdApi.MessageVideo) message.content;
+        return valueOf(tdlib, messageVideo.video, size, cornerRadius, messageVideo.hasSpoiler);
       }
       case TdApi.MessageAnimation.CONSTRUCTOR: {
-        TdApi.Animation animation = ((TdApi.MessageAnimation) message.content).animation;
+        TdApi.MessageAnimation messageAnimation = (TdApi.MessageAnimation) message.content;
+        TdApi.Animation animation = messageAnimation.animation;
         if (animation.minithumbnail != null || animation.thumbnail != null) {
-          return new MediaPreviewSimple(tdlib, size, cornerRadius, animation.thumbnail, animation.minithumbnail);
+          return new MediaPreviewSimple(tdlib, size, cornerRadius, animation.thumbnail, animation.minithumbnail, messageAnimation.hasSpoiler);
         }
         break;
       }

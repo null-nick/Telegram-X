@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,14 +16,14 @@ package org.thunderdog.challegram.widget;
 
 import android.view.View;
 
-import org.thunderdog.challegram.loader.ImageReceiver;
+import org.thunderdog.challegram.loader.Receiver;
 
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.animator.FactorAnimator;
 
 public class SimplestCheckBoxHelper implements FactorAnimator.Target {
   private final View target;
-  private final ImageReceiver receiver;
+  private final Receiver receiver;
 
   private float factor;
   private FactorAnimator animator;
@@ -33,7 +33,7 @@ public class SimplestCheckBoxHelper implements FactorAnimator.Target {
     void onCheckFactorChanged (float factor);
   }
 
-  public SimplestCheckBoxHelper (View target, ImageReceiver receiver) {
+  public SimplestCheckBoxHelper (View target, Receiver receiver) {
     this.target = target;
     this.receiver = receiver;
   }

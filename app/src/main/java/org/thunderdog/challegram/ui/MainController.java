@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.Log;
@@ -72,6 +72,7 @@ import org.thunderdog.challegram.telegram.CounterChangeListener;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibManager;
 import org.thunderdog.challegram.telegram.TdlibOptionListener;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Fonts;
 import org.thunderdog.challegram.tool.Screen;
@@ -135,8 +136,8 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
 
     composeWrap = new OverlayButtonWrap(context);
     composeWrap.initWithList(this,
-      R.id.theme_color_circleButtonActive,
-      R.id.theme_color_circleButtonActiveIcon,
+      ColorId.circleButtonActive,
+      ColorId.circleButtonActiveIcon,
       new int[]{
         R.id.btn_float_compose,
         R.id.btn_float_newSecretChat,
@@ -150,17 +151,17 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
         R.drawable.baseline_group_24,
         R.drawable.baseline_person_24
       }, new int[]{
-        R.id.theme_color_circleButtonRegular,
-        R.id.theme_color_circleButtonNewSecret,
-        R.id.theme_color_circleButtonNewChannel,
-        R.id.theme_color_circleButtonNewGroup,
-        R.id.theme_color_circleButtonNewChat
+        ColorId.circleButtonRegular,
+        ColorId.circleButtonNewSecret,
+        ColorId.circleButtonNewChannel,
+        ColorId.circleButtonNewGroup,
+        ColorId.circleButtonNewChat
       }, new int[] {
-        R.id.theme_color_circleButtonRegularIcon,
-        R.id.theme_color_circleButtonNewSecretIcon,
-        R.id.theme_color_circleButtonNewChannelIcon,
-        R.id.theme_color_circleButtonNewGroupIcon,
-        R.id.theme_color_circleButtonNewChatIcon
+        ColorId.circleButtonRegularIcon,
+        ColorId.circleButtonNewSecretIcon,
+        ColorId.circleButtonNewChannelIcon,
+        ColorId.circleButtonNewGroupIcon,
+        ColorId.circleButtonNewChatIcon
       }, new int[]{
         R.string.NewSecretChat,
         R.string.NewChannel,
@@ -317,7 +318,7 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
     ChatsController chatsController = this.pendingChatsController;
     this.pendingChatsController = null;
 
-    ((TextView) menu.getChildAt(FILTER_ARCHIVE)).setTextColor(menuNeedArchive ? Theme.getColor(R.id.theme_color_textNeutral) : Theme.textDecentColor());
+    ((TextView) menu.getChildAt(FILTER_ARCHIVE)).setTextColor(menuNeedArchive ? Theme.getColor(ColorId.textNeutral) : Theme.textDecentColor());
 
     TextView textView = (TextView) menu.getChildAt(menuSection);
     textView.setTextColor(Theme.textDecentColor());
@@ -327,9 +328,9 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
     this.menuSection = section;
 
     textView = (TextView) menu.getChildAt(menuSection);
-    textView.setTextColor(menuSection != FILTER_NONE || !menuNeedArchive ? Theme.getColor(R.id.theme_color_textNeutral) : Theme.textDecentColor());
+    textView.setTextColor(menuSection != FILTER_NONE || !menuNeedArchive ? Theme.getColor(ColorId.textNeutral) : Theme.textDecentColor());
     removeThemeListenerByTarget(textView);
-    addThemeTextColorListener(textView, R.id.theme_color_textNeutral);
+    addThemeTextColorListener(textView, ColorId.textNeutral);
 
     headerCell.getTopView().setItemAt(POSITION_CHATS, Lang.getString(getMenuSectionName()).toUpperCase());
 
@@ -437,7 +438,7 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
         sectionView.setId(R.id.btn_send);
         sectionView.setLayoutParams(params);
         sectionView.setTextSize(TypedValue.COMPLEX_UNIT_DIP, 15f);
-        int textColorId = menuSection == index ? R.id.theme_color_textNeutral : R.id.theme_color_textLight;
+        int textColorId = menuSection == index ? ColorId.textNeutral : ColorId.textLight;
         sectionView.setTextColor(Theme.getColor(textColorId));
         sectionView.setGravity(Gravity.CENTER);
         sectionView.setPadding(Screen.dp(18f), Screen.dp(13f), Screen.dp(18f), Screen.dp(14f));
@@ -621,52 +622,36 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
   @Override
   public boolean onOverlayButtonClick (int id, View view) {
     // TODO check if viewPager is scrolling
-    switch (id) {
-      case R.id.user: {
-        TdApi.User user = ((TdApi.User) view.getTag());
-        if (user != null) {
-          tdlib.ui().openPrivateChat(this, user.id, null);
-        }
-        break;
+    if (id == R.id.user) {
+      TdApi.User user = ((TdApi.User) view.getTag());
+      if (user != null) {
+        tdlib.ui().openPrivateChat(this, user.id, null);
       }
-      case R.id.btn_float_addContact: {
-        navigateTo(new PhoneController(context, tdlib).setMode(PhoneController.MODE_ADD_CONTACT));
-        break;
+    } else if (id == R.id.btn_float_addContact) {
+      navigateTo(new PhoneController(context, tdlib).setMode(PhoneController.MODE_ADD_CONTACT));
+    } else if (id == R.id.btn_float_call) {
+      ContactsController c = new ContactsController(context, tdlib);
+      c.initWithMode(ContactsController.MODE_CALL);
+      navigateTo(c);
+    } else if (id == R.id.btn_float_compose) {
+      if (navigationController != null && headerView != null && !navigationController.isAnimating() && !headerView.isAnimating() && composeWrap != null) {
+        composeWrap.toggle();
       }
-      case R.id.btn_float_call: {
-        ContactsController c = new ContactsController(context, tdlib);
-        c.initWithMode(ContactsController.MODE_CALL);
-        navigateTo(c);
-        break;
-      }
-      case R.id.btn_float_compose: {
-        if (navigationController != null && headerView != null && !navigationController.isAnimating() && !headerView.isAnimating() && composeWrap != null) {
-          composeWrap.toggle();
-        }
-        return false;
-      }
-      case R.id.btn_float_newChannel: {
-        navigateTo(new CreateChannelController(context, tdlib));
-        break;
-      }
-      case R.id.btn_float_newGroup: {
-        ContactsController c = new ContactsController(context, tdlib);
-        c.initWithMode(ContactsController.MODE_NEW_GROUP);
-        navigateTo(c);
-        break;
-      }
-      case R.id.btn_float_newSecretChat: {
-        ContactsController c = new ContactsController(context, tdlib);
-        c.initWithMode(ContactsController.MODE_NEW_SECRET_CHAT);
-        navigateTo(c);
-        break;
-      }
-      case R.id.btn_float_newChat: {
-        ContactsController c = new ContactsController(context, tdlib);
-        c.initWithMode(ContactsController.MODE_NEW_CHAT);
-        navigateTo(c);
-        break;
-      }
+      return false;
+    } else if (id == R.id.btn_float_newChannel) {
+      navigateTo(new CreateChannelController(context, tdlib));
+    } else if (id == R.id.btn_float_newGroup) {
+      ContactsController c = new ContactsController(context, tdlib);
+      c.initWithMode(ContactsController.MODE_NEW_GROUP);
+      navigateTo(c);
+    } else if (id == R.id.btn_float_newSecretChat) {
+      ContactsController c = new ContactsController(context, tdlib);
+      c.initWithMode(ContactsController.MODE_NEW_SECRET_CHAT);
+      navigateTo(c);
+    } else if (id == R.id.btn_float_newChat) {
+      ContactsController c = new ContactsController(context, tdlib);
+      c.initWithMode(ContactsController.MODE_NEW_CHAT);
+      navigateTo(c);
     }
     return true;
   }
@@ -826,25 +811,18 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
           CharSequence text = Strings.buildMarkdown(this, TD.findOrdinary(cloudStrings, Lang.getResourceEntryName(R.string.language_continueInLanguagePopupText), () -> Lang.getString(R.string.language_continueInLanguagePopupText)), null);
 
           PopupLayout popupLayout = showOptions(text, ids.get(), strings.get(), colors.get(), icons.get(), (itemView, id) -> {
-            switch (id) {
-              case R.id.btn_done: {
-                tdlib.applyLanguage(languagePack, applySuccess -> {
-                  if (applySuccess) {
-                    UI.showToast(R.string.language_appliedLanguage, Toast.LENGTH_SHORT);
-                    Settings.instance().setRecommendedLanguagePackId(languagePackId);
-                  }
-                }, true);
-                break;
-              }
-              case R.id.btn_cancel: {
-                Settings.instance().setRecommendedLanguagePackId(languagePackId);
-                break;
-              }
-              case R.id.btn_languageSettings: {
-                Settings.instance().setRecommendedLanguagePackId(languagePackId);
-                navigateTo(new SettingsLanguageController(context, tdlib));
-                break;
-              }
+            if (id == R.id.btn_done) {
+              tdlib.applyLanguage(languagePack, applySuccess -> {
+                if (applySuccess) {
+                  UI.showToast(R.string.language_appliedLanguage, Toast.LENGTH_SHORT);
+                  Settings.instance().setRecommendedLanguagePackId(languagePackId);
+                }
+              }, true);
+            } else if (id == R.id.btn_cancel) {
+              Settings.instance().setRecommendedLanguagePackId(languagePackId);
+            } else if (id == R.id.btn_languageSettings) {
+              Settings.instance().setRecommendedLanguagePackId(languagePackId);
+              navigateTo(new SettingsLanguageController(context, tdlib));
             }
             return true;
           });
@@ -866,17 +844,12 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
       if (!isFocused() || isDestroyed() || context.isPasscodeShowing())
         return;
       showOptions(Lang.getStringBold(R.string.EmojiSetUpdated, emojiPack.displayName), new int[] {R.id.btn_downloadFile, R.id.btn_cancel}, new String[] {Lang.getString(R.string.EmojiSetUpdate), Lang.getString(R.string.Cancel)}, new int[] {OPTION_COLOR_BLUE, OPTION_COLOR_NORMAL}, new int[] {R.drawable.baseline_sync_24, R.drawable.baseline_cancel_24}, (v, id) -> {
-        switch (id) {
-          case R.id.btn_downloadFile: {
-            SettingsCloudEmojiController c = new SettingsCloudEmojiController(context, tdlib);
-            c.setArguments(new SettingsCloudController.Args<>(emojiPack));
-            navigateTo(c);
-            break;
-          }
-          case R.id.btn_cancel: {
-            Settings.instance().revokeOutdatedEmojiPack();
-            break;
-          }
+        if (id == R.id.btn_downloadFile) {
+          SettingsCloudEmojiController c = new SettingsCloudEmojiController(context, tdlib);
+          c.setArguments(new SettingsCloudController.Args<>(emojiPack));
+          navigateTo(c);
+        } else if (id == R.id.btn_cancel) {
+          Settings.instance().revokeOutdatedEmojiPack();
         }
         return true;
       });
@@ -905,6 +878,13 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
     }
     showSuggestions();
     checkSyncAlert();
+    tdlib.checkDeadlocks(() -> runOnUiThreadOptional(() ->
+      context().permissions().requestPostNotifications(granted -> {
+        if (granted) {
+          tdlib.notifications().onNotificationPermissionGranted();
+        }
+      })
+    ));
   }
 
   @Override
@@ -1046,7 +1026,7 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
 
   private void modifyNewPagerItemController (final ViewController<?> c, final int position) {
     if (c instanceof RecyclerViewProvider) {
-      c.get();
+      c.getValue();
       ((RecyclerViewProvider) c).provideRecyclerView().addOnScrollListener(new RecyclerView.OnScrollListener() {
         private float lastY;
         private float lastShowY;
@@ -1105,29 +1085,24 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
 
   @Override
   public void fillMenuItems (int id, HeaderView header, LinearLayout menu) {
-    switch (id) {
-      case R.id.menu_main: {
-        header.addLockButton(menu);
-        header.addSearchButton(menu, this);
-        break;
-      }
-      case R.id.menu_clear: {
-        header.addClearButton(menu, getSearchHeaderIconColorId(), getSearchBackButtonResource());
-        break;
-      }
-      default: {
-        super.fillMenuItems(id, header, menu);
-      }
+    if (id == R.id.menu_main) {
+      header.addLockButton(menu);
+      header.addSearchButton(menu, this);
+    } else if (id == R.id.menu_clear) {
+      header.addClearButton(menu, getSearchHeaderIconColorId(), getSearchBackButtonResource());
+    } else {
+      super.fillMenuItems(id, header, menu);
     }
   }
 
   @Override
   public void onMenuItemPressed (int id, View view) {
-    switch (id) {
-      case R.id.menu_btn_search: {
-        openSearchMode();
-        break;
-      }
+    if (id == R.id.menu_btn_search) {
+      tdlib.checkDeadlocks(() -> runOnUiThreadOptional(() -> {
+        if (isFocused()) {
+          openSearchMode();
+        }
+      }));
       /*case R.id.menu_btn_more: {
         showMore(new int[] {
           R.id.more_btn_settings,
@@ -1135,14 +1110,10 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
         }, new String[] {Lang.getString(R.string.Settings), Lang.getString(R.string.Help)}, 0);
         break;
       }*/
-      case R.id.menu_btn_clear: {
-        clearSearchInput();
-        break;
-      }
-      default: {
-        super.onMenuItemPressed(id, view);
-        break;
-      }
+    } else if (id == R.id.menu_btn_clear) {
+      clearSearchInput();
+    } else {
+      super.onMenuItemPressed(id, view);
     }
   }
 
@@ -1190,10 +1161,10 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
       return;
     }
 
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
       if (context().checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-        context().requestCustomPermissions(new String[] {Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, (code, granted) -> {
-          if (granted) {
+        context().requestCustomPermissions(new String[] {Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE}, (code, permissions, grantResults, grantCount) -> {
+          if (grantCount == permissions.length) {
             shareIntentImpl();
           } else {
             UI.showToast(R.string.NoStorageAccess, Toast.LENGTH_SHORT);
@@ -1341,7 +1312,7 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
 
       // If sendingText still unused, then add it to the beginning of send queue
       if (!StringUtils.isEmpty(sendingText)) {
-        out.add(0, new TdApi.InputMessageText(new TdApi.FormattedText(sendingText, null), false, false));
+        out.addAll(0, TD.explodeText(new TdApi.InputMessageText(new TdApi.FormattedText(sendingText, null), false, false), tdlib.maxMessageTextLength()));
       }
     }
     shareContents(tdlib, type, out, false);
@@ -1356,7 +1327,8 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
       }
     }
     String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
-    return getShareText(subject, text);
+    String result = getShareText(subject, text);
+    return result != null ? result.trim() : null;
   }
 
   private void shareIntentImplMultiple (Tdlib tdlib, Intent intent) {
@@ -1378,7 +1350,7 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
     }
     // If sendingText still unused, then add it to the beginning of send queue
     if (!StringUtils.isEmpty(sendingText)) {
-      out.add(0, new TdApi.InputMessageText(new TdApi.FormattedText(sendingText, null), false, false));
+      out.addAll(0, TD.explodeText(new TdApi.InputMessageText(new TdApi.FormattedText(sendingText, null), false, false), tdlib.maxMessageTextLength()));
     }
 
     shareContents(tdlib, type, out, true);
@@ -1432,28 +1404,20 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
       }
     }
 
-    final int captionLen = rawCaption != null ? rawCaption.trim().length() : 0;
-    final TdApi.FormattedText formattedText = captionLen > 0 ? new TdApi.FormattedText(rawCaption, null) : null;
-    final TdApi.FormattedText messageCaption = formattedText != null && captionLen <= tdlib.maxCaptionLength() ? formattedText : null;
-    final TdApi.InputMessageContent messageText = formattedText != null ? new TdApi.InputMessageText(formattedText, false, false) : null;
+    final int captionCodePointCount = rawCaption != null ? rawCaption.codePointCount(0, rawCaption.length()) : 0;
+    final TdApi.FormattedText messageCaption = captionCodePointCount > 0 && captionCodePointCount <= tdlib.maxCaptionLength() ? new TdApi.FormattedText(rawCaption, null) : null;
 
     if (!StringUtils.isEmpty(mimeType)) {
       if (mimeType.equals("image/webp")) {
         BitmapFactory.Options options = ImageReader.getImageWebpSize(filePath);
         out.add(new TdApi.InputMessageSticker(TD.createInputFile(filePath), null, options.outWidth, options.outHeight, null));
-        if (messageText != null) {
-          out.add(messageText);
-        }
         return false;
       }
 
       if (mimeType.equals("image/gif")) {
         BitmapFactory.Options options = ImageReader.getImageSize(filePath);
-        out.add(new TdApi.InputMessageAnimation(TD.createInputFile(filePath), null, null, 0, options.outWidth, options.outHeight, messageCaption));
-        if (messageCaption == null && messageText != null) {
-          out.add(messageText);
-        }
-        return true;
+        out.add(new TdApi.InputMessageAnimation(TD.createInputFile(filePath), null, null, 0, options.outWidth, options.outHeight, messageCaption, false));
+        return messageCaption != null;
       }
 
       if (mimeType.startsWith("image/")) {
@@ -1465,11 +1429,8 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
         int height = rotation == 90 || rotation == 270 ? opts.outWidth / inSampleSize : opts.outHeight / inSampleSize;
 
         TdApi.InputFileGenerated inputFile = PhotoGenerationInfo.newFile(filePath, rotation);
-        out.add(new TdApi.InputMessagePhoto(inputFile, null, null, width, height, messageCaption, 0));
-        if (messageCaption == null && messageText != null) {
-          out.add(messageText);
-        }
-        return true;
+        out.add(new TdApi.InputMessagePhoto(inputFile, null, null, width, height, messageCaption, 0, false));
+        return messageCaption != null;
       }
 
       if (mimeType.startsWith("video/")) {
@@ -1506,24 +1467,17 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
 
           U.closeRetriever(media);
 
-          out.add(new TdApi.InputMessageVideo(inputVideo, null, null, duration, width, height, U.canStreamVideo(inputVideo), messageCaption, 0));
-          if (messageCaption == null && messageText != null) {
-            out.add(messageText);
-          }
+          out.add(new TdApi.InputMessageVideo(inputVideo, null, null, duration, width, height, U.canStreamVideo(inputVideo), messageCaption, 0, false));
+          return messageCaption != null;
         }
-
-        return true;
       }
     }
 
     TD.FileInfo info = new TD.FileInfo();
     TdApi.InputFile file = TD.createInputFile(filePath, mimeType, info);
 
-    out.add(TD.toInputMessageContent(filePath, file, info, messageCaption));
-    if (messageCaption == null && messageText != null) {
-      out.add(messageText);
-    }
-    return true;
+    out.add(TD.toInputMessageContent(filePath, file, info, messageCaption, false));
+    return messageCaption != null;
   }
 
   private void shareContents (final Tdlib tdlib, final String type, final ArrayList<TdApi.InputMessageContent> contents, boolean mergeAlbum) {

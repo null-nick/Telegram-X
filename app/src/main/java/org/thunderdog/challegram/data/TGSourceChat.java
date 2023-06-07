@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,13 +16,13 @@ package org.thunderdog.challegram.data;
 
 import android.view.View;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Background;
 import org.thunderdog.challegram.core.Lang;
-import org.thunderdog.challegram.loader.ImageFile;
+import org.thunderdog.challegram.loader.AvatarReceiver;
 import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.util.text.Text;
@@ -133,12 +133,16 @@ public class TGSourceChat extends TGSource implements Client.ResultHandler, Runn
   }
 
   @Override
-  public ImageFile getAvatar () {
-    return photo != null ? TD.getAvatar(msg.tdlib, photo) : null;
+  public int getAuthorNameColorId () {
+    return TD.getNameColorId(msg.tdlib.chatAvatarColorId(chatId));
   }
 
   @Override
-  public AvatarPlaceholder.Metadata getAvatarPlaceholderMetadata () {
-    return msg.tdlib().chatPlaceholderMetadata(chatId, false);
+  public void requestAvatar (AvatarReceiver receiver) {
+    if (msg.tdlib.isSelfChat(chatId)) {
+      receiver.requestUser(msg.tdlib, msg.tdlib.chatUserId(chatId), AvatarReceiver.Options.NONE);
+    } else {
+      receiver.requestChat(msg.tdlib, chatId, AvatarReceiver.Options.NONE);
+    }
   }
 }

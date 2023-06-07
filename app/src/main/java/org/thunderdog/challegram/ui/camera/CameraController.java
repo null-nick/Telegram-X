@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -42,7 +42,7 @@ import androidx.annotation.AnyThread;
 import androidx.annotation.Nullable;
 import androidx.annotation.StringRes;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
@@ -52,6 +52,7 @@ import org.thunderdog.challegram.loader.ImageGalleryFile;
 import org.thunderdog.challegram.loader.ImageReader;
 import org.thunderdog.challegram.loader.ImageStrictCache;
 import org.thunderdog.challegram.mediaview.MediaSelectDelegate;
+import org.thunderdog.challegram.mediaview.MediaSpoilerSendDelegate;
 import org.thunderdog.challegram.mediaview.MediaViewController;
 import org.thunderdog.challegram.mediaview.MediaViewDelegate;
 import org.thunderdog.challegram.mediaview.MediaViewThumbLocation;
@@ -76,13 +77,13 @@ import java.util.ArrayList;
 import me.vkryl.android.AnimatorUtils;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.android.widget.FrameLayoutFix;
+import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.lambda.CancellableRunnable;
-import me.vkryl.core.BitwiseUtils;
 
 public class CameraController extends ViewController<Void> implements CameraDelegate, SensorEventListener, FactorAnimator.Target, View.OnClickListener, CameraButton.RecordListener, CameraOverlayView.FlashListener, Settings.SettingsChangeListener {
-  public static final String[] VIDEO_PERMISSIONS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN ? new String[] {
+  public static final String[] VIDEO_PERMISSIONS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN && Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU ? new String[] {
     Manifest.permission.CAMERA,
     Manifest.permission.RECORD_AUDIO,
     Manifest.permission.WRITE_EXTERNAL_STORAGE,
@@ -93,7 +94,10 @@ public class CameraController extends ViewController<Void> implements CameraDele
     Manifest.permission.WRITE_EXTERNAL_STORAGE
   };
 
-  public static final String[] VIDEO_ONLY_PERMISSIONS = new String[] {
+  public static final String[] VIDEO_ONLY_PERMISSIONS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU ? new String[] {
+    Manifest.permission.CAMERA,
+    Manifest.permission.WRITE_EXTERNAL_STORAGE
+  } : new String[] {
     Manifest.permission.CAMERA,
     Manifest.permission.WRITE_EXTERNAL_STORAGE,
     Manifest.permission.READ_EXTERNAL_STORAGE
@@ -260,7 +264,7 @@ public class CameraController extends ViewController<Void> implements CameraDele
 
   @Override
   public void onSettingsChanged (long newSettings, long oldSettings) {
-    cameraOverlayView.setGridVisible(cameraMode == MODE_MAIN && BitwiseUtils.getFlag(newSettings, Settings.SETTING_FLAG_CAMERA_SHOW_GRID), isFocused());
+    cameraOverlayView.setGridVisible(cameraMode == MODE_MAIN && BitwiseUtils.hasFlag(newSettings, Settings.SETTING_FLAG_CAMERA_SHOW_GRID), isFocused());
   }
 
   public boolean isLegacy () {
@@ -298,13 +302,13 @@ public class CameraController extends ViewController<Void> implements CameraDele
   }
 
   public void takeCameraLayout (ViewGroup toGroup, int index) {
-    get();
+    getValue();
     Views.moveView(contentView, toGroup, index);
     manager.getView().requestLayout();
   }
 
   public void releaseCameraLayout () {
-    get();
+    getValue();
     Views.moveView(contentView, rootLayout, 0);
     manager.getView().requestLayout();
   }
@@ -347,15 +351,11 @@ public class CameraController extends ViewController<Void> implements CameraDele
 
   @Override
   public void onClick (View v) {
-    switch (v.getId()) {
-      case R.id.btn_camera_switch: {
-        switchCamera();
-        break;
-      }
-      case R.id.btn_camera_flash: {
-        manager.switchFlashMode();
-        break;
-      }
+    final int viewId = v.getId();
+    if (viewId == R.id.btn_camera_switch) {
+      switchCamera();
+    } else if (viewId == R.id.btn_camera_flash) {
+      manager.switchFlashMode();
     }
   }
 
@@ -1432,12 +1432,13 @@ public class CameraController extends ViewController<Void> implements CameraDele
     return m != null && m.isSecretChat();
   }
 
-  private void onSendMedia (ImageGalleryFile file, TdApi.MessageSendOptions options, boolean disableMarkdown, boolean asFiles) {
+  private boolean onSendMedia (ImageGalleryFile file, TdApi.MessageSendOptions options, boolean disableMarkdown, boolean asFiles, boolean hasSpoiler) {
     MessagesController m = findOutputController();
     if (m != null) {
       context.forceCloseCamera();
-      m.sendCompressed(file, options, disableMarkdown, asFiles);
+      return m.sendPhotosAndVideosCompressed(new ImageGalleryFile[] {file}, false, options, disableMarkdown, asFiles, hasSpoiler);
     }
+    return false;
   }
 
   @Override
@@ -1453,7 +1454,7 @@ public class CameraController extends ViewController<Void> implements CameraDele
       MessagesController m = findOutputController();
       MediaViewController.Args args = new MediaViewController.Args(CameraController.this, MediaViewController.MODE_GALLERY, new MediaViewDelegate() {
         @Override
-        public MediaViewThumbLocation getTargetLocation (int index, MediaItem item) {
+        public MediaViewThumbLocation getTargetLocation (int indexInStack, MediaItem item) {
           MediaViewThumbLocation location = new MediaViewThumbLocation(0, 0, contentView.getMeasuredWidth(), contentView.getMeasuredHeight());
           location.setNoBounce();
           location.setNoPlaceholder();
@@ -1500,9 +1501,12 @@ public class CameraController extends ViewController<Void> implements CameraDele
         public ArrayList<ImageFile> getSelectedMediaItems (boolean copy) {
           return null;
         }
-      }, (images, options, disableMarkdown, asFiles) -> {
-        ImageGalleryFile galleryFile = (ImageGalleryFile) images.get(0);
-        onSendMedia(galleryFile, options, disableMarkdown, asFiles);
+      }, new MediaSpoilerSendDelegate() {
+        @Override
+        public boolean sendSelectedItems (View view, ArrayList<ImageFile> images, TdApi.MessageSendOptions options, boolean disableMarkdown, boolean asFiles, boolean hasSpoiler) {
+          ImageGalleryFile galleryFile = (ImageGalleryFile) images.get(0);
+          return onSendMedia(galleryFile, options, disableMarkdown, asFiles, hasSpoiler);
+        }
       }, stack).setOnlyScheduled(m != null && m.areScheduledOnly());
       if (m != null) {
         args.setReceiverChatId(m.getChatId());

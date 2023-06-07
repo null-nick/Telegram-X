@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,8 +19,7 @@ import android.graphics.Canvas;
 import android.graphics.Paint;
 import android.graphics.Rect;
 import android.graphics.drawable.Drawable;
-import android.text.Layout;
-import android.text.TextUtils;
+import android.text.SpannableStringBuilder;
 import android.view.Gravity;
 import android.view.View;
 
@@ -28,45 +27,49 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.component.dialogs.ChatView;
 import org.thunderdog.challegram.component.user.RemoveHelper;
+import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.AvatarPlaceholder;
 import org.thunderdog.challegram.data.CallItem;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.data.TGFoundChat;
 import org.thunderdog.challegram.data.TGFoundMessage;
-import org.thunderdog.challegram.emoji.Emoji;
+import org.thunderdog.challegram.loader.AvatarReceiver;
+import org.thunderdog.challegram.loader.ComplexReceiver;
 import org.thunderdog.challegram.loader.ImageFile;
-import org.thunderdog.challegram.loader.ImageReceiver;
 import org.thunderdog.challegram.navigation.TooltipOverlayView;
 import org.thunderdog.challegram.telegram.ChatListener;
 import org.thunderdog.challegram.telegram.NotificationSettingsListener;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibCache;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Icons;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.PorterDuffPaint;
 import org.thunderdog.challegram.tool.Screen;
-import org.thunderdog.challegram.unsorted.Settings;
 import org.thunderdog.challegram.util.DrawableProvider;
 import org.thunderdog.challegram.util.text.Counter;
+import org.thunderdog.challegram.util.text.FormattedText;
+import org.thunderdog.challegram.util.text.Highlight;
 import org.thunderdog.challegram.util.text.Text;
+import org.thunderdog.challegram.util.text.TextColorSet;
+import org.thunderdog.challegram.util.text.TextColorSets;
 
 import java.util.concurrent.TimeUnit;
 
+import me.vkryl.android.util.SingleViewProvider;
+import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.lambda.Destroyable;
-import me.vkryl.core.BitwiseUtils;
 import me.vkryl.td.ChatId;
 import me.vkryl.td.MessageId;
-import me.vkryl.td.Td;
 
 public class BetterChatView extends BaseView implements Destroyable, RemoveHelper.RemoveDelegate, ChatListener, TdlibCache.UserDataChangeListener, TdlibCache.SupergroupDataChangeListener, TdlibCache.BasicGroupDataChangeListener, NotificationSettingsListener, TdlibCache.UserStatusChangeListener, DrawableProvider, TooltipOverlayView.LocationProvider {
   private static final int FLAG_FAKE_TITLE = 1;
@@ -76,17 +79,16 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
 
   private int flags;
 
-  private final ImageReceiver receiver;
+  private final AvatarReceiver avatarReceiver;
+  private final ComplexReceiver subtitleMediaReceiver;
 
-  private CharSequence title;
-  private CharSequence trimmedTitle;
-  private float trimmedTitleWidth;
-  private Layout titleLayout;
+  private FormattedText title;
+  private Highlight titleHighlight;
+  private Text displayTitle;
 
-  private CharSequence subtitle;
-  private CharSequence trimmedSubtitle;
-  private float trimmedSubtitleWidth;
-  private Layout subtitleLayout;
+  private FormattedText subtitle;
+  private Highlight subtitleHighlight;
+  private Text displaySubtitle;
 
   private String time;
   private float timeWidth;
@@ -99,31 +101,32 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
     invalidate();
   }).build();
 
-  private ImageFile avatar;
-  private AvatarPlaceholder avatarPlaceholder;
-
   private int subtitleIcon;
   private Drawable subtitleIconDrawable;
-  private @ThemeColorId
+  private @ColorId
   int subtitleIconColorId;
 
   public BetterChatView (Context context, Tdlib tdlib) {
     super(context, tdlib);
-    this.receiver = new ImageReceiver(this, ChatView.getAvatarRadius(Settings.CHAT_MODE_2LINE));
-    receiver.setBounds(Screen.dp(11f), Screen.dp(10f), Screen.dp(11f) + Screen.dp(52f), Screen.dp(10f) + Screen.dp(52f));
+    this.avatarReceiver = new AvatarReceiver(this);
+    this.subtitleMediaReceiver = new ComplexReceiver(this, Config.MAX_ANIMATED_EMOJI_REFRESH_RATE);
+    avatarReceiver.setBounds(Screen.dp(11f), Screen.dp(10f), Screen.dp(11f) + Screen.dp(52f), Screen.dp(10f) + Screen.dp(52f));
   }
 
   public void attach () {
-    receiver.attach();
+    avatarReceiver.attach();
+    subtitleMediaReceiver.attach();
   }
 
   public void detach () {
-    receiver.detach();
+    avatarReceiver.detach();
+    subtitleMediaReceiver.detach();
   }
 
   @Override
   public void performDestroy () {
-    receiver.destroy();
+    avatarReceiver.destroy();
+    subtitleMediaReceiver.performDestroy();
     setChatImpl(null);
     setMessageImpl(null);
   }
@@ -136,11 +139,10 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
     setPreviewChatId(null, item.getChatId(), null, new MessageId(item.getChatId(), item.getLatestMessageId()), null);
 
     setTime(Lang.time(item.getDate(), TimeUnit.SECONDS));
-    setTitle(TD.getUserName(userId, user));
+    setTitle(TD.getUserName(userId, user), null);
     setSubtitleIcon(item.getSubtitleIcon(), item.getSubtitleIconColorId());
     setSubtitle(item.getSubtitle());
-    boolean hasAvatar = user != null && user.profilePhoto != null;
-    setAvatar(hasAvatar ? user.profilePhoto.small : null, hasAvatar || user == null ? null : tdlib.cache().userPlaceholder(user, true, ChatView.getAvatarSizeDp(Settings.CHAT_MODE_2LINE) / 2f, null));
+    avatarReceiver.requestUser(tdlib, userId, AvatarReceiver.Options.SHOW_ONLINE);
     invalidate();
   }
 
@@ -164,9 +166,9 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
     if (Lang.rtl()) {
       int x = Screen.dp(11f);
       int avatarWidth = Screen.dp(52f);
-      receiver.setBounds(width - x - avatarWidth, Screen.dp(10f), width - x, Screen.dp(10f) + Screen.dp(52f));
+      avatarReceiver.setBounds(width - x - avatarWidth, Screen.dp(10f), width - x, Screen.dp(10f) + Screen.dp(52f));
     } else {
-      receiver.setBounds(Screen.dp(11f), Screen.dp(10f), Screen.dp(11f) + Screen.dp(52f), Screen.dp(10f) + Screen.dp(52f));
+      avatarReceiver.setBounds(Screen.dp(11f), Screen.dp(10f), Screen.dp(11f) + Screen.dp(52f), Screen.dp(10f) + Screen.dp(52f));
     }
   }
 
@@ -185,13 +187,13 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
     counter.setCount(unreadCount, muted, animated);
   }
 
-  public void setSubtitleIcon (int icon, @ThemeColorId int color) {
+  public void setSubtitleIcon (int icon, @ColorId int color) {
     if (this.subtitleIcon != icon || this.subtitleIconColorId != color) {
       this.subtitleIconColorId = color;
       if (this.subtitleIcon != icon) {
         boolean prevHadIcon = subtitleIcon != 0;
         this.subtitleIcon = icon;
-        this.subtitleIconDrawable = getSparseDrawable(icon, ThemeColorId.NONE);
+        this.subtitleIconDrawable = getSparseDrawable(icon, ColorId.NONE);
         boolean nowHasIcon = icon != 0;
         if (prevHadIcon != nowHasIcon) {
           setTrimmedSubtitle();
@@ -199,21 +201,6 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
       }
       invalidate();
     }
-  }
-
-  public void setAvatar (@Nullable TdApi.File file, @Nullable AvatarPlaceholder avatarPlaceholder) {
-    ImageFile avatar;
-    if (file != null) {
-      if (this.avatar == null || Td.getId(this.avatar.getFile()) != file.id) {
-        avatar = new ImageFile(tdlib, file);
-        avatar.setSize(ChatView.getDefaultAvatarCacheSize());
-      } else {
-        avatar = this.avatar;
-      }
-    } else {
-      avatar = null;
-    }
-    setAvatar(avatar, avatarPlaceholder);
   }
 
   public void setIsOnline (boolean isOnline) {
@@ -233,19 +220,26 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
     }
   }
 
-  public void setAvatar (ImageFile avatar, AvatarPlaceholder avatarPlaceholder) {
-    this.avatar = avatar;
-    this.avatarPlaceholder = avatarPlaceholder;
-    receiver.requestFile(avatar);
-  }
-
   public void setAvatar (ImageFile avatar, AvatarPlaceholder.Metadata avatarPlaceholderMetadata) {
-    setAvatar(avatar, avatarPlaceholderMetadata != null ? new AvatarPlaceholder(ChatView.getAvatarSizeDp(Settings.CHAT_MODE_2LINE) / 2f, avatarPlaceholderMetadata, null) : null);
+    if (avatar != null) {
+      avatarReceiver.requestSpecific(tdlib, avatar, AvatarReceiver.Options.NONE);
+    } else {
+      avatarReceiver.requestPlaceholder(tdlib, avatarPlaceholderMetadata, AvatarReceiver.Options.NONE);
+    }
   }
 
   public void setTitle (CharSequence title) {
-    if (!StringUtils.equalsOrBothEmpty(this.title, title)) {
+    setTitle(title, null);
+  }
+
+  public void setTitle (CharSequence title, @Nullable Highlight titleHighlight) {
+    setTitle(FormattedText.valueOf(this, title, null), titleHighlight);
+  }
+
+  public void setTitle (FormattedText title, @Nullable Highlight titleHighlight) {
+    if (!FormattedText.equals(this.title, title) || !Highlight.equals(this.titleHighlight, titleHighlight)) {
       this.title = title;
+      this.titleHighlight = titleHighlight;
       this.flags = BitwiseUtils.setFlag(flags, FLAG_FAKE_TITLE, title != null && Text.needFakeBold(title.toString()));
       setTrimmedTitle();
     }
@@ -253,75 +247,99 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
 
   private void setTrimmedTitle () {
     int width = getMeasuredWidth();
-    final CharSequence title = this.title;
-    if (width <= 0 || StringUtils.isEmpty(title)) {
-      trimmedTitle = null;
-      trimmedTitleWidth = 0f;
-    } else {
-      float avail = width - Screen.dp(72f) - ChatView.getTimePaddingRight();
-
-      if (timeWidth != 0) {
-        avail -= timeWidth +  ChatView.getTimePaddingLeft();
-      }
-      if ((flags & FLAG_SECRET) != 0) {
-        avail -= Screen.dp(15f);
-      }
-      avail -= counter.getScaledWidth(Screen.dp(8f) + Screen.dp(23f));
-      boolean fakeTitle = (flags & FLAG_SECRET) != 0;
-      trimmedTitle = TextUtils.ellipsize(Emoji.instance().replaceEmoji(title), ChatView.getTitlePaint(fakeTitle), avail, TextUtils.TruncateAt.END);
-      if (!(trimmedTitle instanceof String)) {
-        int maxWidth = Screen.widestSide();
-        titleLayout = U.createLayout(trimmedTitle, maxWidth, ChatView.getTitlePaint(fakeTitle));
-        trimmedTitleWidth = titleLayout.getWidth();
-      } else {
-        titleLayout = null;
-        trimmedTitleWidth = U.measureText(trimmedTitle, ChatView.getTitlePaint(fakeTitle));
-      }
+    float avail = width - Screen.dp(72f) - ChatView.getTimePaddingRight();
+    if (timeWidth != 0) {
+      avail -= timeWidth +  ChatView.getTimePaddingLeft();
     }
+    if ((flags & FLAG_SECRET) != 0) {
+      avail -= Screen.dp(15f);
+    }
+    avail -= counter.getScaledWidth(Screen.dp(8f) + Screen.dp(23f));
+    if (avail <= 0 || title == null || title.isEmpty()) {
+      displayTitle = null;
+      return;
+    }
+    this.displayTitle = new Text.Builder(
+      title,
+      (int) avail,
+      Paints.robotoStyleProvider(17f),
+      TextColorSets.Regular.NORMAL,
+      null
+    ).singleLine()
+     .highlight(titleHighlight)
+     .allBold()
+     .ignoreNewLines()
+     .ignoreContinuousNewLines()
+     .viewProvider(new SingleViewProvider(this))
+     .noClickable()
+     .build();
   }
 
-  public void setSubtitle (CharSequence subtitle) {
-    if (!StringUtils.equalsOrBothEmpty(this.subtitle, subtitle)) {
+  public void setSubtitle (FormattedText subtitle, @Nullable Highlight subtitleHighlight) {
+    if (!FormattedText.equals(this.subtitle, subtitle) || !Highlight.equals(this.subtitleHighlight, subtitleHighlight)) {
       this.subtitle = subtitle;
+      this.subtitleHighlight = subtitleHighlight;
       setTrimmedSubtitle();
     }
   }
 
-  public boolean hasComplexText () {
-    return subtitleLayout != null; // || titleLayout != null
+  public void setSubtitle (TdApi.FormattedText subtitle, @Nullable Highlight highlight) {
+    setSubtitle(FormattedText.valueOf(this, subtitle, null), highlight);
+  }
+
+  public void setSubtitle (CharSequence subtitle) {
+    setSubtitle(subtitle, null);
+  }
+
+  public void setSubtitle (CharSequence subtitle, @Nullable Highlight subtitleHighlight) {
+    setSubtitle(FormattedText.valueOf(this, subtitle, null), subtitleHighlight);
   }
 
   private void setTrimmedSubtitle () {
     int width = getMeasuredWidth();
-    if (width <= 0 || StringUtils.isEmpty(subtitle)) {
-      trimmedSubtitle = null;
-      trimmedSubtitleWidth = 0f;
-    } else {
-      float avail = width - Screen.dp(72f) - ChatView.getTimePaddingRight();
-      if (subtitleIcon != 0) {
-        avail -= Screen.dp(18f);
-      }
-      avail -= counter.getScaledWidth(Screen.dp(8f) + Screen.dp(23f));
-      trimmedSubtitle = TextUtils.ellipsize(Emoji.instance().replaceEmoji(subtitle), Paints.getTextPaint16(), avail, TextUtils.TruncateAt.END);
-      if (!(trimmedSubtitle instanceof String)) {
-        int maxWidth = Screen.widestSide();
-        subtitleLayout = U.createLayout(trimmedSubtitle, (int) Math.max(maxWidth, avail), Paints.getTextPaint16());
-        trimmedSubtitleWidth = subtitleLayout.getWidth();
-      } else {
-        subtitleLayout = null;
-        trimmedSubtitleWidth = U.measureText(trimmedSubtitle, Paints.getTextPaint16());
-      }
+    float avail = width - Screen.dp(72f) - ChatView.getTimePaddingRight();
+    if (subtitleIcon != 0) {
+      avail -= Screen.dp(18f);
     }
+    avail -= counter.getScaledWidth(Screen.dp(8f) + Screen.dp(23f));
+
+    if (avail <= 0 || subtitle == null || subtitle.isEmpty()) {
+      this.displaySubtitle = null;
+      subtitleMediaReceiver.clear();
+      return;
+    }
+
+    this.displaySubtitle = new Text.Builder(
+      subtitle,
+      (int) avail,
+      Paints.robotoStyleProvider(16f),
+      TextColorSets.Regular.LIGHT,
+      (text, specificMedia) -> {
+        if (this.displaySubtitle == text) {
+          if (!text.invalidateMediaContent(subtitleMediaReceiver, specificMedia)) {
+            text.requestMedia(subtitleMediaReceiver);
+          }
+        }
+      }
+    ).singleLine()
+     .highlight(subtitleHighlight)
+     .textFlags(Text.FLAG_ELLIPSIZE_NEWLINE)
+     .ignoreContinuousNewLines()
+     .ignoreNewLines()
+     .viewProvider(new SingleViewProvider(this))
+     .noClickable()
+     .build();
+    this.displaySubtitle.requestMedia(subtitleMediaReceiver);
   }
 
   @Override
   public void getTargetBounds (View targetView, Rect outRect) {
-    if (trimmedTitle != null) {
+    if (displayTitle != null) {
       int titleLeft = Screen.dp(72f);
       int titleTop = Screen.dp(28f) + Screen.dp(1f) - Screen.dp(16f);
       Paint.FontMetricsInt fm = ChatView.getTitlePaint((flags & FLAG_FAKE_TITLE) != 0).getFontMetricsInt();
       int titleBottom = titleTop + U.getLineHeight(fm);
-      int titleWidth = (int) (titleLayout != null ? (titleLayout.getLineCount() > 0 ? titleLayout.getLineWidth(0) : 0) : trimmedTitleWidth);
+      int titleWidth = displayTitle.getWidth();
       outRect.set(titleLeft, titleTop, titleLeft + titleWidth, titleBottom);
     }
   }
@@ -337,68 +355,32 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
 
     layoutReceiver(width);
 
-    if (avatar != null) {
-      if (receiver.needPlaceholder()) {
-        receiver.drawPlaceholderRounded(c, ChatView.getAvatarRadius(Settings.CHAT_MODE_2LINE));
-      }
-      receiver.draw(c);
-    } else if (avatarPlaceholder != null) {
-      avatarPlaceholder.draw(c, receiver.centerX(), receiver.centerY());
+    if (avatarReceiver.needPlaceholder()) {
+      avatarReceiver.drawPlaceholder(c);
     }
-    if (trimmedTitle != null) {
+    avatarReceiver.draw(c);
+
+    if (displayTitle != null) {
       boolean isSecret = (flags & FLAG_SECRET) != 0;
       Paint paint = ChatView.getTitlePaint((flags & FLAG_FAKE_TITLE) != 0);
       int titleLeft = Screen.dp(72f);
       if (isSecret) {
         Drawables.drawRtl(c, Icons.getSecureDrawable(), titleLeft - Screen.dp(6f), Screen.dp(12f), Paints.getGreenPorterDuffPaint(), width, rtl);
         titleLeft += Screen.dp(15f);
-        paint.setColor(Theme.getColor(R.id.theme_color_textSecure));
+        paint.setColor(Theme.getColor(ColorId.textSecure));
       }
-      int titleTop = Screen.dp(28f) + Screen.dp(1f);
-      if (titleLayout != null) {
-        // titleTop -= Screen.dp(14.5f);
-        int originalColor = titleLayout.getPaint().getColor();
-        titleLayout.getPaint().setColor(paint.getColor());
-        c.save();
-        float left;
-        if (rtl)
-          left = width - titleLeft - (titleLayout.getLineCount() > 0 ? titleLayout.getLineLeft(0) + titleLayout.getLineWidth(0) : 0);
-        else
-          left = titleLeft - (titleLayout.getLineCount() > 0 ? titleLayout.getLineLeft(0) : 0);
-        c.translate(left, titleTop - Screen.dp(16f));
-        titleLayout.draw(c);
-        c.restore();
-        titleLayout.getPaint().setColor(originalColor);
-      } else {
-        c.drawText((String) trimmedTitle, rtl ? width - titleLeft - trimmedTitleWidth : titleLeft, titleTop, paint);
-      }
-      if (isSecret || titleLayout != null) {
-        paint.setColor(Theme.textAccentColor());
-      }
+      int titleTop = Screen.dp(12f) + Screen.dp(1f);
+      displayTitle.draw(c, titleLeft, titleTop);
     }
     int subtitleOffset = -Screen.dp(1f);
-    if (trimmedSubtitle != null) {
+    if (displaySubtitle != null) {
       int subtitleLeft = Screen.dp(72f);
       if (subtitleIcon != 0) {
         subtitleLeft += Screen.dp(20f);
       }
-      int subtitleTop = Screen.dp(54f) + subtitleOffset;
-      if (subtitleLayout != null) {
-        subtitleTop -= Screen.dp(14.5f);
-        c.save();
-        float left;
-        if (rtl)
-          left = width - subtitleLeft - (subtitleLayout.getLineCount() > 0 ? subtitleLayout.getLineLeft(0) + subtitleLayout.getLineWidth(0) : 0);
-        else
-          left = subtitleLeft - (subtitleLayout.getLineCount() > 0 ? subtitleLayout.getLineLeft(0) : 0);
-        c.translate(left, subtitleTop);
-        Paints.getTextPaint16(Theme.getColor(R.id.theme_color_textLight));
-        subtitleLayout.draw(c);
-        c.restore();
-        Paints.getTextPaint16(Theme.getColor(R.id.theme_color_textLight));
-      } else {
-        c.drawText((String) trimmedSubtitle, rtl ? width - subtitleLeft - trimmedSubtitleWidth : subtitleLeft, subtitleTop, Paints.getTextPaint16((flags & FLAG_ONLINE) != 0 ? Theme.getColor(R.id.theme_color_textNeutral) : Theme.textDecentColor()));
-      }
+      int subtitleTop = Screen.dp(39f) + subtitleOffset;
+      TextColorSet colorSet = BitwiseUtils.hasFlag(flags, FLAG_ONLINE) ? TextColorSets.Regular.NEUTRAL : null;
+      displaySubtitle.draw(c, subtitleLeft, subtitleTop,  colorSet, 1f, subtitleMediaReceiver);
     }
     if (subtitleIcon != 0) {
       Drawables.drawRtl(c, subtitleIconDrawable, Screen.dp(72f), Screen.dp(subtitleIcon == R.drawable.baseline_call_missed_18 ? 40f : 39f) + subtitleOffset, PorterDuffPaint.get(subtitleIconColorId), width, rtl);
@@ -505,7 +487,6 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
 
   public void setChat (@Nullable TGFoundChat chat) {
     if (chat == lastChat) {
-      receiver.requestFile(avatar);
       return;
     }
     if (lastMessage != null) {
@@ -521,9 +502,9 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
     if (update) {
       lastChat.updateChat();
     }
-    setTitle(lastChat.getTitle());
+    setTitle(lastChat.getTitle(), lastChat.getTitleHighlight());
     updateSubtitle();
-    setAvatar(lastChat.getAvatar(), lastChat.getAvatarPlaceholderMetadata());
+    lastChat.requestAvatar(avatarReceiver, AvatarReceiver.Options.SHOW_ONLINE);
     setTime(null);
     setUnreadCount(lastChat.getUnreadCount(), !lastChat.notificationsEnabled(), update);
   }
@@ -533,13 +514,13 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
       if (StringUtils.isEmpty(lastChat.getForcedSubtitle())) {
         final long userId = lastChat.getUserId();
         if (lastChat.isGlobal()) {
-          setSubtitle(lastChat.getUsername());
+          setSubtitle(lastChat.getUsername(), lastChat.getUsernameHighlight());
         } else {
-          String subtitle = (userId != 0 ? tdlib.status().getPrivateChatSubtitle(userId) : tdlib.status().chatStatus(lastChat.getId())).toString();
+          CharSequence subtitle = (userId != 0 ? tdlib.status().getPrivateChatSubtitle(userId) : tdlib.status().chatStatus(lastChat.getId()));
           if (lastChat.needForceUsername()) {
             String username = userId != 0 ? tdlib.cache().userUsername(userId) : tdlib.chatUsername(lastChat.getId());
             if (!StringUtils.isEmpty(username)) {
-              subtitle = "@" + username + ", " + subtitle;
+              subtitle = new SpannableStringBuilder(subtitle).insert(0, "@" + username + ", ");
             }
           }
           setSubtitle(subtitle);
@@ -681,7 +662,6 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
     if (lastChat != null) {
       setChatImpl(null);
     } else if (lastMessage == foundMessage) {
-      receiver.requestFile(foundMessage != null ? foundMessage.getAvatar() : null);
       return;
     }
     setMessageImpl(foundMessage);
@@ -689,10 +669,12 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
       TdApi.Message message = foundMessage.getMessage();
       flags = BitwiseUtils.setFlag(flags, FLAG_SELF_CHAT, foundMessage.getChat().isSelfChat());
       setTime(Lang.timeOrDateShort(message.date, TimeUnit.SECONDS));
-      setTitle(foundMessage.getChat().getTitle());
-      setSubtitle(foundMessage.getText());
+      TGFoundChat chat = foundMessage.getChat();
+      setTitle(chat.getTitle(), chat.getTitleHighlight());
+      setSubtitle(foundMessage.getText(), foundMessage.getHighlight());
       setUnreadCount(0, counter.isMuted(), false);
-      setAvatar(foundMessage.getAvatar(), foundMessage.getAvatarPlaceholderMetadata() != null ? new AvatarPlaceholder(ChatView.getAvatarSizeDp(Settings.CHAT_MODE_2LINE) / 2f, foundMessage.getAvatarPlaceholderMetadata(), null) : null);
+      TdApi.MessageSender sender = chat.getSenderId();
+      avatarReceiver.requestMessageSender(tdlib, sender, AvatarReceiver.Options.NONE);
       invalidate();
     }
   }

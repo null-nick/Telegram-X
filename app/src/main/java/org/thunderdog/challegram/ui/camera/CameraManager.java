@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -282,7 +282,7 @@ public abstract class CameraManager <T extends View> {
 
     if (!delegate.usePrivateFolder()) {
       if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        U.copyToGallery(resultFile.getFilePath(), U.TYPE_PHOTO, false, resultFile::trackCopy);
+        U.copyToGallery(UI.getContext(context), resultFile.getFilePath(), U.TYPE_PHOTO, false, resultFile::trackCopy);
       } else {
         U.addToGallery(new File(resultFile.getFilePath()));
       }

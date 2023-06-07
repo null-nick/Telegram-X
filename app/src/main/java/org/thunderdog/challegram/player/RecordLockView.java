@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,7 +25,7 @@ import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 
-import org.thunderdog.challegram.R;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.DrawAlgorithms;
 import org.thunderdog.challegram.tool.Paints;
@@ -104,7 +104,7 @@ public class RecordLockView extends View {
     int cy = Screen.dp(33f) / 2;
 
     final int grayColor = Theme.iconColor();
-    final int redColor = Theme.getColor(R.id.theme_color_iconNegative);
+    final int redColor = Theme.getColor(ColorId.iconNegative);
 
     int totalDy = (int) (Screen.dp(2f) * collapseFactor * (1f - sendFactor));
 

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,7 +23,7 @@ import android.view.View;
 
 import androidx.annotation.NonNull;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
@@ -42,6 +42,7 @@ import org.thunderdog.challegram.player.RoundVideoController;
 import org.thunderdog.challegram.player.TGPlayerController;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibFilesManager;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
@@ -56,7 +57,6 @@ import org.thunderdog.challegram.widget.FileProgressComponent;
 import java.io.File;
 
 import me.vkryl.android.AnimatorUtils;
-import me.vkryl.android.ViewUtils;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.ColorUtils;
 import me.vkryl.core.StringUtils;
@@ -95,7 +95,7 @@ public class TGMessageVideo extends TGMessage implements FileProgressComponent.S
 
     this.mutedVideoFile = new GifFile(tdlib, videoNote.video, GifFile.TYPE_MPEG4);
     this.mutedVideoFile.setIsRoundVideo(msg.chatId, msg.id);
-    this.mutedVideoFile.setSize(Screen.dp(200f));
+    this.mutedVideoFile.setRequestedSize(Screen.dp(200f));
     if (!Settings.instance().needAutoplayGIFs()) {
       this.mutedVideoFile.setIsStill(true);
     }
@@ -385,7 +385,7 @@ public class TGMessageVideo extends TGMessage implements FileProgressComponent.S
     }
 
     if (viewFactor > 0f) {
-      c.drawCircle(circleX, textY + Screen.dp(11.5f), Screen.dp(1.5f), Paints.fillingPaint(ColorUtils.alphaColor(viewFactor, useBubbles ? 0xffffffff : Theme.getColor(R.id.theme_color_online))));
+      c.drawCircle(circleX, textY + Screen.dp(11.5f), Screen.dp(1.5f), Paints.fillingPaint(ColorUtils.alphaColor(viewFactor, useBubbles ? 0xffffffff : Theme.getColor(ColorId.online))));
     }
 
     float alpha = (1f - unmuteFactor) * (1f - fileProgress.getBackgroundAlpha());
@@ -394,8 +394,9 @@ public class TGMessageVideo extends TGMessage implements FileProgressComponent.S
       int centerY = receiver.getBottom() - radius - Screen.dp(10f);
 
       final float scale = .6f + (1f - unmuteFactor) * .4f;
+      final boolean needScale = scale != 1f;
       int restoreToCount;
-      if (scale != 1f) {
+      if (needScale) {
         restoreToCount = Views.save(c);
         c.scale(scale, scale, centerX, centerY);
       } else {
@@ -407,7 +408,7 @@ public class TGMessageVideo extends TGMessage implements FileProgressComponent.S
       Drawable drawable = view.getSparseDrawable(R.drawable.deproko_baseline_sound_muted_24, 0);
       Drawables.draw(c, drawable, centerX - drawable.getMinimumWidth() / 2f, centerY - drawable.getMinimumHeight() / 2f, paint);
       paint.setAlpha(255);
-      if (scale != 1f) {
+      if (needScale) {
         Views.restore(c, restoreToCount);
       }
     }

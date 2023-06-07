@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -67,7 +67,7 @@ public final class N {
 
   // gif.c
   public static native void gifInit ();
-  public static native long createDecoder (String path, int[] metadata);
+  public static native long createDecoder (String path, int[] metadata, double startMediaTimestamp);
   public static native long createLottieDecoder (String path, String jsonData, double[] metadata, int fitzpatrickType);
   public static native void getLottieSize (long ptr, int[] size);
   public static native void cancelLottieDecoder (long ptr);

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -16,16 +16,16 @@ package org.thunderdog.challegram.telegram;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.data.MediaWrapper;
 import org.thunderdog.challegram.data.TD;
-
-import me.vkryl.td.Td;
+import org.thunderdog.challegram.unsorted.Settings;
 
 public class TdlibNotificationMediaFile {
   public static final int TYPE_IMAGE = 0;
   public static final int TYPE_STICKER = 1;
-  public static final int TYPE_ANIMATED_STICKER = 2;
+  public static final int TYPE_LOTTIE_STICKER = 2;
+  public static final int TYPE_WEBM_STICKER = 3;
   public final TdApi.File file;
   public final int type;
   public final boolean needBlur;
@@ -40,11 +40,29 @@ public class TdlibNotificationMediaFile {
   }
 
   public boolean isSticker () {
-    return type == TYPE_STICKER || type == TYPE_ANIMATED_STICKER;
+    switch (type) {
+      case TYPE_STICKER:
+      case TYPE_LOTTIE_STICKER:
+      case TYPE_WEBM_STICKER:
+        return true;
+    }
+    return false;
   }
 
-  public static @Nullable
-  TdlibNotificationMediaFile newFile (Tdlib tdlib, TdApi.Chat chat, TdApi.NotificationType notificationType) {
+  private static int toType (TdApi.StickerFormat format) {
+    switch (format.getConstructor()) {
+      case TdApi.StickerFormatWebm.CONSTRUCTOR:
+        return TYPE_WEBM_STICKER;
+      case TdApi.StickerFormatTgs.CONSTRUCTOR:
+        return TYPE_LOTTIE_STICKER;
+      case TdApi.StickerFormatWebp.CONSTRUCTOR:
+        return TYPE_STICKER;
+    }
+    throw new UnsupportedOperationException(format.toString());
+  }
+
+  @Nullable
+  public static TdlibNotificationMediaFile newFile (Tdlib tdlib, TdApi.Chat chat, TdApi.NotificationType notificationType) {
     if (notificationType == null) {
       return null;
     }
@@ -58,7 +76,7 @@ public class TdlibNotificationMediaFile {
         switch (message.content.getConstructor()) {
           case TdApi.MessagePhoto.CONSTRUCTOR: {
             TdApi.MessagePhoto photo = (TdApi.MessagePhoto) message.content;
-            if (!photo.isSecret) {
+            if (!photo.isSecret && !photo.hasSpoiler) {
               TdApi.PhotoSize target = MediaWrapper.buildTargetFile(photo.photo);
               if (target != null && (TD.isFileLoaded(target.photo) || tdlib.files().canAutomaticallyDownload(target.photo, TdlibFilesManager.DOWNLOAD_FLAG_PHOTO, chat.type))) {
                 photoFile = target.photo;
@@ -69,12 +87,23 @@ public class TdlibNotificationMediaFile {
             }
             break;
           }
+          case TdApi.MessageAnimatedEmoji.CONSTRUCTOR: {
+            TdApi.MessageAnimatedEmoji animatedEmoji = (TdApi.MessageAnimatedEmoji) message.content;
+            if (animatedEmoji.animatedEmoji.sticker != null && !Settings.instance().getNewSetting(Settings.SETTING_FLAG_NO_ANIMATED_EMOJI)) {
+              TdApi.Sticker sticker = animatedEmoji.animatedEmoji.sticker;
+              photoFile = animatedEmoji.animatedEmoji.sticker.sticker;
+              type = toType(sticker.format);
+              width = sticker.width;
+              height = sticker.height;
+            }
+            break;
+          }
           case TdApi.MessageSticker.CONSTRUCTOR: {
-            TdApi.MessageSticker sticker = (TdApi.MessageSticker) message.content;
-            photoFile = sticker.sticker.sticker;
-            type = Td.isAnimated(sticker.sticker.type) ? TYPE_ANIMATED_STICKER : TYPE_STICKER;
-            width = sticker.sticker.width;
-            height = sticker.sticker.height;
+            TdApi.Sticker sticker = ((TdApi.MessageSticker) message.content).sticker;
+            photoFile = sticker.sticker;
+            type = toType(sticker.format);
+            width = sticker.width;
+            height = sticker.height;
             break;
           }
           default:
@@ -102,7 +131,7 @@ public class TdlibNotificationMediaFile {
             TdApi.PushMessageContentSticker sticker = (TdApi.PushMessageContentSticker) push;
             if (sticker.sticker != null) {
               photoFile = sticker.sticker.sticker;
-              type = Td.isAnimated(sticker.sticker.type) ? TYPE_ANIMATED_STICKER : TYPE_STICKER;
+              type = toType(sticker.sticker.format);
               width = sticker.sticker.width;
               height = sticker.sticker.height;
             }

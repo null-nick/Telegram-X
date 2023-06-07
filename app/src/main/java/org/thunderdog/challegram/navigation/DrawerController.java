@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -35,7 +35,8 @@ import androidx.recyclerview.widget.ItemTouchHelper;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
+import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.attach.CustomItemAnimator;
@@ -46,6 +47,7 @@ import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.GlobalAccountListener;
 import org.thunderdog.challegram.telegram.GlobalCountersListener;
+import org.thunderdog.challegram.telegram.GlobalTokenStateListener;
 import org.thunderdog.challegram.telegram.SessionListener;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccount;
@@ -54,6 +56,7 @@ import org.thunderdog.challegram.telegram.TdlibManager;
 import org.thunderdog.challegram.telegram.TdlibOptionListener;
 import org.thunderdog.challegram.telegram.TdlibSettingsManager;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.theme.ThemeDelegate;
 import org.thunderdog.challegram.theme.ThemeManager;
@@ -63,6 +66,7 @@ import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.ui.ChatsController;
+import org.thunderdog.challegram.ui.FeatureToggles;
 import org.thunderdog.challegram.ui.ListItem;
 import org.thunderdog.challegram.ui.PeopleController;
 import org.thunderdog.challegram.ui.SettingsAdapter;
@@ -89,7 +93,7 @@ import me.vkryl.core.collection.IntList;
 import me.vkryl.core.lambda.CancellableRunnable;
 import me.vkryl.td.ChatId;
 
-public class DrawerController extends ViewController<Void> implements View.OnClickListener, Settings.ProxyChangeListener, GlobalAccountListener, GlobalCountersListener, BaseView.CustomControllerProvider, BaseView.ActionListProvider, View.OnLongClickListener, TdlibSettingsManager.NotificationProblemListener, TdlibOptionListener, SessionListener {
+public class DrawerController extends ViewController<Void> implements View.OnClickListener, Settings.ProxyChangeListener, GlobalAccountListener, GlobalCountersListener, BaseView.CustomControllerProvider, BaseView.ActionListProvider, View.OnLongClickListener, TdlibSettingsManager.NotificationProblemListener, TdlibOptionListener, SessionListener, GlobalTokenStateListener {
   private int currentWidth, shadowWidth;
 
   private boolean isVisible;
@@ -178,24 +182,25 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
   }
 
   @Override
+  public void onTokenStateChanged (int newState, @Nullable String error, @Nullable Throwable fullError) {
+    checkSettingsError();
+  }
+
+  @Override
   public void onNotificationProblemsAvailabilityChanged (Tdlib tdlib, boolean available) {
-    tdlib.ui().post(() -> {
-      if (!isDestroyed()) {
-        checkSettingsError();
-      }
-    });
+    checkSettingsError();
   }
 
   @Override
   public void onSuggestedActionsChanged (TdApi.SuggestedAction[] addedActions, TdApi.SuggestedAction[] removedActions) {
-    context.currentTdlib().ui().post(() -> {
-      if (!isDestroyed()) {
-        checkSettingsError();
-      }
-    });
+    checkSettingsError();
   }
 
   public void checkSettingsError () {
+    if (!UI.inUiThread()) {
+      runOnUiThreadOptional(this::checkSettingsError);
+      return;
+    }
     int settingsErrorIcon = getSettingsErrorIcon();
     if (this.settingsErrorIcon != settingsErrorIcon) {
       this.settingsErrorIcon = settingsErrorIcon;
@@ -271,6 +276,10 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
       items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
       items.add(new ListItem(ListItem.TYPE_DRAWER_ITEM, R.id.btn_reportBug, R.drawable.baseline_bug_report_24, Test.CLICK_NAME, false));
     }
+    if (BuildConfig.EXPERIMENTAL) {
+      items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+      items.add(new ListItem(ListItem.TYPE_DRAWER_ITEM, R.id.btn_featureToggles, R.drawable.outline_toggle_on_24, "Feature Toggles", false));
+    }
     if (Settings.instance().inDeveloperMode()) {
       items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
       items.add(new ListItem(ListItem.TYPE_DRAWER_ITEM, R.id.btn_tdlib_clearLogs, R.drawable.baseline_bug_report_24, "Clear TDLib logs", false));
@@ -284,26 +293,20 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
       @Override
       protected void setDrawerItem (ListItem item, DrawerItemView view, TimerView timerView, boolean isUpdate) {
         isUpdate = isUpdate && factor > 0f;
-        switch (item.getId()) {
-          case R.id.account: {
-            TdlibAccount account = (TdlibAccount) item.getData();
-            TdlibBadgeCounter badge = account.getUnreadBadge();
-            view.setChecked(account.id == account.context().preferredAccountId(), isUpdate);
-            view.setUnreadCount(badge.getCount(), badge.isMuted(), isUpdate);
-            view.setAvatar(account.getAvatarPlaceholderMetadata(), account.getAvatarFile(false));
-            view.setText(Lang.getDebugString(account.getName(), account.isDebug()));
-            view.setCustomControllerProvider(DrawerController.this);
-            view.setPreviewActionListProvider(DrawerController.this);
-            break;
-          }
-          case R.id.btn_settings: {
-            view.setError(settingsErrorIcon != 0, settingsErrorIcon != Tdlib.CHAT_FAILED ? settingsErrorIcon : 0, isUpdate);
-            break;
-          }
-          default: {
-            view.setError(false, 0, isUpdate);
-            break;
-          }
+        final int itemId = item.getId();
+        if (itemId == R.id.account) {
+          TdlibAccount account = (TdlibAccount) item.getData();
+          TdlibBadgeCounter badge = account.getUnreadBadge();
+          view.setChecked(account.id == account.context().preferredAccountId(), isUpdate);
+          view.setUnreadCount(badge.getCount(), badge.isMuted(), isUpdate);
+          view.setAvatar(account);
+          view.setText(Lang.getDebugString(account.getName(), account.isDebug()));
+          view.setCustomControllerProvider(DrawerController.this);
+          view.setPreviewActionListProvider(DrawerController.this);
+        } else if (itemId == R.id.btn_settings) {
+          view.setError(settingsErrorIcon != 0, settingsErrorIcon != Tdlib.CHAT_FAILED ? settingsErrorIcon : 0, isUpdate);
+        } else {
+          view.setError(false, 0, isUpdate);
         }
       }
     };
@@ -324,7 +327,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
     });
     recyclerView.setItemAnimator(null);
     recyclerView.setOverScrollMode(View.OVER_SCROLL_IF_CONTENT_SCROLLS);
-    ViewSupport.setThemedBackground(recyclerView, R.id.theme_color_filling, this);
+    ViewSupport.setThemedBackground(recyclerView, ColorId.filling, this);
     addThemeFillingColorListener(recyclerView);
     recyclerView.setLayoutManager(new LinearLayoutManager(context, RecyclerView.VERTICAL, false));
     recyclerView.setAdapter(adapter);
@@ -499,6 +502,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
     Settings.instance().addProxyListener(this);
     TdlibManager.instance().global().addAccountListener(this);
     TdlibManager.instance().global().addCountersListener(this);
+    TdlibManager.instance().global().addTokenStateListener(this);
 
     return contentView;
   }
@@ -513,6 +517,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
     Settings.instance().removeProxyListener(this);
     TdlibManager.instance().global().removeAccountListener(this);
     TdlibManager.instance().global().removeCountersListener(this);
+    TdlibManager.instance().global().removeTokenStateListener(this);
   }
 
   @Override
@@ -604,12 +609,9 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
 
       @Override
       public void onAfterForceTouchAction (ForceTouchView.ForceTouchContext context, int actionId, Object arg) {
-        switch (actionId) {
-          case R.id.btn_removeAccount: {
-            TdlibAccount tdlibAccount = (TdlibAccount) arg;
-            TdlibUi.removeAccount(DrawerController.this, tdlibAccount);
-            break;
-          }
+        if (actionId == R.id.btn_removeAccount) {
+          TdlibAccount tdlibAccount = (TdlibAccount) arg;
+          TdlibUi.removeAccount(DrawerController.this, tdlibAccount);
         }
       }
     };
@@ -781,19 +783,17 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
     if (item == null) {
       return false;
     }
-    if (item.getId() != R.id.account) {
-      switch (item.getId()) {
-        case R.id.btn_addAccount: {
-          if (Config.ALLOW_DEBUG_DC) {
-            context.currentTdlib().ui().addAccount(context, true, true);
-          } else {
-            context.currentTdlib().getTesterLevel(level -> {
-              if (level >= Tdlib.TESTER_LEVEL_ADMIN) {
-                context.currentTdlib().ui().addAccount(context, true, true);
-              }
-            });
-          }
-          break;
+    final int itemId = item.getId();
+    if (itemId != R.id.account) {
+      if (itemId == R.id.btn_addAccount) {
+        if (Config.ALLOW_DEBUG_DC) {
+          context.currentTdlib().ui().addAccount(context, true, true);
+        } else {
+          context.currentTdlib().getTesterLevel(level -> {
+            if (level >= Tdlib.TESTER_LEVEL_ADMIN) {
+              context.currentTdlib().ui().addAccount(context, true, true);
+            }
+          });
         }
       }
       return false;
@@ -808,89 +808,62 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
 
   @Override
   public void onClick (View v) {
-    switch (v.getId()) {
-      case R.id.btn_tdlib_clearLogs: {
-        TdlibUi.clearLogs(true, size -> TdlibUi.clearLogs(false, size2 -> UI.showToast("Logs Cleared", Toast.LENGTH_SHORT)));
-        break;
-      }
-      case R.id.btn_tdlib_shareLogs: {
-        TdlibUi.sendLogs(context.navigation().getCurrentStackItem(), false, false);
-        break;
-      }
-      case R.id.btn_wallet: {
-        /*context.currentTdlib().withTon(ton -> {
+    int viewId = v.getId();
+    if (viewId == R.id.btn_tdlib_clearLogs) {
+      TdlibUi.clearLogs(true, size -> TdlibUi.clearLogs(false, size2 -> UI.showToast("Logs Cleared", Toast.LENGTH_SHORT)));
+    } else if (viewId == R.id.btn_tdlib_shareLogs) {
+      TdlibUi.sendTdlibLogs(context.navigation().getCurrentStackItem(), false, false);
+    } else if (viewId == R.id.btn_wallet) {/*context.currentTdlib().withTon(ton -> {
           // ton.send(new TonApi.WalletInit(new TonApi.InputKey(, )));
         });*/
-        break;
+    } else if (viewId == R.id.account) {
+      TdlibAccount account = (TdlibAccount) ((ListItem) v.getTag()).getData();
+      long now = SystemClock.uptimeMillis();
+      if (account.context().preferredAccountId() != account.id && (lastPreferTime == 0 || now - lastPreferTime >= 720)) {
+        lastPreferTime = now;
+        needAnimationDelay = true;
+        account.context().changePreferredAccountId(account.id, TdlibManager.SWITCH_REASON_USER_CLICK);
       }
-      case R.id.account: {
-        TdlibAccount account = (TdlibAccount) ((ListItem) v.getTag()).getData();
-        long now = SystemClock.uptimeMillis();
-        if (account.context().preferredAccountId() != account.id && (lastPreferTime == 0 || now - lastPreferTime >= 720)) {
-          lastPreferTime = now;
-          needAnimationDelay = true;
-          account.context().changePreferredAccountId(account.id, TdlibManager.SWITCH_REASON_USER_CLICK);
-        }
-        break;
+    } else if (viewId == R.id.btn_contacts) {
+      openContacts();
+      // openEmptyChat();
+    } else if (viewId == R.id.btn_reportBug) {
+      if (Test.NEED_CLICK) {
+        Test.onClick(context);
       }
-      case R.id.btn_contacts: {
-        openContacts();
-        // openEmptyChat();
-        break;
-      }
-      case R.id.btn_reportBug: {
-        if (Test.NEED_CLICK) {
-          Test.onClick(context);
-        }
-        break;
-      }
-      case R.id.btn_savedMessages: {
-        openSavedMessages();
-        break;
-      }
-      case R.id.btn_addAccount: {
-        context.currentTdlib().ui().addAccount(context, true, false);
-        break;
-      }
+    } else if (viewId == R.id.btn_savedMessages) {
+      openSavedMessages();
+    } else if (viewId == R.id.btn_addAccount) {
+      context.currentTdlib().ui().addAccount(context, true, false);
       /*case R.id.btn_logout: {
         logoutOnClose = true;
         close(0f);
         break;
       }*/
-      case R.id.btn_settings: {
-        openSettings();
-        break;
+    } else if (viewId == R.id.btn_settings) {
+      openSettings();
+    } else if (viewId == R.id.btn_proxy) {
+      if (v instanceof TogglerView) {
+        boolean value = Settings.instance().toggleProxySetting(Settings.PROXY_FLAG_ENABLED);
+        setProxyEnabled(value);
+      } else {
+        context.currentTdlib().ui().openProxySettings(context.navigation().getCurrentStackItem(), false);
       }
-      case R.id.btn_proxy: {
-        if (v instanceof TogglerView) {
-          boolean value = Settings.instance().toggleProxySetting(Settings.PROXY_FLAG_ENABLED);
-          setProxyEnabled(value);
-        } else {
-          context.currentTdlib().ui().openProxySettings(context.navigation().getCurrentStackItem(), false);
+    } else if (viewId == R.id.btn_help) {
+      cancelSupportOpen();
+      supportOpen = context.currentTdlib().ui().openSupport(context.navigation().getCurrentStackItem());
+    } else if (viewId == R.id.btn_invite) {
+      context.currentTdlib().cache().getInviteText(text -> {
+        if (isVisible() && !isDestroyed()) {
+          shareText(text.text);
         }
-        break;
-      }
-      case R.id.btn_help: {
-        cancelSupportOpen();
-        supportOpen = context.currentTdlib().ui().openSupport(context.navigation().getCurrentStackItem());
-        break;
-      }
-      case R.id.btn_invite: {
-        context.currentTdlib().cache().getInviteText(text -> {
-          if (isVisible() && !isDestroyed()) {
-            shareText(text.text);
-          }
-        });
-        break;
-      }
-      case R.id.btn_night: {
-        ThemeManager.instance().toggleNightMode();
-        break;
-      }
-      case R.id.btn_bubble: {
-        context().currentTdlib().settings().toggleChatStyle();
-        break;
-      }
+      });
+    } else if (viewId == R.id.btn_night) {
+      ThemeManager.instance().toggleNightMode();
+    } else if (viewId == R.id.btn_bubble) {
+      context().currentTdlib().settings().toggleChatStyle();
+    } else if (viewId == R.id.btn_featureToggles) {
+      UI.navigateTo(new FeatureToggles.Controller(context, context.currentTdlib()));
     }
   }
 
@@ -926,7 +899,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
   }
 
   @Override
-  public void onProxyConfigurationChanged (int proxyId, @Nullable String server, int port, @Nullable TdApi.ProxyType type, String description, boolean isCurrent, boolean isNewAdd) {
+  public void onProxyConfigurationChanged (int proxyId, @Nullable TdApi.InternalLinkTypeProxy proxy, String description, boolean isCurrent, boolean isNewAdd) {
     if (!isCurrent) {
       return;
     }
@@ -1078,7 +1051,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
     });
 
     ViewController<?> c = UI.getCurrentStackItem(context());
-    View view = c != null ? c.get() : null;
+    View view = c != null ? c.getValue() : null;
     if (view != null && view instanceof ContentFrameLayout) {
       currentView = (ContentFrameLayout) view;
     } else {
@@ -1213,7 +1186,7 @@ public class DrawerController extends ViewController<Void> implements View.OnCli
   }
 
   private float getScreenWidth () {
-    return context.navigation().get().getMeasuredWidth();
+    return context.navigation().getValue().getMeasuredWidth();
   }
 
   public void translate (int lastScrollX) {

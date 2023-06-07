@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -14,7 +14,6 @@
  */
 package org.thunderdog.challegram.player;
 
-import android.Manifest;
 import android.graphics.Canvas;
 import android.os.Build;
 import android.os.SystemClock;
@@ -28,12 +27,12 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.annotation.AnyThread;
+import androidx.annotation.NonNull;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.BaseActivity;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.R;
-import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.component.chat.VoiceVideoButtonView;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
@@ -45,6 +44,7 @@ import org.thunderdog.challegram.support.RippleSupport;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibFilesManager;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.ColorState;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.theme.ThemeChangeListener;
@@ -79,6 +79,7 @@ import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
 import me.vkryl.core.reference.ReferenceUtils;
 import me.vkryl.td.ChatId;
+import me.vkryl.td.Td;
 
 public class RecordAudioVideoController implements
   Settings.VideoModePreferenceListener, FactorAnimator.Target,
@@ -155,11 +156,11 @@ public class RecordAudioVideoController implements
 
     this.inputOverlayView.setBackgroundColor(Theme.fillingColor());
     this.slideHintView.setTextColor(Theme.textDecentColor());
-    this.cancelView.setTextColor(Theme.getColor(R.id.theme_color_textNeutral));
+    this.cancelView.setTextColor(Theme.getColor(ColorId.textNeutral));
     this.videoPlaceholderView.setBackgroundColor(Theme.fillingColor());
     this.deleteButton.setColorFilter(Theme.iconColor());
     this.sendButton.setColorFilter(Theme.chatSendButtonColor());
-    this.videoBackgroundView.setBackgroundColor(Theme.getColor(R.id.theme_color_previewBackground));
+    this.videoBackgroundView.setBackgroundColor(Theme.getColor(ColorId.previewBackground));
 
     this.cornerView.invalidate();
     this.switchCameraButton.invalidate();
@@ -345,7 +346,7 @@ public class RecordAudioVideoController implements
       this.switchCameraButton.setIsSmall();
       this.switchCameraButtonWrap = new FrameLayoutFix(context);
       Views.setClickable(switchCameraButtonWrap);
-      RippleSupport.setCircleBackground(switchCameraButtonWrap, 33f, 3f, R.id.theme_color_filling);
+      RippleSupport.setCircleBackground(switchCameraButtonWrap, 33f, 3f, ColorId.filling);
       this.switchCameraButtonWrap.setLayoutParams(FrameLayoutFix.newParams(Screen.dp(33f) + Screen.dp(3f) * 2, Screen.dp(33f) + Screen.dp(3f) * 2));
       this.switchCameraButtonWrap.setOnClickListener(v -> {
         if (ownedCamera != null) {
@@ -430,7 +431,7 @@ public class RecordAudioVideoController implements
       this.sendButton.setImageResource(R.drawable.deproko_baseline_send_24);
       Views.setClickable(sendButton);
       this.sendButton.setOnClickListener(v -> {
-        sendVideo(false, null);
+        sendVideo(Td.newSendOptions());
       });
       this.sendButton.setLayoutParams(FrameLayoutFix.newParams(Screen.dp(55f), ViewGroup.LayoutParams.MATCH_PARENT, Gravity.RIGHT));
       this.inputOverlayView.addView(sendButton);
@@ -742,26 +743,20 @@ public class RecordAudioVideoController implements
 
   // Permissions check
 
-  private static final String[] AUDIO_PERMISSIONS = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN ? new String[] {
-    Manifest.permission.RECORD_AUDIO,
-    Manifest.permission.WRITE_EXTERNAL_STORAGE,
-    Manifest.permission.READ_EXTERNAL_STORAGE
-  } : new String[] {
-    Manifest.permission.RECORD_AUDIO,
-    Manifest.permission.WRITE_EXTERNAL_STORAGE
-  };
-
-  private boolean needPermissions (boolean video, boolean allowRequest) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-      String[] permissions = video ? CameraController.VIDEO_PERMISSIONS : AUDIO_PERMISSIONS;
-      if (U.needsPermissionRequest(permissions)) {
-        if (allowRequest) {
-          U.requestPermissions(permissions, null);
-        }
-        return true;
+  private boolean requestPermissions (boolean video, boolean allowRequest) {
+    if (allowRequest) {
+      if (video) {
+        return context.permissions().requestRecordVideoPermissions(null);
+      } else {
+        return context.permissions().requestRecordAudioPermissions(null);
+      }
+    } else {
+      if (video) {
+        return context.permissions().canRecordVideo();
+      } else {
+        return context.permissions().canRecordAudio();
       }
     }
-    return false;
   }
 
   // Entry points
@@ -908,7 +903,7 @@ public class RecordAudioVideoController implements
     }
 
     final boolean needVideo = !inRaiseMode && preferVideoMode;
-    if (needPermissions(needVideo, !inRaiseMode)) {
+    if (requestPermissions(needVideo, !inRaiseMode)) {
       return false;
     }
 
@@ -926,7 +921,7 @@ public class RecordAudioVideoController implements
       return false;
     }
 
-    CharSequence restrictionText = tdlib.getRestrictionText(tdlib.chat(targetChatId), R.id.right_sendMedia, needVideo ? R.string.ChatDisabledVideoNotes : R.string.ChatDisabledVoice, needVideo ? R.string.ChatRestrictedVideoNotes : R.string.ChatRestrictedVoice, needVideo ? R.string.ChatRestrictedVideoNotesUntil : R.string.ChatRestrictedVoiceUntil);
+    CharSequence restrictionText = tdlib.getVoiceVideoRestricitonText(tdlib.chat(targetChatId), needVideo);
     if (restrictionText != null) {
       if (view != null) {
         context.tooltipManager().builder(view).controller(targetController).icon(R.drawable.baseline_warning_24).show(tdlib, restrictionText).hideDelayed();
@@ -968,7 +963,7 @@ public class RecordAudioVideoController implements
     if (sendHelper != null)
       sendHelper.detachFromView(sendButton);
     sendHelper = tdlib.ui()
-      .createSimpleHapticMenu(targetController, targetChatId, () -> editFactor == 1f, null, null, (forceDisableNotification, schedulingState, disableMarkdown) -> sendVideo(forceDisableNotification, schedulingState), null)
+      .createSimpleHapticMenu(targetController, targetChatId, () -> editFactor == 1f, null, null, null, (sendOptions, disableMarkdown) -> sendVideo(sendOptions), null)
       .attachToView(sendButton);
     if (!inRaiseMode) {
       context.setScreenFlagEnabled(BaseActivity.SCREEN_FLAG_RECORDING, true);
@@ -1252,7 +1247,7 @@ public class RecordAudioVideoController implements
         if (finalFactor == 0f) {
           cleanupVideoRecording();
         } else if (finalFactor == 1f && roundCloseMode == CLOSE_MODE_PREVIEW_SCHEDULE) {
-          sendVideo(false, null);
+          sendVideo(Td.newSendOptions());
         }
         break;
       }
@@ -1372,7 +1367,7 @@ public class RecordAudioVideoController implements
       throw new IllegalStateException();
     }
     roundKey = "round" + SystemClock.uptimeMillis() + "_" + System.currentTimeMillis() + "_" + Math.random();
-    tdlib.client().send(new TdApi.UploadFile(new TdApi.InputFileGenerated(null, roundKey, 0), ChatId.isSecret(targetChatId) ? new TdApi.FileTypeSecret() : new TdApi.FileTypeVideoNote(), 1), object -> {
+    tdlib.client().send(new TdApi.PreliminaryUploadFile(new TdApi.InputFileGenerated(null, roundKey, 0), ChatId.isSecret(targetChatId) ? new TdApi.FileTypeSecret() : new TdApi.FileTypeVideoNote(), 1), object -> {
       if (object.getConstructor() == TdApi.File.CONSTRUCTOR) {
         setRoundGenerationFile((TdApi.File) object);
       } else {
@@ -1412,7 +1407,7 @@ public class RecordAudioVideoController implements
         tdlib.client().send(new TdApi.FinishFileGeneration(roundGenerationId, new TdApi.Error()), tdlib.silentHandler());
       }
       if (roundFile != null) {
-        tdlib.client().send(new TdApi.CancelUploadFile(roundFile.id), tdlib.silentHandler());
+        tdlib.client().send(new TdApi.CancelPreliminaryUploadFile(roundFile.id), tdlib.silentHandler());
       }
       resetRoundState();
     }
@@ -1446,7 +1441,7 @@ public class RecordAudioVideoController implements
       if (!StringUtils.isEmpty(roundKey) && StringUtils.equalsOrBothEmpty(file.local.path, roundOutputPath)) {
         setRoundFile(file);
       } else {
-        tdlib.client().send(new TdApi.CancelUploadFile(file.id), tdlib.silentHandler());
+        tdlib.client().send(new TdApi.CancelPreliminaryUploadFile(file.id), tdlib.silentHandler());
       }
     });
   }
@@ -1480,21 +1475,21 @@ public class RecordAudioVideoController implements
     }
   }
 
-  private void sendVideoNote (TdApi.InputMessageVideoNote videoNote, TdApi.MessageSendOptions options, TdApi.File helperFile) {
+  private void sendVideoNote (TdApi.InputMessageVideoNote videoNote, TdApi.MessageSendOptions initialSendOptions, TdApi.File helperFile) {
     if (hasValidOutputTarget()) {
       boolean isSecretChat = ChatId.isSecret(targetChatId);
-      targetController.pickDateOrProceed(options.disableNotification, options.schedulingState, (forceDisableNotification, schedulingState, disableMarkdown) -> {
+      targetController.pickDateOrProceed(initialSendOptions, (modifiedSendOptions, disableMarkdown) -> {
         TdApi.InputMessageVideoNote newVideoNote = tdlib.filegen().createThumbnail(videoNote, isSecretChat, helperFile);
         long chatId = targetController.getChatId();
         long messageThreadId = targetController.getMessageThreadId();
         long replyToMessageId = targetController.obtainReplyId();
-        TdApi.MessageSendOptions opts = new TdApi.MessageSendOptions(forceDisableNotification, false, false, schedulingState);
+        final TdApi.MessageSendOptions finalSendOptions = Td.newSendOptions(initialSendOptions, tdlib.chatDefaultDisableNotifications(chatId));
         if (newVideoNote.thumbnail == null && helperFile != null) {
           tdlib.client().send(new TdApi.DownloadFile(helperFile.id, 1, 0, 0, true), result -> {
-            tdlib.sendMessage(chatId, messageThreadId, replyToMessageId, opts, result.getConstructor() == TdApi.File.CONSTRUCTOR ? tdlib.filegen().createThumbnail(videoNote, isSecretChat, (TdApi.File) result) : newVideoNote, null);
+            tdlib.sendMessage(chatId, messageThreadId, replyToMessageId, finalSendOptions, result.getConstructor() == TdApi.File.CONSTRUCTOR ? tdlib.filegen().createThumbnail(videoNote, isSecretChat, (TdApi.File) result) : newVideoNote, null);
           });
         } else {
-          tdlib.sendMessage(chatId, messageThreadId, replyToMessageId, opts, newVideoNote, null);
+          tdlib.sendMessage(chatId, messageThreadId, replyToMessageId, finalSendOptions, newVideoNote, null);
         }
       });
     }
@@ -1521,7 +1516,7 @@ public class RecordAudioVideoController implements
             finishFileGeneration(resultFileSize);
           } else {
             finishFileGeneration(resultFileSize);
-            sendVideoNote(new TdApi.InputMessageVideoNote(new TdApi.InputFileId(roundFile.id), null, savedRoundDurationSeconds, VIDEO_NOTE_LENGTH), TD.defaultSendOptions(), roundFile);
+            sendVideoNote(new TdApi.InputMessageVideoNote(new TdApi.InputFileId(roundFile.id), null, savedRoundDurationSeconds, VIDEO_NOTE_LENGTH), Td.newSendOptions(), roundFile);
           }
         } else {
           finishFileGeneration(-1);
@@ -1614,40 +1609,43 @@ public class RecordAudioVideoController implements
   private boolean scheduledEditClose;
   private TdApi.MessageSendOptions scheduledSendOptions;
 
-  private void sendVideo (boolean forceDisableNotification, TdApi.MessageSchedulingState schedulingState) {
+  private void sendVideo (@NonNull TdApi.MessageSendOptions initialSendOptions) {
     if (recordMode == RECORD_MODE_VIDEO_EDIT) {
-      closeVideoEditMode(new TdApi.MessageSendOptions(forceDisableNotification, false, false, schedulingState));
+      closeVideoEditMode(initialSendOptions);
     }
   }
 
-  private void closeVideoEditMode (TdApi.MessageSendOptions sendOptions) {
+  private void closeVideoEditMode (@NonNull TdApi.MessageSendOptions initialSendOptions) {
     if (recordMode != RECORD_MODE_VIDEO_EDIT) {
       return;
     }
 
     if (!roundFileReceived()) {
       scheduledEditClose = true;
-      scheduledSendOptions = sendOptions;
+      scheduledSendOptions = initialSendOptions;
       return;
     }
 
-    if (sendOptions != null && sendOptions.schedulingState == null && targetController != null && targetController.areScheduledOnly()) {
-      targetController.pickDateOrProceed(sendOptions.disableNotification, sendOptions.schedulingState, (forceDisableNotification, schedulingState, disableMarkdown) -> closeVideoEditMode(new TdApi.MessageSendOptions(forceDisableNotification, false, false, schedulingState)));
+    if (initialSendOptions != null && initialSendOptions.schedulingState == null && targetController != null && targetController.areScheduledOnly()) {
+      targetController.pickDateOrProceed(initialSendOptions,
+        (modifiedSendOptions, disableMarkdown) ->
+          closeVideoEditMode(modifiedSendOptions)
+      );
       return;
     }
 
     this.recordMode = RECORD_MODE_NONE;
 
-    if (sendOptions != null) {
+    if (initialSendOptions != null) {
       if (videoPreviewView.hasTrim()) {
-        tdlib.client().send(new TdApi.CancelUploadFile(roundFile.id), tdlib.okHandler());
+        tdlib.client().send(new TdApi.CancelPreliminaryUploadFile(roundFile.id), tdlib.okHandler());
         double startTimeSeconds = videoPreviewView.getStartTime();
         double endTimeSeconds = videoPreviewView.getEndTime();
         String conversion = VideoGenerationInfo.makeConversion(roundFile.id, false, 0, (long) (startTimeSeconds * 1_000_000), (long) (endTimeSeconds * 1_000_000), true, 0);
         TdApi.InputFileGenerated trimmedFile = new TdApi.InputFileGenerated(roundFile.local.path, conversion, 0);
-        sendVideoNote(new TdApi.InputMessageVideoNote(trimmedFile, null, (int) Math.round(endTimeSeconds - startTimeSeconds), VIDEO_NOTE_LENGTH), sendOptions, null);
+        sendVideoNote(new TdApi.InputMessageVideoNote(trimmedFile, null, (int) Math.round(endTimeSeconds - startTimeSeconds), VIDEO_NOTE_LENGTH), initialSendOptions, null);
       } else {
-        sendVideoNote(new TdApi.InputMessageVideoNote(new TdApi.InputFileId(roundFile.id), null, savedRoundDurationSeconds, VIDEO_NOTE_LENGTH), sendOptions, roundFile);
+        sendVideoNote(new TdApi.InputMessageVideoNote(new TdApi.InputFileId(roundFile.id), null, savedRoundDurationSeconds, VIDEO_NOTE_LENGTH), initialSendOptions, roundFile);
       }
     } else {
       tdlib.client().send(new TdApi.DeleteFile(roundFile.id), tdlib.silentHandler());

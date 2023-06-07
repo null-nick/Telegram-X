@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -31,11 +31,12 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.collection.SparseArrayCompat;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.core.Background;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.helper.LiveLocationHelper;
 import org.thunderdog.challegram.loader.gif.LottieCache;
+import org.thunderdog.challegram.navigation.BackHeaderButton;
 import org.thunderdog.challegram.navigation.NavigationStack;
 import org.thunderdog.challegram.navigation.SettingsWrap;
 import org.thunderdog.challegram.navigation.SettingsWrapBuilder;
@@ -43,13 +44,17 @@ import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.AccountSwitchReason;
 import org.thunderdog.challegram.telegram.GlobalAccountListener;
+import org.thunderdog.challegram.telegram.GlobalCountersListener;
+import org.thunderdog.challegram.telegram.GlobalResolvableProblemListener;
 import org.thunderdog.challegram.telegram.LiveLocationManager;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccount;
+import org.thunderdog.challegram.telegram.TdlibBadgeCounter;
 import org.thunderdog.challegram.telegram.TdlibContext;
 import org.thunderdog.challegram.telegram.TdlibManager;
 import org.thunderdog.challegram.telegram.TdlibSettingsManager;
 import org.thunderdog.challegram.telegram.TdlibUi;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Intents;
 import org.thunderdog.challegram.tool.Screen;
@@ -80,8 +85,8 @@ import org.thunderdog.challegram.ui.SettingsNotificationController;
 import org.thunderdog.challegram.ui.SettingsPrivacyController;
 import org.thunderdog.challegram.ui.SettingsPrivacyKeyController;
 import org.thunderdog.challegram.ui.SettingsThemeController;
-import org.thunderdog.challegram.util.Crash;
 import org.thunderdog.challegram.unsorted.Settings;
+import org.thunderdog.challegram.util.Crash;
 import org.thunderdog.challegram.widget.GearView;
 import org.thunderdog.challegram.widget.NoScrollTextView;
 
@@ -97,11 +102,12 @@ import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.core.ArrayUtils;
 import me.vkryl.core.StringUtils;
+import me.vkryl.core.lambda.CancellableRunnable;
 import me.vkryl.core.lambda.RunnableData;
 import me.vkryl.td.MessageId;
 
 @SuppressWarnings(value = "SpellCheckingInspection")
-public class MainActivity extends BaseActivity implements GlobalAccountListener {
+public class MainActivity extends BaseActivity implements GlobalAccountListener, GlobalCountersListener, GlobalResolvableProblemListener {
   private Bundle tempSavedInstanceState;
 
   private TdlibAccount account;
@@ -117,9 +123,11 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
     handler = new Handler();
 
     TdlibManager.instance().global().addAccountListener(this);
+    TdlibManager.instance().global().addCountersListener(this);
+    TdlibManager.instance().global().addResolvableProblemAvailabilityListener(this);
     reloadTdlib();
 
-    createMessagesController(tdlib).get();
+    createMessagesController(tdlib).getValue();
 
     tempSavedInstanceState = savedInstanceState;
 
@@ -182,7 +190,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
             return getAlpha() == 1f;
           }
         };
-        ViewSupport.setThemedBackground(blankView, R.id.theme_color_filling);
+        ViewSupport.setThemedBackground(blankView, ColorId.filling);
         blankView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
       }
       if (blankView.getParent() == null) {
@@ -219,9 +227,6 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
 
   // Account management
 
-  @Override
-  public void onAccountProfileChanged (TdlibAccount account, TdApi.User profile, boolean isCurrent, boolean isLoaded) { }
-
   private void cleanupStack (ViewController<?> c, int accountId) {
     if (this.account.id != accountId) {
       return;
@@ -229,14 +234,53 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
     NavigationStack stack = navigation.getStack();
     stack.destroyAllButSaveLast(2);
     MainController chats = new MainController(c.context(), c.tdlib());
-    chats.get();
+    chats.getValue();
     stack.replace(0, chats);
+  }
+
+  private CancellableRunnable lastAccountSwitchTask;
+
+  private void updateCounter () {
+    Tdlib tdlib = currentTdlib();
+    boolean animated = getActivityState() == UI.STATE_RESUMED;
+    @Tdlib.ResolvableProblem int problemType = tdlib.findResolvableProblem();
+    BackHeaderButton backButton = navigation.getHeaderView().getBackButton();
+    if (problemType != Tdlib.ResolvableProblem.NONE) {
+      backButton.setMenuBadge(ColorId.headerBadgeFailed, animated);
+    } else {
+      TdlibBadgeCounter counter = TdlibManager.instance().getTotalUnreadBadgeCounter(tdlib.accountId());
+      if (counter.getCount() > 0) {
+        backButton.setMenuBadge(
+          counter.isMuted() ? ColorId.headerBadgeMuted : ColorId.headerBadge,
+          animated
+        );
+      } else {
+        backButton.hideMenuBadge(animated);
+      }
+    }
+  }
+
+  @Override
+  public void onResolvableProblemAvailabilityMightHaveChanged () {
+    updateCounter();
+  }
+
+  @Override
+  public void onTotalUnreadCounterChanged (@NonNull TdApi.ChatList chatList, boolean isReset) {
+    updateCounter();
   }
 
   @Override
   public void onAccountSwitched (final TdlibAccount newAccount, TdApi.User profile, @AccountSwitchReason int reason, TdlibAccount oldAccount) {
     if (this.account.id == newAccount.id) {
       return;
+    }
+
+    updateCounter();
+
+    if (lastAccountSwitchTask != null) {
+      lastAccountSwitchTask.cancel();
+      lastAccountSwitchTask = null;
     }
 
     this.account = newAccount;
@@ -277,15 +321,25 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
 
       return;
     }
-    MainController c = new MainController(this, newAccount.tdlib());
-    if (navigation.isEmpty()) {
-      navigation.setController(c);
-    } else {
-      navigation.setControllerAnimated(c, false, false);
-    }
+    Tdlib tdlib = newAccount.tdlib();
+    CancellableRunnable accountSwitchTask = new CancellableRunnable() {
+      @Override
+      public void act () {
+        if (!navigation.isDestroyed()) {
+          MainController c = new MainController(MainActivity.this, tdlib);
+          if (navigation.isEmpty()) {
+            navigation.setController(c);
+          } else {
+            navigation.setControllerAnimated(c, false, false);
+          }
+        }
+      }
+    };
+    lastAccountSwitchTask = accountSwitchTask;
+    tdlib.checkDeadlocks(() -> tdlib.ui().post(accountSwitchTask));
   }
 
-  private void processAuthorizationStateChange (TdlibAccount account, TdApi.AuthorizationState authorizationState, int status) {
+  private void processAuthorizationStateChange (TdlibAccount account, TdApi.AuthorizationState authorizationState, @Tdlib.Status int status) {
     if (this.account.id != account.id) {
       if (navigation.isEmpty() || !navigation.getCurrentStackItem().isSameAccount(account)) {
         return;
@@ -298,7 +352,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
 
     ViewController<?> current = navigation.getStack().getCurrent();
 
-    if (status == Tdlib.STATUS_READY) {
+    if (status == Tdlib.Status.READY) {
       ViewController<?> first = navigation.getStack().get(0);
       boolean needThemeSwitch = this.account.id != account.id && isUnauthorizedController(current) && !isUnauthorizedController(first) && first.tdlibId() != account.id && current.tdlibId() == account.id;
 
@@ -312,7 +366,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
       return;
     }
 
-    if (status == Tdlib.STATUS_UNAUTHORIZED && this.account.id == account.id) {
+    if (status == Tdlib.Status.UNAUTHORIZED && this.account.id == account.id) {
       int nextAccountId = tdlib.context().findNextAccountId(this.account.id);
       if (nextAccountId != TdlibAccount.NO_ID) {
         tdlib.context().changePreferredAccountId(nextAccountId, TdlibManager.SWITCH_REASON_UNAUTHORIZED);
@@ -322,7 +376,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
 
     ViewController<?> unauthorizedController = generateUnauthorizedController(account.tdlib());
     if (unauthorizedController != null) {
-      if (current == null || current.getId() != unauthorizedController.getId()) {
+      if (current == null || current.getId() != unauthorizedController.getId() || (current instanceof PasswordController && ((PasswordController) current).getMode() != ((PasswordController) unauthorizedController).getMode())) {
         navigation.navigateTo(unauthorizedController);
       }
       return;
@@ -369,7 +423,10 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
 
   @Override
   protected void onTdlibChanged () {
-    setShowOptimizing(currentTdlib().isOptimizing());
+    Tdlib tdlib = currentTdlib();
+    setShowOptimizing(tdlib.isOptimizing());
+    tdlib.context().global().notifyResolvableProblemAvailabilityMightHaveChanged();
+    updateCounter();
   }
 
   private BoolAnimator optimizeAnimator;
@@ -383,7 +440,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
       ll.setOrientation(LinearLayout.VERTICAL);
       ll.setGravity(Gravity.CENTER);
       ll.setLayoutParams(new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-      ViewSupport.setThemedBackground(ll, R.id.theme_color_filling);
+      ViewSupport.setThemedBackground(ll, ColorId.filling);
 
       GearView gearView = new GearView(this);
       ll.addView(gearView);
@@ -445,12 +502,12 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
 
   // Stack initialization
 
-  private void initController (Tdlib tdlib, int status) {
+  private void initController (Tdlib tdlib, @Tdlib.Status int status) {
     switch (status) {
-      case Tdlib.STATUS_UNKNOWN:
+      case Tdlib.Status.UNKNOWN:
         // setBlankViewVisible(true, false);
         break;
-      case Tdlib.STATUS_UNAUTHORIZED:
+      case Tdlib.Status.UNAUTHORIZED:
         int nextAccountId = tdlib.context().findNextAccountId(tdlib.id());
         if (nextAccountId == TdlibAccount.NO_ID) {
           initUnauthorizedController();
@@ -458,7 +515,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
           tdlib.context().changePreferredAccountId(nextAccountId, TdlibManager.SWITCH_REASON_NAVIGATION);
         }
         break;
-      case Tdlib.STATUS_READY:
+      case Tdlib.Status.READY:
         initAuthorizedController();
         break;
     }
@@ -496,6 +553,18 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
         TdApi.AuthorizationStateWaitCode state = (TdApi.AuthorizationStateWaitCode) authState;
         PasswordController c = new PasswordController(this, tdlib);
         c.setArguments(new PasswordController.Args(PasswordController.MODE_CODE, state, tdlib.authPhoneNumberFormatted()));
+        return c;
+      }
+      case TdApi.AuthorizationStateWaitEmailAddress.CONSTRUCTOR: {
+        TdApi.AuthorizationStateWaitEmailAddress state = (TdApi.AuthorizationStateWaitEmailAddress) authState;
+        PasswordController c = new PasswordController(this, tdlib);
+        c.setArguments(new PasswordController.Args(PasswordController.MODE_EMAIL_LOGIN, state));
+        return c;
+      }
+      case TdApi.AuthorizationStateWaitEmailCode.CONSTRUCTOR: {
+        TdApi.AuthorizationStateWaitEmailCode state = (TdApi.AuthorizationStateWaitEmailCode) authState;
+        PasswordController c = new PasswordController(this, tdlib);
+        c.setArguments(new PasswordController.Args(PasswordController.MODE_CODE_EMAIL, state));
         return c;
       }
       case TdApi.AuthorizationStateWaitRegistration.CONSTRUCTOR: {
@@ -574,7 +643,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
       navigation.initController(c);
       return;
     }
-    c.get();
+    c.getValue();
     ViewController<?> child = c.getPreparedControllerForPosition(0);
     if (child != null && child.needAsynchronousAnimation()) {
       setBlankViewVisible(true, false);
@@ -591,7 +660,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
 
   private void insertMainController () {
     MainController c = new MainController(this, account.tdlib());
-    c.get();
+    c.getValue();
     navigation.insertController(c, 0);
   }
 
@@ -1112,7 +1181,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
         if (c == null) {
           continue;
         }
-        c.get();
+        c.getValue();
         if (restoredCount == 0) {
           navigation.initController(c);
         } else {
@@ -1129,68 +1198,49 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
   }
 
   private static boolean canSaveController (int id, ViewController<?> c) {
-    switch (id) {
-      case R.id.controller_settings:
-      case R.id.controller_wallpaper:
-      case R.id.controller_fontSize:
-      case R.id.controller_storageSettings:
-        return true;
-    }
-    return false;
+    return
+      id == R.id.controller_settings ||
+      id == R.id.controller_wallpaper ||
+      id == R.id.controller_fontSize ||
+      id == R.id.controller_storageSettings;
   }
 
   private static ViewController<?> restoreController (BaseActivity context, Tdlib tdlib, int id, Bundle in, String keyPrefix) {
     ViewController<?> restore;
-    switch (id) {
-      case R.id.controller_settings:
-        return new SettingsController(context, tdlib);
-      case R.id.controller_storageSettings:
-        return new SettingsCacheController(context, tdlib);
-      case R.id.controller_wallpaper:
-      case R.id.controller_fontSize: {
-        MessagesController m = new MessagesController(context, tdlib);
-        m.setArguments(new MessagesController.Arguments(id == R.id.controller_fontSize ? MessagesController.PREVIEW_MODE_FONT_SIZE : MessagesController.PREVIEW_MODE_WALLPAPER, null, null));
-        return m;
-      }
-      case R.id.controller_passcode:
-        restore = new PasscodeController(context, tdlib);
-        break;
-      case R.id.controller_messages:
-        restore = new MessagesController(context, tdlib);
-        break;
-      case R.id.controller_profile:
-        restore = new ProfileController(context, tdlib);
-        break;
-      case R.id.controller_themeSettings:
-        restore = new SettingsThemeController(context, tdlib);
-        break;
-      case R.id.controller_newChannel:
-        restore = new CreateChannelController(context, tdlib);
-        break;
-      case R.id.controller_newGroup:
-        restore = new CreateGroupController(context, tdlib);
-        break;
-      case R.id.controller_notificationSettings:
-        restore = new SettingsNotificationController(context, tdlib);
-        break;
-      case R.id.controller_privacySettings:
-        restore = new SettingsPrivacyController(context, tdlib);
-        break;
-      case R.id.controller_chatSettings:
-        restore = new SettingsDataController(context, tdlib);
-        break;
-      case R.id.controller_privacyKey:
-        restore = new SettingsPrivacyKeyController(context, tdlib);
-        break;
-      case R.id.controller_privacyException:
-        restore = new PrivacyExceptionController(context, tdlib);
-        break;
-      case R.id.controller_networkStats:
-        restore = new SettingsNetworkStatsController(context, tdlib);
-        break;
-      default: {
-        return null;
-      }
+    if (id == R.id.controller_settings) {
+      return new SettingsController(context, tdlib);
+    } else if (id == R.id.controller_storageSettings) {
+      return new SettingsCacheController(context, tdlib);
+    } else if (id == R.id.controller_wallpaper || id == R.id.controller_fontSize) {
+      MessagesController m = new MessagesController(context, tdlib);
+      m.setArguments(new MessagesController.Arguments(id == R.id.controller_fontSize ? MessagesController.PREVIEW_MODE_FONT_SIZE : MessagesController.PREVIEW_MODE_WALLPAPER, null, null));
+      return m;
+    } else if (id == R.id.controller_passcode) {
+      restore = new PasscodeController(context, tdlib);
+    } else if (id == R.id.controller_messages) {
+      restore = new MessagesController(context, tdlib);
+    } else if (id == R.id.controller_profile) {
+      restore = new ProfileController(context, tdlib);
+    } else if (id == R.id.controller_themeSettings) {
+      restore = new SettingsThemeController(context, tdlib);
+    } else if (id == R.id.controller_newChannel) {
+      restore = new CreateChannelController(context, tdlib);
+    } else if (id == R.id.controller_newGroup) {
+      restore = new CreateGroupController(context, tdlib);
+    } else if (id == R.id.controller_notificationSettings) {
+      restore = new SettingsNotificationController(context, tdlib);
+    } else if (id == R.id.controller_privacySettings) {
+      restore = new SettingsPrivacyController(context, tdlib);
+    } else if (id == R.id.controller_chatSettings) {
+      restore = new SettingsDataController(context, tdlib);
+    } else if (id == R.id.controller_privacyKey) {
+      restore = new SettingsPrivacyKeyController(context, tdlib);
+    } else if (id == R.id.controller_privacyException) {
+      restore = new PrivacyExceptionController(context, tdlib);
+    } else if (id == R.id.controller_networkStats) {
+      restore = new SettingsNetworkStatsController(context, tdlib);
+    } else {
+      return null;
     }
     if (restore.restoreInstanceState(in, keyPrefix)) {
       if (!(restore instanceof PasscodeController) && restore.getChatId() != 0 && tdlib.hasPasscode(restore.getChatId())) {
@@ -1232,7 +1282,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
   private MessagesController createMessagesController (Tdlib tdlib) {
     MessagesController m = new MessagesController(this, tdlib);
     m.setReuseEnabled(true);
-    m.get();
+    m.getValue();
     messageControllers.put(tdlib.id(), m);
     return m;
   }
@@ -1351,7 +1401,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
 
   public void navigateToSafely (@NonNull ViewController<?> c) {
     if (isActivityBusyWithSomething()) {
-      c.get();
+      c.getValue();
       c.destroy();
       return;
     }
@@ -1383,8 +1433,9 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
   public void onResume () {
     super.onResume();
     Log.i("MainActivity.onResume");
-    // Log.e("%s", Strings.getHexColor(U.compositeColor(Theme.headerColor(), Theme.getColor(R.id.theme_color_statusBar)), false));
+    // Log.e("%s", Strings.getHexColor(U.compositeColor(Theme.headerColor(), Theme.getColor(ColorId.statusBar)), false));
     tdlib.contacts().makeSilentPermissionCheck(this);
+    tdlib.context().global().notifyResolvableProblemAvailabilityMightHaveChanged();
     UI.startNotificationService();
     if (!madeEmulatorChecks && !Settings.instance().isEmulator()) {
       madeEmulatorChecks = true;
@@ -1400,6 +1451,8 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener 
   @Override
   public void onDestroy () {
     TdlibManager.instance().global().removeAccountListener(this);
+    TdlibManager.instance().global().removeCountersListener(this);
+    TdlibManager.instance().global().removeResolvableProblemAvailabilityListener(this);
     destroyMessageControllers();
 
     Log.i("MainActivity.onDestroy");

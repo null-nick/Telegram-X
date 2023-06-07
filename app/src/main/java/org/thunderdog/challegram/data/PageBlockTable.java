@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -19,7 +19,7 @@ import android.view.View;
 
 import androidx.annotation.Nullable;
 
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.loader.ComplexReceiver;
 import org.thunderdog.challegram.loader.Receiver;
 import org.thunderdog.challegram.navigation.ViewController;
@@ -62,8 +62,8 @@ public class PageBlockTable extends PageBlock {
     public void build (int maxWidth) {
       if (formattedText != null) {
         maxWidth -= padding() * 2;
-        Text.Builder b = new Text.Builder(context.tdlib(), formattedText.text, openParameters, maxWidth, PageBlockRichText.getParagraphProvider(), TextColorSets.InstantView.NORMAL)
-          .entities(formattedText.entities)
+        Text.Builder b = new Text.Builder(formattedText.text, maxWidth, PageBlockRichText.getParagraphProvider(), TextColorSets.InstantView.NORMAL)
+          .entities(formattedText.entities, null)
           .textFlags(Text.FLAG_ARTICLE | Text.FLAG_CUSTOM_LONG_PRESS)
           .viewProvider(currentViews);
         switch (cell.align.getConstructor()) {
@@ -197,9 +197,7 @@ public class PageBlockTable extends PageBlock {
     for (Cell[] row : cells) {
       for (Cell cell : row) {
         if (cell.text != null) {
-          cell.text.requestIcons(receiver, iconCount);
-        } else if (cell.formattedText != null) {
-          FormattedText.requestIcons(cell.formattedText.entities, receiver, iconCount);
+          cell.text.requestMedia(receiver, iconCount, cell.iconCount);
         }
         iconCount += cell.iconCount;
       }
@@ -349,7 +347,6 @@ public class PageBlockTable extends PageBlock {
 
   @Override
   protected <T extends View & DrawableProvider> void drawInternal (T view, Canvas c, Receiver preview, Receiver receiver, @Nullable ComplexReceiver iconReceiver) {
-    int iconCount = 0;
     TdApi.PageBlockTable table = (TdApi.PageBlockTable) this.block;
     for (Cell[] row : cells) {
       for (Cell cell : row) {
@@ -376,10 +373,9 @@ public class PageBlockTable extends PageBlock {
             default:
               throw new UnsupportedOperationException(cell.toString());
           }
-          cell.text.draw(c, cell.bounds.left + cell.padding(), cell.bounds.right - cell.padding(), 0, y, null, 1f, iconReceiver, iconCount);
+          cell.text.draw(c, cell.bounds.left + cell.padding(), cell.bounds.right - cell.padding(), 0, y, null, 1f, iconReceiver);
           Views.restore(c, restoreCount);
         }
-        iconCount += cell.iconCount;
       }
     }
   }

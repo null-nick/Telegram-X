@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -34,10 +34,9 @@ import androidx.annotation.Nullable;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
-import org.thunderdog.challegram.emoji.Emoji;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.ThemeDelegate;
 import org.thunderdog.challegram.theme.ThemeListenerList;
 import org.thunderdog.challegram.tool.Drawables;
@@ -48,7 +47,7 @@ import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.util.text.TextEntity;
 import org.thunderdog.challegram.widget.CustomTextView;
-import org.thunderdog.challegram.widget.NoScrollTextView;
+import org.thunderdog.challegram.widget.EmojiTextView;
 
 import me.vkryl.android.ViewUtils;
 import me.vkryl.android.animator.Animated;
@@ -64,7 +63,7 @@ public class OptionsLayout extends LinearLayout implements Animated {
 
     textView = new CustomTextView(context, parent.tdlib());
     textView.setPadding(Screen.dp(16f), Screen.dp(14f), Screen.dp(16f), Screen.dp(6f));
-    textView.setTextColorId(R.id.theme_color_textLight);
+    textView.setTextColorId(ColorId.textLight);
     textView.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
     addView(textView);
 
@@ -74,7 +73,7 @@ public class OptionsLayout extends LinearLayout implements Animated {
         View view = getChildAt(0);
         int height = view != null ? view.getMeasuredHeight() : 0;
         if (height > 0)
-          c.drawRect(0, height, getMeasuredWidth(), getMeasuredHeight(), Paints.fillingPaint(forcedTheme != null ? forcedTheme.getColor(R.id.theme_color_filling) : Theme.getColor(R.id.theme_color_filling)));
+          c.drawRect(0, height, getMeasuredWidth(), getMeasuredHeight(), Paints.fillingPaint(forcedTheme != null ? forcedTheme.getColor(ColorId.filling) : Theme.getColor(ColorId.filling)));
       }
 
       @Override
@@ -92,7 +91,7 @@ public class OptionsLayout extends LinearLayout implements Animated {
     if (forcedTheme != null) {
       textView.setForcedTheme(forcedTheme);
     } else {
-      // parent.addThemeTextColorListener(textView, R.id.theme_color_textLight);
+      // parent.addThemeTextColorListener(textView, ColorId.textLight);
       parent.addThemeInvalidateListener(textView);
       parent.addThemeInvalidateListener(this);
     }
@@ -119,23 +118,24 @@ public class OptionsLayout extends LinearLayout implements Animated {
     }
   }
 
-  private static @ThemeColorId int getOptionColorId (int color) {
+  public static @ColorId int getOptionColorId (int color) {
     switch (color) {
       case ViewController.OPTION_COLOR_NORMAL: {
-        return R.id.theme_color_text;
+        return ColorId.text;
       }
       case ViewController.OPTION_COLOR_RED: {
-        return R.id.theme_color_textNegative;
+        return ColorId.textNegative;
       }
       case ViewController.OPTION_COLOR_BLUE: {
-        return R.id.theme_color_textNeutral;
+        return ColorId.textNeutral;
       }
     }
     throw new IllegalArgumentException("color == " + color);
   }
 
   public static TextView genOptionView (Context context, int id, CharSequence string, int color, int icon, OnClickListener onClickListener, @Nullable ThemeListenerList themeProvider, @Nullable ThemeDelegate forcedTheme) {
-    TextView text = new NoScrollTextView(context);
+    EmojiTextView text = new EmojiTextView(context);
+    text.setScrollDisabled(true);
 
     text.setId(id);
     text.setTypeface(Fonts.getRobotoRegular());
@@ -157,7 +157,7 @@ public class OptionsLayout extends LinearLayout implements Animated {
     if (icon != 0) {
       Drawable drawable = Drawables.get(context.getResources(), icon);
       if (drawable != null) {
-        final int drawableColorId = color == ViewController.OPTION_COLOR_NORMAL ? R.id.theme_color_icon : colorId;
+        final int drawableColorId = color == ViewController.OPTION_COLOR_NORMAL ? ColorId.icon : colorId;
         drawable.setColorFilter(Paints.getColorFilter(forcedTheme != null ? forcedTheme.getColor(drawableColorId) : Theme.getColor(drawableColorId)));
         if (themeProvider != null) {
           themeProvider.addThemeFilterListener(drawable, drawableColorId);
@@ -173,7 +173,9 @@ public class OptionsLayout extends LinearLayout implements Animated {
       }
     }
     Views.setClickable(text);
-    text.setText(Emoji.instance().replaceEmoji(string));
+    if (!StringUtils.isEmpty(string)) {
+      text.setText(string);
+    }
 
     return text;
   }
@@ -194,11 +196,11 @@ public class OptionsLayout extends LinearLayout implements Animated {
       if (isTitle) {
         textView.setBoldText(text, entities, false);
         textView.setTextSize(19f);
-        textView.setTextColorId(R.id.theme_color_text);
+        textView.setTextColorId(ColorId.text);
       } else {
         textView.setText(text, entities, false);
         textView.setTextSize(15f);
-        textView.setTextColorId(R.id.theme_color_textLight);
+        textView.setTextColorId(ColorId.textLight);
       }
     } else {
       textView.setVisibility(View.GONE);

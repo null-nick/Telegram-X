@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -141,26 +141,21 @@ public class EditButton extends View implements FactorAnimator.Target {
     invalidate();
   }
 
-  private float iconFactor;
-
   private void setIconInternal (int iconRes) {
     this.icon = Drawables.get(getResources(), iconRes);
     this.iconRes = iconRes;
     this.isActive = willBeActive;
     this.activeFactor = isActive ? 1f : 0f;
     if (icon != null) {
-      switch (iconRes) {
-        case R.drawable.baseline_volume_up_24: {
-          if (specialIcon != null && (specialIcon.getWidth() != icon.getMinimumWidth() || specialIcon.getHeight() != icon.getMinimumHeight())) {
-            specialIcon = null;
-          }
-          if (specialIcon == null || specialIcon.isRecycled()) {
-            specialIcon = Bitmap.createBitmap(icon.getMinimumWidth(), icon.getMinimumHeight(), Bitmap.Config.ARGB_8888);
-            specialIconCanvas = new Canvas(specialIcon);
-          }
-          drawSoundOn();
-          break;
+      if (iconRes == R.drawable.baseline_volume_up_24) {
+        if (specialIcon != null && (specialIcon.getWidth() != icon.getMinimumWidth() || specialIcon.getHeight() != icon.getMinimumHeight())) {
+          specialIcon = null;
         }
+        if (specialIcon == null || specialIcon.isRecycled()) {
+          specialIcon = Bitmap.createBitmap(icon.getMinimumWidth(), icon.getMinimumHeight(), Bitmap.Config.ARGB_8888);
+          specialIconCanvas = new Canvas(specialIcon);
+        }
+        drawSoundOn();
       }
     }
   }
@@ -183,14 +178,11 @@ public class EditButton extends View implements FactorAnimator.Target {
   }
 
   private void setIconFactor (float factor) {
-    if (this.iconFactor != factor) {
-      this.iconFactor = factor;
-      if (factor >= .5f && pendingIcon != 0) {
-        setIconInternal(pendingIcon);
-        pendingIcon = 0;
-      }
-      invalidate();
+    if (factor >= .5f && pendingIcon != 0) {
+      setIconInternal(pendingIcon);
+      pendingIcon = 0;
     }
+    invalidate();
   }
 
   private Drawable secondIcon;
@@ -216,11 +208,8 @@ public class EditButton extends View implements FactorAnimator.Target {
     if (this.activeFactor != factor) {
       this.activeFactor = factor;
 
-      switch (iconRes) {
-        case R.drawable.baseline_volume_up_24: {
-          drawSoundOn();
-          break;
-        }
+      if (iconRes == R.drawable.baseline_volume_up_24) {
+        drawSoundOn();
       }
 
       invalidate();
@@ -296,6 +285,7 @@ public class EditButton extends View implements FactorAnimator.Target {
 
     float alpha;
 
+    float iconFactor = iconAnimator != null ? iconAnimator.getFactor() : 0f;
     if (iconFactor <= STEP_FACTOR) {
       alpha = 1f - AnimatorUtils.DECELERATE_INTERPOLATOR.getInterpolation(iconFactor / STEP_FACTOR);
     } else if (iconFactor < .5f) {

@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -26,7 +26,7 @@ import androidx.annotation.DrawableRes;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.support.RippleSupport;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.theme.ThemeColorId;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.DrawAlgorithms;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
@@ -90,11 +90,11 @@ public class CircleButton extends View implements FactorAnimator.Target {
     return !(e.getAction() == MotionEvent.ACTION_DOWN && (getAlpha() == 0f || !isEnabled() || (getParent() != null && ((View) getParent()).getAlpha() == 0f))) && super.onTouchEvent(e);
   }
 
-  public final void init (@DrawableRes int icon, float size, float padding, @ThemeColorId int backgroundColorId, @ThemeColorId int iconColorId) {
+  public final void init (@DrawableRes int icon, float size, float padding, @ColorId int backgroundColorId, @ColorId int iconColorId) {
     init(icon, 0, size, padding, backgroundColorId, iconColorId);
   }
 
-  public void init (@DrawableRes int icon, int offsetLeft, float size, float padding, @ThemeColorId int backgroundColorId, @ThemeColorId int iconColorId) {
+  public void init (@DrawableRes int icon, int offsetLeft, float size, float padding, @ColorId int backgroundColorId, @ColorId int iconColorId) {
     this.icon = Drawables.get(icon);
     this.offsetLeft = offsetLeft;
     this.backgroundColorId = backgroundColorId;
@@ -103,7 +103,7 @@ public class CircleButton extends View implements FactorAnimator.Target {
     RippleSupport.setCircleBackground(this, size, padding, backgroundColorId);
   }
 
-  public void setCrossColorId (@ThemeColorId int backgroundColorId, @ThemeColorId int iconColorId) {
+  public void setCrossColorId (@ColorId int backgroundColorId, @ColorId int iconColorId) {
     this.crossBackgroundColorId = backgroundColorId;
     this.crossIconColorId = iconColorId;
   }
@@ -346,7 +346,7 @@ public class CircleButton extends View implements FactorAnimator.Target {
     }
   }
 
-  public void setFromToColor (@ThemeColorId int fromColorId, @ThemeColorId int toColorId, float factor) {
+  public void setFromToColor (@ColorId int fromColorId, @ColorId int toColorId, float factor) {
     RippleSupport.changeViewColor(this, fromColorId, toColorId, factor);
   }
 
@@ -366,6 +366,13 @@ public class CircleButton extends View implements FactorAnimator.Target {
     if (iconPaint == null || iconPaint.getColor() != color)
       iconPaint = Paints.createPorterDuffPaint(iconPaint, color);
     return iconPaint;
+  }
+
+  private float iconAlpha = 1f;
+
+  public void setIconAlpha (float iconAlpha) {
+    this.iconAlpha = iconAlpha;
+    invalidate();
   }
 
   @Override
@@ -394,6 +401,10 @@ public class CircleButton extends View implements FactorAnimator.Target {
           bitmapPaint.setAlpha((int) ((float) sourceAlpha * scaleFactor));
         }
 
+        if (iconAlpha != 1f) {
+          bitmapPaint.setAlpha((int) ((float) sourceAlpha * scaleFactor * iconAlpha));
+        }
+
         final boolean savedRotation = iconRotation != 0;
         if (savedRotation) {
           c.save();
@@ -406,6 +417,10 @@ public class CircleButton extends View implements FactorAnimator.Target {
         Drawables.draw(c, icon, cx - icon.getMinimumWidth() / 2, cy - icon.getMinimumHeight() / 2 - (hasText ? Screen.dp(8f) : 0), bitmapPaint);
         if (savedRotation) {
           c.restore();
+        }
+
+        if (iconAlpha != 1f) {
+          bitmapPaint.setAlpha(sourceAlpha);
         }
 
         if (savedScale) {

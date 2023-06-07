@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -23,23 +23,26 @@ import android.view.inputmethod.EditorInfo;
 
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.data.TGFoundChat;
+import org.thunderdog.challegram.emoji.EmojiFilter;
 import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibCache;
 import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
+import org.thunderdog.challegram.util.CharacterStyleFilter;
 import org.thunderdog.challegram.widget.BetterChatView;
 import org.thunderdog.challegram.widget.MaterialEditTextGroup;
 
 import java.util.ArrayList;
 import java.util.List;
 
+import me.vkryl.android.text.CodePointCountFilter;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.StringUtils;
 import me.vkryl.td.TdConstants;
@@ -168,8 +171,20 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
         )
       );
     }
-    items.add((firstName = new ListItem(items.isEmpty() ? ListItem.TYPE_EDITTEXT : ListItem.TYPE_EDITTEXT_NO_PADDING, R.id.edit_first_name, 0, R.string.login_FirstName).setStringValue(firstNameValue).setInputFilters(new InputFilter[]{ new InputFilter.LengthFilter(TdConstants.MAX_NAME_LENGTH) })));
-    items.add((lastName = new ListItem(ListItem.TYPE_EDITTEXT_NO_PADDING, R.id.edit_last_name, 0, mode == MODE_RENAME_CONTACT || mode == MODE_ADD_CONTACT ? R.string.LastName : R.string.login_LastName).setStringValue(lastNameValue).setInputFilters(new InputFilter[] {new InputFilter.LengthFilter(TdConstants.MAX_NAME_LENGTH)}).setOnEditorActionListener(new SimpleEditorActionListener(EditorInfo.IME_ACTION_DONE, this))));
+    items.add((firstName = new ListItem(items.isEmpty() ? ListItem.TYPE_EDITTEXT : ListItem.TYPE_EDITTEXT_NO_PADDING, R.id.edit_first_name, 0, R.string.login_FirstName)
+      .setStringValue(firstNameValue)
+      .setInputFilters(new InputFilter[] {
+        new CodePointCountFilter(TdConstants.MAX_NAME_LENGTH),
+        new EmojiFilter(),
+        new CharacterStyleFilter()
+      })));
+    items.add((lastName = new ListItem(ListItem.TYPE_EDITTEXT_NO_PADDING, R.id.edit_last_name, 0, mode == MODE_RENAME_CONTACT || mode == MODE_ADD_CONTACT ? R.string.LastName : R.string.login_LastName)
+      .setStringValue(lastNameValue)
+      .setInputFilters(new InputFilter[] {
+        new CodePointCountFilter(TdConstants.MAX_NAME_LENGTH),
+        new EmojiFilter(),
+        new CharacterStyleFilter()
+      }).setOnEditorActionListener(new SimpleEditorActionListener(EditorInfo.IME_ACTION_DONE, this))));
     TdApi.TermsOfService termsOfService = mode == MODE_SIGNUP ? getArgumentsStrict().authState.termsOfService : null;
     if (termsOfService != null && termsOfService.minUserAge != 0) {
       items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.plural(R.string.AgeVerification, termsOfService.minUserAge), false));
@@ -236,11 +251,8 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
 
   @Override
   public void onClick (View v) {
-    switch (v.getId()) {
-      case R.id.btn_shareMyContact: {
-        shareMyNumber.setSelected(adapter.toggleView(v));
-        break;
-      }
+    if (v.getId() == R.id.btn_shareMyContact) {
+      shareMyNumber.setSelected(adapter.toggleView(v));
     }
   }
 
@@ -339,17 +351,12 @@ public class EditNameController extends EditBaseController<EditNameController.Ar
 
   @Override
   public void onTextChanged (int id, ListItem item, MaterialEditTextGroup v, String text) {
-    switch (id) {
-      case R.id.edit_first_name: {
-        firstName.setStringValue(text);
-        updateDoneState();
-        break;
-      }
-      case R.id.edit_last_name: {
-        lastName.setStringValue(text);
-        updateDoneState();
-        break;
-      }
+    if (id == R.id.edit_first_name) {
+      firstName.setStringValue(text);
+      updateDoneState();
+    } else if (id == R.id.edit_last_name) {
+      lastName.setStringValue(text);
+      updateDoneState();
     }
   }
 

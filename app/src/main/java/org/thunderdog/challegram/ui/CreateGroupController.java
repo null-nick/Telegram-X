@@ -1,6 +1,6 @@
 /*
  * This file is a part of Telegram X
- * Copyright © 2014-2022 (tgx-android@pm.me)
+ * Copyright © 2014 (tgx-android@pm.me)
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -28,8 +28,8 @@ import androidx.annotation.UiThread;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.drinkless.td.libcore.telegram.Client;
-import org.drinkless.td.libcore.telegram.TdApi;
+import org.drinkless.tdlib.Client;
+import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.user.UserView;
 import org.thunderdog.challegram.core.Lang;
@@ -44,6 +44,7 @@ import org.thunderdog.challegram.support.RippleSupport;
 import org.thunderdog.challegram.support.ViewSupport;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibCache;
+import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Keyboard;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
@@ -85,7 +86,7 @@ public class CreateGroupController extends ViewController<Void> implements EditH
     FrameLayoutFix contentView;
 
     contentView = new FrameLayoutFix(context);
-    ViewSupport.setThemedBackground(contentView, R.id.theme_color_filling, this);
+    ViewSupport.setThemedBackground(contentView, ColorId.filling, this);
     contentView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
     FrameLayoutFix.LayoutParams params;
@@ -338,30 +339,25 @@ public class CreateGroupController extends ViewController<Void> implements EditH
 
   @Override
   public boolean onOptionItemPressed (View optionItemView, int id) {
-    switch (id) {
-      case R.id.btn_deleteMember: {
-        if (pickedUser != null) {
-          long userId = pickedUser.getUserId();
-          int index = indexOfUser(userId);
-          if (index != -1) {
-            tdlib.cache().unsubscribeFromUserUpdates(userId, this);
-            members.remove(index);
-            if (members.isEmpty()) {
-              adapter.notifyItemRangeRemoved(0, 3);
-              Keyboard.hide(headerCell.getInputView());
-              navigateBack();
-            } else {
-              adapter.notifyItemRemoved(index + 1);
-              adapter.notifyItemChanged(members.size() + 1);
-            }
+    if (id == R.id.btn_deleteMember) {
+      if (pickedUser != null) {
+        long userId = pickedUser.getUserId();
+        int index = indexOfUser(userId);
+        if (index != -1) {
+          tdlib.cache().unsubscribeFromUserUpdates(userId, this);
+          members.remove(index);
+          if (members.isEmpty()) {
+            adapter.notifyItemRangeRemoved(0, 3);
+            Keyboard.hide(headerCell.getInputView());
+            navigateBack();
+          } else {
+            adapter.notifyItemRemoved(index + 1);
+            adapter.notifyItemChanged(members.size() + 1);
           }
         }
-        break;
       }
-      default: {
-        tdlib.ui().handlePhotoOption(context, id, null, headerCell);
-        break;
-      }
+    } else {
+      tdlib.ui().handlePhotoOption(context, id, null, headerCell);
     }
     return true;
   }
@@ -426,9 +422,9 @@ public class CreateGroupController extends ViewController<Void> implements EditH
     currentIsChannel = currentMemberIds.length > tdlib.basicGroupMaxSize();
 
     if (currentIsChannel) {
-      tdlib.client().send(new TdApi.CreateNewSupergroupChat(title, false, null, null, false), this);
+      tdlib.client().send(new TdApi.CreateNewSupergroupChat(title, false, false, null, null, 0, false), this);
     } else if (groupCreationCallback != null && groupCreationCallback.forceSupergroupChat()) {
-      tdlib.client().send(new TdApi.CreateNewSupergroupChat(title, false, null, null, false), result -> {
+      tdlib.client().send(new TdApi.CreateNewSupergroupChat(title, false, false, null, null, 0, false), result -> {
         switch (result.getConstructor()) {
           case TdApi.Chat.CONSTRUCTOR: {
             TdApi.Chat createdGroup = (TdApi.Chat) result;
@@ -444,7 +440,7 @@ public class CreateGroupController extends ViewController<Void> implements EditH
         }
       });
     } else {
-      tdlib.client().send(new TdApi.CreateNewBasicGroupChat(currentMemberIds, title), this);
+      tdlib.client().send(new TdApi.CreateNewBasicGroupChat(currentMemberIds, title, 0), this);
     }
   }
 
