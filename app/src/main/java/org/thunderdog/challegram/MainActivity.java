@@ -63,8 +63,10 @@ import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.ui.CallController;
+import org.thunderdog.challegram.ui.ChatFoldersController;
 import org.thunderdog.challegram.ui.CreateChannelController;
 import org.thunderdog.challegram.ui.CreateGroupController;
+import org.thunderdog.challegram.ui.EditChatFolderController;
 import org.thunderdog.challegram.ui.EditNameController;
 import org.thunderdog.challegram.ui.IntroController;
 import org.thunderdog.challegram.ui.ListItem;
@@ -531,7 +533,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
   }
 
   private void showExperimentalAlert () {
-    if (BuildConfig.EXPERIMENTAL) {
+    if (BuildConfig.EXPERIMENTAL && !BuildConfig.DEBUG) {
       ViewController<?> c = navigation.getCurrentStackItem();
       if (c != null) {
         c.openAlert(R.string.ExperimentalBuildTitle,
@@ -1248,6 +1250,10 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
       restore = new PrivacyExceptionController(context, tdlib);
     } else if (id == R.id.controller_networkStats) {
       restore = new SettingsNetworkStatsController(context, tdlib);
+    } else if (id == R.id.controller_chatFolders) {
+      restore = new ChatFoldersController(context, tdlib);
+    } else if (id == R.id.controller_editChatFolders) {
+      restore = new EditChatFolderController(context, tdlib);
     } else {
       return null;
     }

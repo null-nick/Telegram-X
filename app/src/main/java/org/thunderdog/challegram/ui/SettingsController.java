@@ -636,6 +636,10 @@ public class SettingsController extends ViewController<Void> implements
     items.add(new ListItem(ListItem.TYPE_SEPARATOR));
     items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_tweakSettings, R.drawable.baseline_extension_24, R.string.TweakSettings));
     items.add(new ListItem(ListItem.TYPE_SEPARATOR));
+    if (Config.CHAT_FOLDERS_ENABLED) {
+      items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_chatFolders, R.drawable.baseline_folder_24, R.string.ChatFolders));
+      items.add(new ListItem(ListItem.TYPE_SEPARATOR));
+    }
     items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_languageSettings, R.drawable.baseline_language_24, R.string.Language));
     items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
 
@@ -1023,6 +1027,8 @@ public class SettingsController extends ViewController<Void> implements
       SettingsStickersAndEmojiController c = new SettingsStickersAndEmojiController(context, tdlib);
       c.setArguments(this);
       navigateTo(c);
+    } else if (viewId == R.id.btn_chatFolders) {
+      navigateTo(new ChatFoldersController(context, tdlib));
     } else if (viewId == R.id.btn_faq) {
       tdlib.ui().openUrl(this, Lang.getString(R.string.url_faq), new TdlibUi.UrlOpenParameters().forceInstantView());
     } else if (viewId == R.id.btn_privacyPolicy) {

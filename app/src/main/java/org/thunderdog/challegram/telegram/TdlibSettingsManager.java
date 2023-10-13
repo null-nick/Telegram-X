@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 
 import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.StringUtils;
+import me.vkryl.core.collection.IntSet;
 import me.vkryl.core.collection.LongSparseLongArray;
 import me.vkryl.core.reference.ReferenceList;
 import me.vkryl.core.util.Blob;
@@ -157,6 +158,13 @@ public class TdlibSettingsManager implements CleanupStartupDelegate {
     editor.remove(key(THEME_GLOBAL_THEME_NIGHT_KEY, accountId));
     editor.remove(key(THEME_GLOBAL_THEME_DAYLIGHT_KEY, accountId));
     editor.remove(key(LOCAL_CHAT_IDS_COUNT, accountId));
+    editor.remove(key(COUNT_MUTED_CHATS, accountId));
+    editor.remove(key(MAIN_CHAT_LIST_ENABLED, accountId));
+    editor.remove(key(ARCHIVE_CHAT_LIST_ENABLED, accountId));
+    editor.remove(key(ARCHIVE_CHAT_LIST_POSITION, accountId));
+    editor.remove(key(CHAT_FOLDER_STYLE, accountId));
+    editor.remove(key(DISPLAY_FOLDERS_AT_TOP, accountId));
+    editor.remove(key(DISABLED_CHAT_FILTER_IDS, accountId));
     // editor.remove(key(PEER_TO_PEER_KEY, accountId));
     Settings.instance().removeScrollPositions(accountId, editor);
     String dismissPrefix = key(DISMISS_MESSAGE_PREFIX, accountId);
@@ -183,6 +191,13 @@ public class TdlibSettingsManager implements CleanupStartupDelegate {
     _forcePlainModeInChannels = null;
     _userPreferences = null;
     _localChatIdsCount = null;
+    _countMutedChats = null;
+    _mainChatListEnabled = null;
+    _archiveChatListEnabled = null;
+    _archiveChatListPosition = null;
+    _chatFolderStyle = null;
+    _displayFoldersAtTop = null;
+    _disabledChatFolderIds = null;
     remoteToLocalChatIds.clear();
     localToRemoteChatIds.clear();
 
@@ -1045,5 +1060,192 @@ public class TdlibSettingsManager implements CleanupStartupDelegate {
 
   public boolean hasNotificationProblems () {
     return getNotificationProblemCount() > 0;
+  }
+
+  private @Nullable Boolean _mainChatListEnabled;
+  private @Nullable Boolean _archiveChatListEnabled;
+  private @Nullable Boolean _countMutedChats;
+  private @Nullable Boolean _displayFoldersAtTop;
+  private @Nullable Integer _archiveChatListPosition;
+  private @Nullable Integer _chatFolderStyle;
+  private @Nullable IntSet _disabledChatFolderIds;
+  private static final String MAIN_CHAT_LIST_ENABLED = "main_chat_list_enabled";
+  private static final String ARCHIVE_CHAT_LIST_ENABLED = "archive_chat_list_enabled";
+  private static final String ARCHIVE_CHAT_LIST_POSITION = "archive_chat_list_position";
+  private static final String CHAT_FOLDER_STYLE = "chat_folder_style";
+  private static final String DISABLED_CHAT_FILTER_IDS = "disabled_chat_filter_ids";
+  private static final String COUNT_MUTED_CHATS = "count_muted_chats";
+  private static final String DISPLAY_FOLDERS_AT_TOP = "display_folders_at_top";
+  private static final int DEFAULT_ARCHIVE_CHAT_LIST_POSITION = Integer.MAX_VALUE;
+  private static final boolean DEFAULT_MAIN_CHAT_LIST_ENABLED = true;
+  private static final boolean DEFAULT_ARCHIVE_CHAT_LIST_ENABLED = false;
+  private static final boolean DEFAULT_DISPLAY_FOLDERS_AT_TOP = true;
+  private static final boolean DEFAULT_COUNT_MUTED_CHATS = false;
+
+  public boolean isMainChatListEnabled () {
+    if (_mainChatListEnabled == null) {
+      _mainChatListEnabled = Settings.instance().getBoolean(key(MAIN_CHAT_LIST_ENABLED, tdlib.accountId()), DEFAULT_MAIN_CHAT_LIST_ENABLED);
+    }
+    return _mainChatListEnabled;
+  }
+
+  public void setMainChatListEnabled (boolean isMainChatListEnabled) {
+    if (isMainChatListEnabled() != isMainChatListEnabled) {
+      _mainChatListEnabled = isMainChatListEnabled;
+      Settings.instance().putBoolean(key(MAIN_CHAT_LIST_ENABLED, tdlib.accountId()), isMainChatListEnabled);
+      if (chatListPositionListeners != null) {
+        for (ChatListPositionListener chatListPositionListener : chatListPositionListeners) {
+          chatListPositionListener.onMainChatListStateChanged(isMainChatListEnabled);
+        }
+      }
+    }
+  }
+
+  public boolean isArchiveChatListEnabled () {
+    if (_archiveChatListEnabled == null) {
+      _archiveChatListEnabled = Settings.instance().getBoolean(key(ARCHIVE_CHAT_LIST_ENABLED, tdlib.accountId()), DEFAULT_ARCHIVE_CHAT_LIST_ENABLED);
+    }
+    return _archiveChatListEnabled;
+  }
+
+  public void setArchiveChatListEnabled (boolean isArchiveChatListEnabled) {
+    if (isArchiveChatListEnabled() != isArchiveChatListEnabled) {
+      _archiveChatListEnabled = isArchiveChatListEnabled;
+      Settings.instance().putBoolean(key(ARCHIVE_CHAT_LIST_ENABLED, tdlib.accountId()), isArchiveChatListEnabled);
+      if (chatListPositionListeners != null) {
+        for (ChatListPositionListener chatListPositionListener : chatListPositionListeners) {
+          chatListPositionListener.onArchiveChatListStateChanged(isArchiveChatListEnabled);
+        }
+      }
+    }
+  }
+
+  public int archiveChatListPosition () {
+    if (_archiveChatListPosition == null) {
+      _archiveChatListPosition = Settings.instance().getInt(key(ARCHIVE_CHAT_LIST_POSITION, tdlib.accountId()), DEFAULT_ARCHIVE_CHAT_LIST_POSITION);
+    }
+    return _archiveChatListPosition;
+  }
+
+  public void setArchiveChatListPosition (int position) {
+    if (archiveChatListPosition() != position) {
+      _archiveChatListPosition = position;
+      Settings.instance().putInt(key(ARCHIVE_CHAT_LIST_POSITION, tdlib.accountId()), position);
+      if (chatListPositionListeners != null) {
+        for (ChatListPositionListener chatListPositionListener : chatListPositionListeners) {
+          chatListPositionListener.onArchiveChatListPositionChanged(position);
+        }
+      }
+    }
+  }
+
+  public @ChatFolderStyle int chatFolderStyle () {
+    if (_chatFolderStyle == null) {
+      _chatFolderStyle = Settings.instance().getInt(key(CHAT_FOLDER_STYLE, tdlib.accountId()), ChatFolderStyle.LABEL_ONLY);
+    }
+    return _chatFolderStyle;
+  }
+
+  public void setChatFolderStyle (@ChatFolderStyle int chatFolderStyle) {
+    if (chatFolderStyle() != chatFolderStyle) {
+      _chatFolderStyle = chatFolderStyle;
+      Settings.instance().putInt(key(CHAT_FOLDER_STYLE, tdlib.accountId()), chatFolderStyle);
+      if (chatListPositionListeners != null) {
+        for (ChatListPositionListener chatListPositionListener : chatListPositionListeners) {
+          chatListPositionListener.onChatFolderStyleChanged(chatFolderStyle);
+        }
+      }
+    }
+  }
+
+  public boolean isChatFolderEnabled (int chatFolderId) {
+    IntSet disabledChatFolderIds = disabledChatFolderIds();
+    return !disabledChatFolderIds.has(chatFolderId);
+  }
+
+  public void setChatFolderEnabled (int chatFolderId, boolean isEnabled) {
+    IntSet disabledChatFolderIds = disabledChatFolderIds();
+    if (disabledChatFolderIds.has(chatFolderId) == isEnabled) {
+      if (isEnabled) {
+        disabledChatFolderIds.remove(chatFolderId);
+      } else {
+        disabledChatFolderIds.add(chatFolderId);
+      }
+      if (disabledChatFolderIds.isEmpty()) {
+        Settings.instance().remove(key(DISABLED_CHAT_FILTER_IDS, tdlib.accountId()));
+      } else {
+        Settings.instance().putIntArray(key(DISABLED_CHAT_FILTER_IDS, tdlib.accountId()), disabledChatFolderIds.toArray());
+      }
+      if (chatListPositionListeners != null) {
+        for (ChatListPositionListener chatListPositionListener : chatListPositionListeners) {
+          chatListPositionListener.onChatFolderStateChanged(chatFolderId, isEnabled);
+        }
+      }
+    }
+  }
+
+  private IntSet disabledChatFolderIds () {
+    if (_disabledChatFolderIds == null) {
+      int[] disabledChatFolderIds = Settings.instance().getIntArray(key(DISABLED_CHAT_FILTER_IDS, tdlib.accountId()));
+      _disabledChatFolderIds = disabledChatFolderIds != null ? new IntSet(disabledChatFolderIds) : new IntSet(0);
+    }
+    return _disabledChatFolderIds;
+  }
+
+  public interface ChatListPositionListener {
+    default void onMainChatListStateChanged (boolean isEnabled) { }
+    default void onArchiveChatListStateChanged (boolean isEnabled) { }
+    default void onArchiveChatListPositionChanged (int archiveChatListPosition) { }
+    default void onChatFolderStyleChanged (@ChatFolderStyle int chatFolderStyle) { }
+    default void onChatFolderStateChanged (int chatFolderId, boolean isEnabled)  { }
+    default void onShouldCountMutedChatsChanged (boolean shouldCountMutedChats)  { }
+  }
+
+  private @Nullable ReferenceList<ChatListPositionListener> chatListPositionListeners;
+
+  public void addChatListPositionListener (ChatListPositionListener listener) {
+    if (chatListPositionListeners == null) {
+      chatListPositionListeners = new ReferenceList<>();
+    }
+    chatListPositionListeners.add(listener);
+  }
+
+  public void removeChatListPositionListener (ChatListPositionListener listener) {
+    if (chatListPositionListeners != null) {
+      chatListPositionListeners.remove(listener);
+    }
+  }
+
+  public boolean shouldCountMutedChats () {
+    if (_countMutedChats == null) {
+      _countMutedChats = Settings.instance().getBoolean(key(COUNT_MUTED_CHATS, tdlib.accountId()), DEFAULT_COUNT_MUTED_CHATS);
+    }
+    return _countMutedChats;
+  }
+
+  public void setShouldCountMutedChats (boolean shouldCountMutedChats) {
+    if (shouldCountMutedChats() != shouldCountMutedChats) {
+      Settings.instance().putBoolean(key(COUNT_MUTED_CHATS, tdlib.accountId()), shouldCountMutedChats);
+      _countMutedChats = shouldCountMutedChats;
+      if (chatListPositionListeners != null) {
+        for (ChatListPositionListener chatListPositionListener : chatListPositionListeners) {
+          chatListPositionListener.onShouldCountMutedChatsChanged(shouldCountMutedChats);
+        }
+      }
+    }
+  }
+
+  public boolean displayFoldersAtTop () {
+    if (_displayFoldersAtTop == null) {
+      _displayFoldersAtTop = Settings.instance().getBoolean(key(DISPLAY_FOLDERS_AT_TOP, tdlib.accountId()), DEFAULT_DISPLAY_FOLDERS_AT_TOP);
+    }
+    return _displayFoldersAtTop;
+  }
+
+  public void setDisplayFoldersAtTop (boolean displayFoldersAtTop) {
+    if (displayFoldersAtTop() != displayFoldersAtTop) {
+      Settings.instance().putBoolean(key(DISPLAY_FOLDERS_AT_TOP, tdlib.accountId()), displayFoldersAtTop);
+      _displayFoldersAtTop = displayFoldersAtTop;
+    }
   }
 }

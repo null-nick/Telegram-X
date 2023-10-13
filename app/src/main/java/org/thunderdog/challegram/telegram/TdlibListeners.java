@@ -40,6 +40,7 @@ public class TdlibListeners {
   final ReferenceList<MessageListener> messageListeners;
   final ReferenceList<MessageEditListener> messageEditListeners;
   final ReferenceList<ChatListener> chatListeners;
+  final ReferenceList<ChatFoldersListener> chatFoldersListeners;
   final ReferenceMap<String, ChatListListener> chatListListeners;
   final ReferenceList<StoryListener> storyListeners;
   final ReferenceList<NotificationSettingsListener> settingsListeners;
@@ -82,6 +83,7 @@ public class TdlibListeners {
     this.chatListeners = new ReferenceList<>();
     this.storyListeners = new ReferenceList<>();
     this.chatListListeners = new ReferenceMap<>(true);
+    this.chatFoldersListeners = new ReferenceList<>(true);
     this.settingsListeners = new ReferenceList<>(true);
     this.stickersListeners = new ReferenceList<>(true);
     this.animationsListeners = new ReferenceList<>();
@@ -416,6 +418,16 @@ public class TdlibListeners {
   @AnyThread
   public void unsubscribeFromChatListUpdates (@NonNull TdApi.ChatList chatList, ChatListListener listener) {
     chatListListeners.remove(TD.makeChatListKey(chatList), listener);
+  }
+
+  @AnyThread
+  public void subscribeToChatFoldersUpdates (ChatFoldersListener listener) {
+    chatFoldersListeners.add(listener);
+  }
+
+  @AnyThread
+  public void unsubscribeFromChatFoldersUpdates (ChatFoldersListener listener) {
+    chatFoldersListeners.remove(listener);
   }
 
   @AnyThread
@@ -1166,7 +1178,9 @@ public class TdlibListeners {
   // updateChatFolders
 
   void updateChatFolders (TdApi.UpdateChatFolders update) {
-    // TODO?
+    for (ChatFoldersListener listener : chatFoldersListeners) {
+      listener.onChatFoldersChanged(update.chatFolders, update.mainChatListPosition);
+    }
   }
 
   // updateChatAvailableReactions

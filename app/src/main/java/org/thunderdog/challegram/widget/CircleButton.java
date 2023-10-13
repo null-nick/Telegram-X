@@ -52,6 +52,7 @@ import me.vkryl.core.StringUtils;
 import me.vkryl.core.lambda.Destroyable;
 
 public class CircleButton extends View implements FactorAnimator.Target, ReactionLoadListener, Destroyable {
+  private @DrawableRes int iconRes;
   private Drawable icon;
   private int offsetLeft;
 
@@ -136,6 +137,7 @@ public class CircleButton extends View implements FactorAnimator.Target, Reactio
 
   public void init (@DrawableRes int icon, int offsetLeft, float size, float padding, @ColorId int backgroundColorId, @ColorId int iconColorId) {
     this.icon = Drawables.get(icon);
+    this.iconRes = icon;
     this.offsetLeft = offsetLeft;
     this.backgroundColorId = backgroundColorId;
     this.iconColorIsId = true;
@@ -169,6 +171,7 @@ public class CircleButton extends View implements FactorAnimator.Target, Reactio
     }
   }
 
+  private @DrawableRes int replaceIconRes;
   private Drawable replaceIcon;
   private float replaceFactor;
   private static final int REPLACE_ANIMATOR = 0;
@@ -179,7 +182,15 @@ public class CircleButton extends View implements FactorAnimator.Target, Reactio
     replaceIcon(iconRes, 0);
   }
   public void replaceIcon (@DrawableRes int iconRes, int replaceOffset) {
+    if (replaceIcon != null) {
+      if (this.replaceIconRes == iconRes && this.replaceOffsetLeft == replaceOffset)
+        return;
+    } else {
+      if (this.iconRes == iconRes && this.offsetLeft == replaceOffset)
+        return;
+    }
     this.replaceIcon = Drawables.get(iconRes);
+    this.replaceIconRes = iconRes;
     this.replaceOffsetLeft = replaceOffset;
     if (replaceAnimator == null) {
       replaceAnimator = new FactorAnimator(REPLACE_ANIMATOR, this, AnimatorUtils.DECELERATE_INTERPOLATOR, 220l);
@@ -198,6 +209,7 @@ public class CircleButton extends View implements FactorAnimator.Target, Reactio
 
   public void setIcon (@DrawableRes int iconRes, int offsetLeft) {
     this.icon = Drawables.get(iconRes);
+    this.iconRes = iconRes;
     this.offsetLeft = offsetLeft;
     invalidate();
   }
@@ -281,8 +293,11 @@ public class CircleButton extends View implements FactorAnimator.Target, Reactio
   private void applyIcon () {
     if (replaceIcon != null) {
       icon = replaceIcon;
+      iconRes = replaceIconRes;
       offsetLeft = replaceOffsetLeft;
       replaceIcon = null;
+      replaceIconRes = 0;
+      replaceOffsetLeft = 0;
     }
   }
 

@@ -24,6 +24,7 @@ import android.util.SparseIntArray;
 import android.widget.Toast;
 
 import androidx.annotation.AnyThread;
+import androidx.annotation.DrawableRes;
 import androidx.annotation.IntDef;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -101,6 +102,8 @@ import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.FileUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
+import me.vkryl.core.collection.LongList;
+import me.vkryl.core.collection.LongSet;
 import me.vkryl.core.collection.LongSparseIntArray;
 import me.vkryl.core.collection.LongSparseLongArray;
 import me.vkryl.core.lambda.CancellableRunnable;
@@ -1782,6 +1785,14 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     }
   }
 
+  public <T extends TdApi.Object> void send (TdApi.Function<T> function, Class<T> resultClass) {
+    client().send(function, resultHandler(resultClass));
+  }
+
+  public <T extends TdApi.Object> void send (TdApi.Function<T> function, Class<T> resultClass, RunnableData<T> onResult, RunnableData<TdApi.Error> onError) {
+    client().send(function, resultHandler(resultClass, onResult, onError));
+  }
+
   public <T extends TdApi.Object> void send (TdApi.Function<T> function, ResultHandler<T> handler) {
     send(client(), function, handler);
   }
@@ -2217,6 +2228,23 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     return clientExecute(function, timeoutMs, true);
   }
 
+  public <T extends TdApi.Object> T clientExecuteT (TdApi.Function<T> function, boolean throwErrors) throws TdlibException {
+    return clientExecuteT(function, 0, throwErrors);
+  }
+
+  public <T extends TdApi.Object> T clientExecuteT (TdApi.Function<T> function, long timeoutMs, boolean throwErrors) throws TdlibException {
+    TdApi.Object result = clientExecute(function, timeoutMs);
+    if (result instanceof TdApi.Error) {
+      if (throwErrors) {
+        throw new TdlibException((TdApi.Error) result);
+      }
+      Log.i("clientExecute %s failed: %s", function.getClass().getName(), TD.toErrorString(result));
+      return null;
+    }
+    //noinspection unchecked
+    return (T) result;
+  }
+
   @Nullable
   private TdApi.Object clientExecute (TdApi.Function<?> function, long timeoutMs, boolean requiresTdlibInitialization) {
     if (inTdlibThread())
@@ -2384,6 +2412,34 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     } : okHandler();
   }
 
+  public <T extends TdApi.Object> Client.ResultHandler resultHandler (Class<T> resultClass) {
+    return resultHandler(resultClass, null);
+  }
+
+  public <T extends TdApi.Object> Client.ResultHandler resultHandler (Class<T> resultClass, @Nullable Runnable onResult) {
+    return resultHandler(resultClass, onResult != null ? (result) -> onResult.run() : null, null);
+  }
+
+  public <T extends TdApi.Object> Client.ResultHandler resultHandler (Class<T> resultClass, @Nullable RunnableData<T> onResult, @Nullable RunnableData<TdApi.Error> onError) {
+    return object -> {
+      if (resultClass.isInstance(object)) {
+        if (onResult != null) {
+          T result = resultClass.cast(object);
+          tdlib().ui().post(() -> onResult.runWithData(result));
+        }
+      } else if (object.getConstructor() == TdApi.Error.CONSTRUCTOR) {
+        if (onError != null) {
+          TdApi.Error error = (TdApi.Error) object;
+          tdlib().ui().post(() -> onError.runWithData(error));
+        } else {
+          UI.showError(object);
+        }
+      } else {
+        Log.unexpectedTdlibResponse(object, null, resultClass, TdApi.Error.class);
+      }
+    };
+  }
+
   public Client.ResultHandler doneHandler () {
     return doneHandler;
   }
@@ -2478,7 +2534,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     if (chatIds == null || chatIds.length == 0)
       return;
     if (after != null) {
-      int[] counter = new int[]{chatIds.length};
+      int[] counter = new int[] {chatIds.length};
       for (long chatId : chatIds) {
         client().send(new TdApi.GetChat(chatId), result -> {
           silentHandler.onResult(result);
@@ -3351,16 +3407,28 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     }
   }
 
-  public TdApi.ChatFolderInfo chatFolderInfo (int chatFolderId) {
+  public int mainChatListPosition () {
     synchronized (dataLock) {
-      if (chatFolders != null) {
-        for (TdApi.ChatFolderInfo filter : chatFolders) {
-          if (filter.id == chatFolderId)
-            return filter;
-        }
-      }
+      return mainChatListPosition;
     }
-    return null;
+  }
+
+  public int chatFoldersCount () {
+    synchronized (dataLock) {
+      return chatFolders.length;
+    }
+  }
+
+  public TdApi.ChatFolderInfo[] chatFolderInfos () {
+    synchronized (dataLock) {
+      return chatFolders;
+    }
+  }
+
+ public @Nullable TdApi.ChatFolderInfo chatFolderInfo (int chatFolderId) {
+    synchronized (dataLock) {
+      return chatFoldersById.get(chatFolderId);
+    }
   }
 
   public boolean hasFolders () {
@@ -6802,11 +6870,19 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
   public int maxMessageTextLength () {
     return maxMessageTextLength;
   }
+  
+  public long chatFolderCountMax () {
+    return chatFolderMaxCount;
+  }
+
+  public long chatFolderChosenChatCountMax () {
+    return folderChosenChatMaxCount;
+  }
 
   public long telegramAntiSpamUserId () {
     return antiSpamBotUserId;
   }
-
+  
   public long telegramChannelBotUserId () {
     return channelBotUserId;
   }
@@ -7756,12 +7832,22 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     listeners.updateChatAvailableReactions(update);
   }
 
-  private TdApi.ChatFolderInfo[] chatFolders;
+  private int mainChatListPosition;
+  private TdApi.ChatFolderInfo[] chatFolders = new TdApi.ChatFolderInfo[0];
+  private final SparseArrayCompat<TdApi.ChatFolderInfo> chatFoldersById = new SparseArrayCompat<>();
 
   @TdlibThread
   private void updateChatFolders (TdApi.UpdateChatFolders update) {
     synchronized (dataLock) {
-      this.chatFolders = update.chatFolders;
+      TdApi.ChatFolderInfo[] chatFolders = update.chatFolders;
+      this.chatFolders = chatFolders;
+      this.chatFoldersById.clear();
+      if (chatFolders != null) {
+        for (TdApi.ChatFolderInfo chatFolder : chatFolders) {
+          this.chatFoldersById.put(chatFolder.id, chatFolder);
+        }
+      }
+      this.mainChatListPosition = update.mainChatListPosition;
     }
     listeners.updateChatFolders(update);
   }
@@ -8685,7 +8771,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
   }
 
   @TdlibThread
-  private boolean setUnreadChatCounters(@NonNull TdApi.ChatList chatList, int totalCount, int unreadChatCount, int unreadUnmutedCount, int markedAsUnreadCount, int markedAsUnreadUnmutedCount) {
+  private boolean setUnreadChatCounters (@NonNull TdApi.ChatList chatList, int totalCount, int unreadChatCount, int unreadUnmutedCount, int markedAsUnreadCount, int markedAsUnreadUnmutedCount) {
     TdlibCounter counter = getCounter(chatList);
 
     int oldUnreadCount = Math.max(counter.chatCount, 0);
@@ -9983,7 +10069,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
 
   // Emoji
 
-  void fetchAllMessages (long chatId, @Nullable String query, @Nullable TdApi.SearchMessagesFilter filter,  @NonNull RunnableData<List<TdApi.Message>> callback) {
+  void fetchAllMessages (long chatId, @Nullable String query, @Nullable TdApi.SearchMessagesFilter filter, @NonNull RunnableData<List<TdApi.Message>> callback) {
     List<TdApi.Message> messages = new ArrayList<>();
     boolean needFilter = !StringUtils.isEmpty(query) || filter != null;
     TdApi.Function<?> function;
@@ -11057,5 +11143,141 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     } else {
       return chatTitle(Td.getSenderId(sender));
     }
+  }
+
+  @Nullable
+  public TdApi.ChatFolderIcon chatFolderIcon (TdApi.ChatFolder chatFolder) {
+    if (chatFolder.icon != null && !StringUtils.isEmpty(chatFolder.icon.name)) {
+      return chatFolder.icon;
+    }
+    TdApi.ChatFolderIcon result = clientExecuteT(new TdApi.GetChatFolderDefaultIconName(chatFolder), false);
+    if (result != null && !StringUtils.isEmpty(result.name)) {
+      return result;
+    }
+    return null;
+  }
+
+  public String chatFolderIconName (TdApi.ChatFolder chatFolder) {
+    TdApi.ChatFolderIcon icon = chatFolderIcon(chatFolder);
+    return icon != null ? icon.name : "";
+  }
+
+  public @DrawableRes int chatFolderIconDrawable (TdApi.ChatFolder chatFolder, @DrawableRes int defaultIcon) {
+    return TD.findFolderIcon(chatFolderIcon(chatFolder), defaultIcon);
+  }
+
+  public void addChatsToChatFolder (TdlibDelegate delegate, int chatFolderId, long[] chatIds) {
+    if (chatIds.length == 0) {
+      return;
+    }
+    send(new TdApi.GetChatFolder(chatFolderId), (result) -> {
+      switch (result.getConstructor()) {
+        case TdApi.ChatFolder.CONSTRUCTOR:
+          addChatsToChatFolder(delegate, chatFolderId, (TdApi.ChatFolder) result, chatIds);
+          break;
+        case TdApi.Error.CONSTRUCTOR:
+          UI.showError(result);
+          break;
+      }
+    });
+  }
+
+  public void addChatsToChatFolder (TdlibDelegate delegate, int chatFolderId, TdApi.ChatFolder chatFolder, long[] chatIds) {
+    if (chatIds.length == 0) {
+      return;
+    }
+    LongSet pinnedChatIds = new LongSet(chatFolder.pinnedChatIds);
+    LongSet includedChatIds = new LongSet(chatFolder.includedChatIds);
+    for (long chatId : chatIds) {
+      if (pinnedChatIds.has(chatId) || includedChatIds.has(chatId)) {
+        continue;
+      }
+      includedChatIds.add(chatId);
+    }
+    if (includedChatIds.size() == chatFolder.includedChatIds.length) {
+      return;
+    }
+    int chatCount = pinnedChatIds.size() + includedChatIds.size();
+    int secretChatCount = 0;
+    for (long pinnedChatId : pinnedChatIds) {
+      if (ChatId.isSecret(pinnedChatId)) secretChatCount++;
+    }
+    for (long includedChatId : includedChatIds) {
+      if (ChatId.isSecret(includedChatId)) secretChatCount++;
+    }
+    int nonSecretChatCount = chatCount - secretChatCount;
+    long chosenChatCountMax = tdlib().chatFolderChosenChatCountMax();
+    if (secretChatCount > chosenChatCountMax || nonSecretChatCount > chosenChatCountMax) {
+      if (hasPremium()) {
+        CharSequence text = Lang.getMarkdownString(delegate, R.string.ChatsInFolderLimitReached, chosenChatCountMax);
+        UI.showCustomToast(text, Toast.LENGTH_LONG, 0);
+      } else {
+        send(new TdApi.GetPremiumLimit(new TdApi.PremiumLimitTypeChatFolderChosenChatCount()), (result) -> {
+          CharSequence text;
+          if (result.getConstructor() == TdApi.PremiumLimit.CONSTRUCTOR) {
+            TdApi.PremiumLimit premiumLimit = (TdApi.PremiumLimit) result;
+            text = Lang.getMarkdownString(delegate, R.string.PremiumRequiredChatsInFolder, premiumLimit.defaultValue, premiumLimit.premiumValue);
+          } else {
+            text = Lang.getMarkdownString(delegate, R.string.ChatsInFolderLimitReached, chosenChatCountMax);
+          }
+          UI.showCustomToast(text, Toast.LENGTH_LONG, 0);
+        });
+      }
+      return;
+    }
+    chatFolder.includedChatIds = includedChatIds.toArray();
+    chatFolder.excludedChatIds = ArrayUtils.removeAll(chatFolder.excludedChatIds, chatIds);
+    send(new TdApi.EditChatFolder(chatFolderId, chatFolder), TdApi.ChatFolderInfo.class);
+  }
+
+  public void removeChatFromChatFolder (int chatFolderId, long chatId) {
+    removeChatsFromChatFolder(chatFolderId, new long[] {chatId});
+  }
+
+  public void removeChatsFromChatFolder (int chatFolderId, long[] chatIds) {
+    if (chatIds.length == 0) {
+      return;
+    }
+    send(new TdApi.GetChatFolder(chatFolderId), (result) -> {
+      switch (result.getConstructor()) {
+        case TdApi.ChatFolder.CONSTRUCTOR:
+          removeChatsFromChatFolder(chatFolderId, (TdApi.ChatFolder) result, chatIds);
+          break;
+        case TdApi.Error.CONSTRUCTOR:
+          UI.showError(result);
+          break;
+        default:
+          Log.unexpectedTdlibResponse(result, TdApi.GetChatFolder.class, TdApi.ChatFolder.class, TdApi.Error.class);
+          break;
+      }
+    });
+  }
+
+  public void removeChatsFromChatFolder (int chatFolderId, TdApi.ChatFolder chatFolder, long[] chatIds) {
+    if (chatIds.length == 0) {
+      return;
+    }
+    LongList pinnedChatIds = new LongList(chatFolder.pinnedChatIds);
+    LongSet includedChatIds = new LongSet(chatFolder.includedChatIds);
+    LongSet excludedChatIds = new LongSet(chatFolder.excludedChatIds);
+    for (long chatId : chatIds) {
+       boolean removed = pinnedChatIds.remove(chatId) | includedChatIds.remove(chatId);
+       if (removed && Config.CHAT_FOLDERS_SMART_CHAT_DELETION_ENABLED) {
+         TdApi.Chat chat = chat(chatId);
+         boolean isBotChat = isBotChat(chat);
+         boolean isUserChat = isUserChat(chat) && !isBotChat;
+         boolean isContactChat = isUserChat && TD.isContact(chatUser(chat));
+         if (!chatFolder.includeContacts && isUserChat && isContactChat) continue;
+         if (!chatFolder.includeNonContacts && isUserChat && !isContactChat) continue;
+         if (!chatFolder.includeGroups && TD.isMultiChat(chat)) continue;
+         if (!chatFolder.includeChannels && isChannelChat(chat)) continue;
+         if (!chatFolder.includeBots && isBotChat) continue;
+       }
+       excludedChatIds.add(chatId);
+    }
+    chatFolder.pinnedChatIds = pinnedChatIds.get();
+    chatFolder.includedChatIds = includedChatIds.toArray();
+    chatFolder.excludedChatIds = excludedChatIds.toArray();
+    send(new TdApi.EditChatFolder(chatFolderId, chatFolder), TdApi.ChatFolderInfo.class);
   }
 }

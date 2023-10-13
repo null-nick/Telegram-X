@@ -2226,6 +2226,8 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
   }
 
   public static class OptionItem {
+    public static final OptionItem SEPARATOR = new OptionItem(0, null, 0, 0);
+
     public final int id;
     public final CharSequence name;
     public final int color;
@@ -2310,6 +2312,10 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
         return item(new OptionItem.Builder().id(R.id.btn_cancel).name(R.string.Cancel).icon(R.drawable.baseline_cancel_24).build());
       }
 
+      public int itemCount () {
+        return items.size();
+      }
+
       public Options build () {
         return new Options(info, items.toArray(new OptionItem[0]));
       }
@@ -2381,8 +2387,24 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
         }
       };
     }
+    int totalHeight = shadowView.getLayoutParams().height + optionsWrap.getTextHeight() + popupAdditionalHeight;
     int index = 0;
     for (OptionItem item : options.items) {
+      if (item == OptionItem.SEPARATOR) {
+        ShadowView shadowViewBottom = new ShadowView(context);
+        shadowViewBottom.setSimpleBottomTransparentShadow(false);
+        ViewSupport.setThemedBackground(shadowViewBottom, ColorId.background, this);
+        addThemeInvalidateListener(shadowViewBottom);
+        optionsWrap.addView(shadowViewBottom, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(6f)));
+
+        ShadowView shadowViewTop = new ShadowView(context);
+        shadowViewTop.setSimpleTopShadow(true, this);
+        addThemeInvalidateListener(shadowViewTop);
+        optionsWrap.addView(shadowViewTop, new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(6f)));
+        index++;
+        totalHeight += shadowViewBottom.getLayoutParams().height + shadowViewTop.getLayoutParams().height;
+        continue;
+      }
       TextView text = OptionsLayout.genOptionView(context, item.id, item.name, item.color, item.icon, onClickListener, getThemeListeners(), forcedTheme);
       RippleSupport.setTransparentSelector(text);
       if (forcedTheme != null)
@@ -2393,12 +2415,14 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
       }
       optionsWrap.addView(text);
       index++;
+      totalHeight += text.getLayoutParams().height;
     }
 
     // Window
 
-    popupLayout.showSimplePopupView(optionsWrap, shadowView.getLayoutParams().height + Screen.dp(54f) * options.items.length + optionsWrap.getTextHeight() + popupAdditionalHeight);
+    popupLayout.showSimplePopupView(optionsWrap, totalHeight);
     onCreatePopupLayout(popupLayout);
+    
     return popupLayout;
   }
 
