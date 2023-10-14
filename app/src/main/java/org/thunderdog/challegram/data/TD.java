@@ -243,6 +243,9 @@ public class TD {
       return false;
     if ((a.forwardInfo == null) == (b.forwardInfo != null))
       return false;
+    if (!Td.equalsTo(a.importInfo, b.importInfo, false)) {
+      return false;
+    }
     if (a.forwardInfo == null) {
       return a.chatId == b.chatId;
     }
@@ -252,18 +255,17 @@ public class TD {
       switch (a.forwardInfo.origin.getConstructor()) {
         case TdApi.MessageForwardOriginUser.CONSTRUCTOR:
           return ((TdApi.MessageForwardOriginUser) a.forwardInfo.origin).senderUserId == ((TdApi.MessageForwardOriginUser) b.forwardInfo.origin).senderUserId;
-
         case TdApi.MessageForwardOriginChannel.CONSTRUCTOR:
           return ((TdApi.MessageForwardOriginChannel) a.forwardInfo.origin).chatId == ((TdApi.MessageForwardOriginChannel) b.forwardInfo.origin).chatId &&
             StringUtils.equalsOrBothEmpty(((TdApi.MessageForwardOriginChannel) a.forwardInfo.origin).authorSignature, ((TdApi.MessageForwardOriginChannel) b.forwardInfo.origin).authorSignature);
         case TdApi.MessageForwardOriginChat.CONSTRUCTOR:
           return ((TdApi.MessageForwardOriginChat) a.forwardInfo.origin).senderChatId == ((TdApi.MessageForwardOriginChat) b.forwardInfo.origin).senderChatId &&
             StringUtils.equalsOrBothEmpty(((TdApi.MessageForwardOriginChat) a.forwardInfo.origin).authorSignature, ((TdApi.MessageForwardOriginChat) b.forwardInfo.origin).authorSignature);
-
         case TdApi.MessageForwardOriginHiddenUser.CONSTRUCTOR:
           return ((TdApi.MessageForwardOriginHiddenUser) a.forwardInfo.origin).senderName.equals(((TdApi.MessageForwardOriginHiddenUser) b.forwardInfo.origin).senderName);
-        case TdApi.MessageForwardOriginMessageImport.CONSTRUCTOR:
-          return StringUtils.equalsOrBothEmpty(((TdApi.MessageForwardOriginMessageImport) a.forwardInfo.origin).senderName, ((TdApi.MessageForwardOriginMessageImport) b.forwardInfo.origin).senderName);
+        default:
+          Td.assertMessageForwardOrigin_715b9732();
+          throw Td.unsupported(a.forwardInfo.origin);
       }
     }
     return false;
@@ -1508,13 +1510,15 @@ public class TD {
   }
 
   public static boolean canSendToSecretChat (TdApi.MessageContent content) {
-    Td.assertMessageContent_6479f6fc();
     //noinspection SwitchIntDef
     switch (content.getConstructor()) {
       case TdApi.MessagePoll.CONSTRUCTOR:
       case TdApi.MessageGame.CONSTRUCTOR:
       case TdApi.MessageStory.CONSTRUCTOR: {
         return false;
+      }
+      default: {
+        Td.assertMessageContent_cda9af31();
       }
     }
     return true;
@@ -3910,9 +3914,28 @@ public class TD {
         U.set(isTranslatable, true);
         return Lang.getString(R.string.ChatContentRoundVideo);
       }
-      case TdApi.MessageWebsiteConnected.CONSTRUCTOR: {
+      case TdApi.MessageBotWriteAccessAllowed.CONSTRUCTOR: {
         U.set(isTranslatable, true);
-        return Lang.getString(R.string.BotWebsiteAllowed, ((TdApi.MessageWebsiteConnected) m.content).domainName);
+        TdApi.BotWriteAccessAllowReason reason = ((TdApi.MessageBotWriteAccessAllowed) m.content).reason;
+        switch (reason.getConstructor()) {
+          case TdApi.BotWriteAccessAllowReasonConnectedWebsite.CONSTRUCTOR: {
+            TdApi.BotWriteAccessAllowReasonConnectedWebsite connectedWebsite = (TdApi.BotWriteAccessAllowReasonConnectedWebsite) reason;
+            return Lang.getString(R.string.BotWebappAllowed, connectedWebsite.domainName);
+          }
+          case TdApi.BotWriteAccessAllowReasonAddedToAttachmentMenu.CONSTRUCTOR:
+            return Lang.getString(R.string.BotAttachAllowed);
+          case TdApi.BotWriteAccessAllowReasonLaunchedWebApp.CONSTRUCTOR: {
+            TdApi.BotWriteAccessAllowReasonLaunchedWebApp launchedWebApp = (TdApi.BotWriteAccessAllowReasonLaunchedWebApp) reason;
+            return Lang.getString(R.string.BotWebappAllowed, launchedWebApp.webApp.title);
+          }
+          case TdApi.BotWriteAccessAllowReasonAcceptedRequest.CONSTRUCTOR: {
+            return Lang.getString(R.string.BotAppAllowed);
+          }
+          default: {
+            Td.assertBotWriteAccessAllowReason_d7597302();
+            throw Td.unsupported(reason);
+          }
+        }
       }
       case TdApi.MessageSticker.CONSTRUCTOR: {
         U.set(isTranslatable, true);
@@ -4193,13 +4216,12 @@ public class TD {
       case TdApi.MessageForumTopicEdited.CONSTRUCTOR:
       case TdApi.MessageForumTopicIsClosedToggled.CONSTRUCTOR:
       case TdApi.MessageForumTopicIsHiddenToggled.CONSTRUCTOR:
-      case TdApi.MessageBotWriteAccessAllowed.CONSTRUCTOR:
       case TdApi.MessageChatShared.CONSTRUCTOR:
       case TdApi.MessageSuggestProfilePhoto.CONSTRUCTOR:
       case TdApi.MessageUserShared.CONSTRUCTOR:
       case TdApi.MessageStory.CONSTRUCTOR:
       default: {
-        Td.assertMessageContent_6479f6fc();
+        Td.assertMessageContent_cda9af31();
         U.set(isTranslatable, true);
         return Lang.getString(R.string.UnsupportedMessage);
       }
@@ -6956,7 +6978,6 @@ public class TD {
       case TdApi.MessagePaymentSuccessfulBot.CONSTRUCTOR:
       case TdApi.MessagePinMessage.CONSTRUCTOR:
       case TdApi.MessageVenue.CONSTRUCTOR:
-      case TdApi.MessageWebsiteConnected.CONSTRUCTOR:
       case TdApi.MessageUnsupported.CONSTRUCTOR:
       case TdApi.MessageProximityAlertTriggered.CONSTRUCTOR:
       case TdApi.MessageInviteVideoChatParticipants.CONSTRUCTOR:
@@ -6977,7 +6998,7 @@ public class TD {
       case TdApi.MessageStory.CONSTRUCTOR:
         break;
       default:
-        Td.assertMessageContent_6479f6fc();
+        Td.assertMessageContent_cda9af31();
         // not critical, not crashing
         break;
     }
@@ -7430,7 +7451,7 @@ public class TD {
       case TdApi.MessageExpiredVideo.CONSTRUCTOR:
         return true;
       default:
-        Td.assertMessageContent_6479f6fc();
+        Td.assertMessageContent_cda9af31();
         break;
     }
     return false;
