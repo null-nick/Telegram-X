@@ -29,8 +29,8 @@ import android.text.TextPaint;
 
 import androidx.annotation.ColorInt;
 import androidx.annotation.Nullable;
-import androidx.annotation.UiThread;
 import androidx.annotation.Px;
+import androidx.annotation.UiThread;
 import androidx.collection.SparseArrayCompat;
 
 import org.thunderdog.challegram.U;

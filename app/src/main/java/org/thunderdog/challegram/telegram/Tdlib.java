@@ -48,6 +48,7 @@ import org.thunderdog.challegram.component.dialogs.ChatView;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.data.AvatarPlaceholder;
+import org.thunderdog.challegram.data.ContentPreview;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.data.TGMessage;
 import org.thunderdog.challegram.data.TGReaction;
@@ -3421,30 +3422,35 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     }
   }
 
-  public int mainChatListPosition () {
-    synchronized (dataLock) {
-      return mainChatListPosition;
-    }
-  }
-
   public int chatFoldersCount () {
     synchronized (dataLock) {
       return chatFolders.length;
     }
   }
 
-  public TdApi.ChatFolderInfo[] chatFolderInfos () {
+  public TdApi.ChatFolderInfo[] chatFolders () {
     synchronized (dataLock) {
       return chatFolders;
     }
   }
 
- public @Nullable TdApi.ChatFolderInfo chatFolderInfo (int chatFolderId) {
+  public int mainChatListPosition () {
     synchronized (dataLock) {
-      return chatFoldersById.get(chatFolderId);
+      return mainChatListPosition;
     }
   }
 
+  public TdApi.ChatFolderInfo chatFolderInfo (int chatFolderId) {
+    synchronized (dataLock) {
+      if (chatFolders != null) {
+        for (TdApi.ChatFolderInfo filter : chatFolders) {
+          if (filter.id == chatFolderId)
+            return filter;
+        }
+      }
+    }
+    return null;
+  }
   public boolean hasFolders () {
     synchronized (dataLock) {
       return chatFolders != null && chatFolders.length > 0;
@@ -7211,7 +7217,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
             matchedLanguageLevel = 2;
           } else if (diceEmoji.equals(builtinLanguageEmoji)) {
             matchedLanguageLevel = 1;
-          } else if (diceEmoji.equals(TD.EMOJI_DICE.textRepresentation)) {
+          } else if (diceEmoji.equals(ContentPreview.EMOJI_DICE.textRepresentation)) {
             stickerValue = 1;
           } else if (diceEmoji.equals(numberEmoji)) {
             stickerValue = value;
@@ -7241,13 +7247,13 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     explicitDice = animatedDiceExplicit.find(Lang.getBuiltinLanguageEmoji());
     if (explicitDice != null)
       return explicitDice;
-    explicitDice = animatedDiceExplicit.find(TD.EMOJI_DICE.textRepresentation);
+    explicitDice = animatedDiceExplicit.find(ContentPreview.EMOJI_DICE.textRepresentation);
     return explicitDice;
   }
 
   @Nullable
   public TdApi.DiceStickers findDiceEmoji (String emoji, int value, TdApi.DiceStickers defaultValue) {
-    if (TD.EMOJI_DICE.textRepresentation.equals(emoji)) {
+    if (ContentPreview.EMOJI_DICE.textRepresentation.equals(emoji)) {
       TdApi.Sticker explicitDice = findExplicitDiceEmoji(value);
       if (explicitDice != null)
         return new TdApi.DiceStickersRegular(explicitDice);
@@ -8775,7 +8781,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
 
     account().storeCounter(chatList, counter, false);
     context.incrementBadgeCounters(chatList, unreadMessageCount - oldUnreadCount, unreadUnmutedCount - oldUnreadUnmutedCount, false);
-    listeners().notifyMessageCountersChanged(chatList, unreadMessageCount, unreadUnmutedCount);
+    listeners().notifyMessageCountersChanged(chatList, counter, unreadMessageCount, unreadUnmutedCount);
 
     return true;
   }
@@ -8796,7 +8802,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     if (counter.setChatCounters(totalCount, unreadChatCount, unreadUnmutedCount, markedAsUnreadCount, markedAsUnreadUnmutedCount)) {
       account().storeCounter(chatList, counter, true);
       context.incrementBadgeCounters(chatList, unreadChatCount - oldUnreadCount, unreadUnmutedCount - oldUnreadUnmutedCount, true);
-      listeners().notifyChatCountersChanged(chatList, (totalCount > 0) != (oldTotalChatCount > 0), totalCount, unreadChatCount, unreadUnmutedCount);
+      listeners().notifyChatCountersChanged(chatList, counter, (totalCount > 0) != (oldTotalChatCount > 0), totalCount, unreadChatCount, unreadUnmutedCount);
       return true;
     }
 
@@ -10903,11 +10909,11 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
 
   public CharSequence getDiceRestrictionText (TdApi.Chat chat, String emoji) {
     int disabledRes, restrictedRes, restrictedUntilRes;
-    if (TD.EMOJI_DART.textRepresentation.equals(emoji)) {
+    if (ContentPreview.EMOJI_DART.textRepresentation.equals(emoji)) {
       disabledRes = R.string.ChatDisabledDart;
       restrictedRes = R.string.ChatRestrictedDart;
       restrictedUntilRes = R.string.ChatRestrictedDartUntil;
-    } else if (TD.EMOJI_DICE.textRepresentation.equals(emoji)) {
+    } else if (ContentPreview.EMOJI_DICE.textRepresentation.equals(emoji)) {
       disabledRes = R.string.ChatDisabledDice;
       restrictedRes = R.string.ChatRestrictedDice;
       restrictedUntilRes = R.string.ChatRestrictedDiceUntil;
@@ -11184,14 +11190,11 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     if (chatIds.length == 0) {
       return;
     }
-    send(new TdApi.GetChatFolder(chatFolderId), (result) -> {
-      switch (result.getConstructor()) {
-        case TdApi.ChatFolder.CONSTRUCTOR:
-          addChatsToChatFolder(delegate, chatFolderId, (TdApi.ChatFolder) result, chatIds);
-          break;
-        case TdApi.Error.CONSTRUCTOR:
-          UI.showError(result);
-          break;
+    send(new TdApi.GetChatFolder(chatFolderId), (chatFolder, error) -> {
+      if (error != null) {
+        UI.showError(chatFolder);
+      } else {
+        addChatsToChatFolder(delegate, chatFolderId, chatFolder, chatIds);
       }
     });
   }
@@ -11226,13 +11229,12 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
         CharSequence text = Lang.getMarkdownString(delegate, R.string.ChatsInFolderLimitReached, chosenChatCountMax);
         UI.showCustomToast(text, Toast.LENGTH_LONG, 0);
       } else {
-        send(new TdApi.GetPremiumLimit(new TdApi.PremiumLimitTypeChatFolderChosenChatCount()), (result) -> {
+        send(new TdApi.GetPremiumLimit(new TdApi.PremiumLimitTypeChatFolderChosenChatCount()), (premiumLimit, error) -> {
           CharSequence text;
-          if (result.getConstructor() == TdApi.PremiumLimit.CONSTRUCTOR) {
-            TdApi.PremiumLimit premiumLimit = (TdApi.PremiumLimit) result;
-            text = Lang.getMarkdownString(delegate, R.string.PremiumRequiredChatsInFolder, premiumLimit.defaultValue, premiumLimit.premiumValue);
-          } else {
+          if (error != null) {
             text = Lang.getMarkdownString(delegate, R.string.ChatsInFolderLimitReached, chosenChatCountMax);
+          } else {
+            text = Lang.getMarkdownString(delegate, R.string.PremiumRequiredChatsInFolder, premiumLimit.defaultValue, premiumLimit.premiumValue);
           }
           UI.showCustomToast(text, Toast.LENGTH_LONG, 0);
         });
@@ -11241,7 +11243,11 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     }
     chatFolder.includedChatIds = includedChatIds.toArray();
     chatFolder.excludedChatIds = ArrayUtils.removeAll(chatFolder.excludedChatIds, chatIds);
-    send(new TdApi.EditChatFolder(chatFolderId, chatFolder), TdApi.ChatFolderInfo.class);
+    send(new TdApi.EditChatFolder(chatFolderId, chatFolder), (chatFolderInfo, error) -> {
+      if (error != null) {
+        UI.showError(error);
+      }
+    });
   }
 
   public void removeChatFromChatFolder (int chatFolderId, long chatId) {
@@ -11292,6 +11298,10 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     chatFolder.pinnedChatIds = pinnedChatIds.get();
     chatFolder.includedChatIds = includedChatIds.toArray();
     chatFolder.excludedChatIds = excludedChatIds.toArray();
-    send(new TdApi.EditChatFolder(chatFolderId, chatFolder), TdApi.ChatFolderInfo.class);
+    send(new TdApi.EditChatFolder(chatFolderId, chatFolder), (chatFolderInfo, error) -> {
+      if (error != null) {
+        UI.showError(error);
+      }
+    });
   }
 }
