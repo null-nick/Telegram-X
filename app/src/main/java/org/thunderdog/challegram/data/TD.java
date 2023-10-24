@@ -5831,4 +5831,14 @@ public class TD {
   }
 
   public static final String[] ICON_NAMES = {"All", "Unread", "Unmuted", "Bots", "Channels", "Groups", "Private", "Custom", "Setup", "Cat", "Crown", "Favorite", "Flower", "Game", "Home", "Love", "Mask", "Party", "Sport", "Study", "Trade", "Travel", "Work", "Airplane", "Book", "Light", "Like", "Money", "Note", "Palette"};
+  public static boolean isStickerFromAnimatedEmojiPack (@Nullable TdApi.MessageContent content) {
+    if (content == null || content.getConstructor() != TdApi.MessageAnimatedEmoji.CONSTRUCTOR) {
+      return false;
+    }
+    return isStickerFromAnimatedEmojiPack(((TdApi.MessageAnimatedEmoji) content).animatedEmoji.sticker);
+  }
+
+  public static boolean isStickerFromAnimatedEmojiPack (@Nullable TdApi.Sticker sticker) {
+    return sticker != null && sticker.setId == TdConstants.TELEGRAM_ANIMATED_EMOJI_STICKER_SET_ID;
+  }
 }
