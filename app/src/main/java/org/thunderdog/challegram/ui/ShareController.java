@@ -930,7 +930,11 @@ public class ShareController extends TelegramViewController<ShareController.Args
 
   @Override
   public boolean accept (TdApi.Chat chat) {
-    return tdlib.chatAvailable(chat);
+    if (tdlib.chatAvailable(chat)) {
+      Tdlib.RestrictionStatus restrictionStatus = tdlib.getRestrictionStatus(chat, RightId.SEND_BASIC_MESSAGES);
+      return restrictionStatus == null || !restrictionStatus.isGlobal() || tdlib.canSendSendSomeMedia(chat, true);
+    }
+    return false;
   }
 
   @Override
@@ -1606,13 +1610,25 @@ public class ShareController extends TelegramViewController<ShareController.Args
     }
     final long chatId = chat.getAnyId();
 
+    final TGFoundChat finalChat = chat;
+    final RunnableBool after = (b) -> {
+      if (b) {
+        onFoundChatClickAfter(finalChat);
+      }
+    };
+
     if (!isChecked(chatId)) {
       if (processSingleTap(chat))
         return true;
-      if (!toggleChecked(view, chat, null))
+      if (!toggleChecked(view, chat, after))
         return true;
+    } else {
+      onFoundChatClickAfter(chat);
     }
+    return true;
+  }
 
+  private void onFoundChatClickAfter (TGFoundChat chat) {
     int i = adapter.indexOfViewByLongId(chat.getAnyId());
     if (i != -1) {
       View itemView = recyclerView.getLayoutManager().findViewByPosition(i);
@@ -1645,7 +1661,6 @@ public class ShareController extends TelegramViewController<ShareController.Args
         after.run();
       }
     }
-    return true;
   }
 
   @Override
