@@ -2922,7 +2922,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
               outRect.top -= Screen.dp(6);
             },
             Lang.getRelativeDate(
-              msg.editDate, TimeUnit.SECONDS,
+              getEditDate(), TimeUnit.SECONDS,
               tdlib.currentTimeMillis(), TimeUnit.MILLISECONDS,
               true, 60, R.string.message_edited, false
             ),
@@ -5183,6 +5183,20 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
   public void markAsUnread () {
     flags &= ~FLAG_VIEWED;
+  }
+
+  public int getEditDate () {
+    synchronized (this) {
+      if (combinedMessages != null && !combinedMessages.isEmpty()) {
+        int result = 0;
+        for (TdApi.Message message : combinedMessages) {
+          result = Math.max(result, message.editDate);
+        }
+        return result;
+      }
+    }
+
+    return msg.editDate;
   }
 
   public boolean isEdited () {
