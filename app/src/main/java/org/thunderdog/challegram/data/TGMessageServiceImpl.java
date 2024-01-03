@@ -44,6 +44,7 @@ import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibAccentColor;
 import org.thunderdog.challegram.telegram.TdlibEmojiManager;
 import org.thunderdog.challegram.telegram.TdlibSender;
+import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Paints;
@@ -67,7 +68,7 @@ import me.vkryl.core.ColorUtils;
 import me.vkryl.core.lambda.Filter;
 import me.vkryl.td.MessageId;
 
-abstract class TGMessageServiceImpl extends TGMessage {
+public abstract class TGMessageServiceImpl extends TGMessage {
   protected TGMessageServiceImpl (MessagesManager manager, TdApi.Message msg) {
     super(manager, msg);
   }
@@ -743,6 +744,10 @@ abstract class TGMessageServiceImpl extends TGMessage {
   }
 
   private static FormattedText[] parseFormatArgs (FormattedArgument... args) {
+    if (args == null) {
+      return new FormattedText[0];
+    }
+
     FormattedText[] formatArgs = new FormattedText[args.length];
     for (int i = 0; i < args.length; i++) {
       formatArgs[i] = args[i].buildArgument();
@@ -751,15 +756,18 @@ abstract class TGMessageServiceImpl extends TGMessage {
   }
 
   protected final FormattedText getText (@StringRes int resId, FormattedArgument... args) {
-    if (args == null || args.length == 0) {
+    return getText(tdlib, openParameters(), resId, parseFormatArgs(args));
+  }
+
+  public static FormattedText getText (Tdlib tdlib, TdlibUi.UrlOpenParameters urlOpenParameters, @StringRes int resId, FormattedText... formatArgs) {
+    if (formatArgs == null || formatArgs.length == 0) {
       return new FormattedText(Lang.getString(resId));
     }
-    FormattedText[] formatArgs = parseFormatArgs(args);
     CharSequence text = Lang.getString(resId,
       (target, argStart, argEnd, argIndex, needFakeBold) -> formatArgs[argIndex],
       (Object[]) formatArgs
     );
-    return toFormattedText(text);
+    return toFormattedText(text, tdlib, urlOpenParameters);
   }
 
   protected final FormattedText formatText (@NonNull String format, FormattedArgument... args) {
@@ -771,18 +779,21 @@ abstract class TGMessageServiceImpl extends TGMessage {
       (target, argStart, argEnd, argIndex, needFakeBold) -> formatArgs[argIndex],
       (Object[]) formatArgs
     );
-    return toFormattedText(text);
+    return toFormattedText(text, tdlib, openParameters());
   }
 
   protected final FormattedText getPlural (@StringRes int resId, long num, FormattedArgument... args) {
-    FormattedText[] formatArgs = parseFormatArgs(args);
+    return getPlural(tdlib, openParameters(), resId, num, parseFormatArgs(args));
+  }
+
+  public static FormattedText getPlural (Tdlib tdlib, TdlibUi.UrlOpenParameters urlOpenParameters, @StringRes int resId, long num, FormattedText... formatArgs) {
     CharSequence text = Lang.plural(resId, num,
       (target, argStart, argEnd, argIndex, needFakeBold) -> argIndex == 0 ?
         Lang.boldCreator().onCreateSpan(target, argStart, argEnd, argIndex, needFakeBold) :
         formatArgs[argIndex - 1],
       (Object[]) formatArgs
     );
-    return toFormattedText(text);
+    return toFormattedText(text, tdlib, urlOpenParameters);
   }
 
   protected final FormattedText getDuration (
@@ -822,7 +833,7 @@ abstract class TGMessageServiceImpl extends TGMessage {
     throw new IllegalArgumentException("duration == " + durationUnit.toMillis(duration));
   }
 
-  private FormattedText toFormattedText (CharSequence text) {
+  private static FormattedText toFormattedText (CharSequence text, Tdlib tdlib, TdlibUi.UrlOpenParameters urlOpenParameters) {
     final String string = text.toString();
     if (!(text instanceof Spanned)) {
       return new FormattedText(string);
@@ -862,7 +873,7 @@ abstract class TGMessageServiceImpl extends TGMessage {
               entityType[i]
             );
           }
-          TextEntity[] entities = TextEntity.valueOf(tdlib, string, telegramEntities, openParameters());
+          TextEntity[] entities = TextEntity.valueOf(tdlib, string, telegramEntities, urlOpenParameters);
           if (entities != null && entities.length > 0) {
             if (mixedEntities == null) {
               mixedEntities = new ArrayList<>();

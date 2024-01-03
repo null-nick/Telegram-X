@@ -17,11 +17,14 @@ package org.thunderdog.challegram.data;
 import android.graphics.Canvas;
 import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
+import android.text.style.ClickableSpan;
+import android.util.Log;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 
 import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.R;
@@ -36,22 +39,27 @@ import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.PorterDuffPaint;
 import org.thunderdog.challegram.tool.Screen;
-import org.thunderdog.challegram.tool.TGCountry;
+import org.thunderdog.challegram.util.CustomTypefaceSpan;
 import org.thunderdog.challegram.util.text.Counter;
+import org.thunderdog.challegram.util.text.FormattedText;
+import org.thunderdog.challegram.util.text.Text;
+import org.thunderdog.challegram.util.text.TextColorSet;
+import org.thunderdog.challegram.util.text.TextEntity;
+import org.thunderdog.challegram.util.text.TextEntityCustom;
+import org.thunderdog.challegram.util.text.TextPart;
+import org.thunderdog.challegram.util.text.TextWrapper;
 
-import java.util.concurrent.TimeUnit;
-
-import me.vkryl.core.StringUtils;
+import me.vkryl.td.MessageId;
 import me.vkryl.td.Td;
 
-public class TGMessageGiveaway extends TGMessageGiveawayBase implements TGInlineKeyboard.ClickListener {
+public class TGMessageGiveawayWinners extends TGMessageGiveawayBase implements TGInlineKeyboard.ClickListener {
   private final static int BLOCK_MARGIN = 18;
 
-  private final TdApi.MessagePremiumGiveaway giveawayContent;
+  private final TdApi.MessagePremiumGiveawayWinners giveawayWinners;
 
-  public TGMessageGiveaway (MessagesManager manager, TdApi.Message msg, @NonNull TdApi.MessagePremiumGiveaway giveawayContent) {
+  public TGMessageGiveawayWinners (MessagesManager manager, TdApi.Message msg, @NonNull TdApi.MessagePremiumGiveawayWinners giveawayWinners) {
     super(manager, msg);
-    this.giveawayContent = giveawayContent;
+    this.giveawayWinners = giveawayWinners;
   }
 
   private final RectF outlineCounterRect = new RectF();
@@ -65,54 +73,46 @@ public class TGMessageGiveaway extends TGMessageGiveawayBase implements TGInline
     content = new Content(maxWidth);
 
     content.padding(Screen.dp(30));
-    content.add(new ContentDrawable(R.drawable.baseline_gift_72));
+    content.add(new ContentDrawable(R.drawable.baseline_party_popper_72));
     participantsCounterY = content.getHeight() + Screen.dp(1.5f);
     content.padding(Screen.dp(35));
 
-    content.add(Lang.boldify(Lang.getString(R.string.GiveawayPrizes)), getTextColorSet(), currentViews);
+    String gvw = Lang.getString(R.string.Giveaway);
+    TextEntityCustom custom = new TextEntityCustom(controller(), tdlib, gvw, 0, gvw.length(), 0, openParameters());
+    custom.setCustomColorSet(getLinkColorSet());
+    custom.setOnClickListener(new ClickableSpan() {
+      @Override
+      public void onClick (@NonNull View widget) {
+        tdlib.ui().openMessage(controller(), giveawayWinners.boostedChatId, new MessageId(giveawayWinners.boostedChatId, giveawayWinners.giveawayMessageId), openParameters());
+      }
+    });
+    FormattedText gvwf = new FormattedText(gvw, new TextEntity[] {custom});
+
+    FormattedText formattedText = TGMessageServiceImpl.getPlural(tdlib, null, R.string.xGiveawayWinnersSelectedInfo, giveawayWinners.winnerCount, gvwf);
+    Text.Builder b = new Text.Builder(
+      formattedText, maxWidth,
+      getGiveawayTextStyleProvider(),
+      getTextColorSet(), null
+    ).viewProvider(currentViews).textFlags(Text.FLAG_ALIGN_CENTER);
+
+    content.add(Lang.boldify(Lang.getString(R.string.GiveawayWinnersSelected)), getTextColorSet(), currentViews);
     content.padding(Screen.dp(6));
-    if (!StringUtils.isEmpty(giveawayContent.parameters.prizeDescription)) {
-      content.add(Lang.getString(R.string.GiveawayPrizesAdditional, Lang.boldify(Integer.toString(giveawayContent.winnerCount)), giveawayContent.parameters.prizeDescription), getTextColorSet(), currentViews);
-      content.padding(Screen.dp(6));
-      content.add(Lang.getString(R.string.GiveawayPrizesWith), () -> Theme.getColor(ColorId.textLight), currentViews);
-      content.padding(Screen.dp(6));
-    }
-    content.add(Lang.pluralBold(R.string.xGiveawayPrizePremiumInfo, giveawayContent.winnerCount, giveawayContent.monthCount), getTextColorSet(), currentViews);
+    content.add(new ContentText(b.build()));
 
     content.padding(Screen.dp(BLOCK_MARGIN));
-    content.add(Lang.boldify(Lang.getString(R.string.GiveawayParticipants)), getTextColorSet(), currentViews);
-    content.padding(Screen.dp(6));
-    content.add(Lang.getString(giveawayContent.parameters.onlyNewMembers ? R.string.GiveawayParticipantsNew : R.string.GiveawayParticipantsAll), getTextColorSet(), currentViews);
+    content.add(Lang.boldify(Lang.getString(R.string.GiveawayWinners)), getTextColorSet(), currentViews);
     content.padding(Screen.dp(6));
     content.add(new ContentBubbles(this, maxWidth)
       .setOnClickListener(this::onBubbleClick)
-      .addChatId(giveawayContent.parameters.boostedChatId)
-      .addChatIds(giveawayContent.parameters.additionalChatIds));
-
-    if (giveawayContent.parameters.countryCodes.length > 0) {
-      StringBuilder sb = new StringBuilder();
-      for (String countryCode : giveawayContent.parameters.countryCodes) {
-        if (sb.length() > 0) {
-          sb.append(Lang.getConcatSeparator());
-        }
-        String[] info = TGCountry.instance().find(countryCode);
-        sb.append(info != null ? info[2] : countryCode);
-      }
-      content.padding(Screen.dp(6));
-      content.add(Lang.getString(R.string.GiveawayCountries, sb), getTextColorSet(), currentViews);
-    }
+      .addChatIds(giveawayWinners.winnerUserIds));
 
     content.padding(Screen.dp(BLOCK_MARGIN));
-    content.add(Lang.boldify(Lang.getString(R.string.GiveawayWinnersSelectionDateHeader)), getTextColorSet(), currentViews);
-    content.padding(Screen.dp(6));
-    content.add(Lang.getString(R.string.GiveawayWinnersSelectionDate,
-      Lang.dateYearFull(giveawayContent.parameters.winnersSelectionDate, TimeUnit.SECONDS),
-      Lang.time(giveawayContent.parameters.winnersSelectionDate, TimeUnit.SECONDS)), getTextColorSet(), currentViews);
+    content.add(Lang.getString(R.string.GiveawayAllWinnersReceivedLinks), getTextColorSet(), currentViews);
 
     /* * */
 
     participantsCounter = new Counter.Builder().allBold(true).textSize(11).noBackground().textColor(ColorId.text).build();
-    participantsCounter.setCount(giveawayContent.winnerCount, false, "x" + giveawayContent.winnerCount, false);
+    participantsCounter.setCount(giveawayWinners.winnerCount, false, "x" + giveawayWinners.winnerCount, false);
     backgroundCounterRect.set(
       maxWidth / 2f - participantsCounter.getWidth() / 2f - Screen.dp(8),
       participantsCounterY - Screen.dp(23 / 2f),
@@ -133,7 +133,7 @@ public class TGMessageGiveaway extends TGMessageGiveawayBase implements TGInline
 
   private void onBubbleClick (TdApi.MessageSender senderId) {
     tdlib.ui().openChat(controller(), Td.getSenderId(senderId), new TdlibUi.ChatOpenParameters()
-      .keepStack().removeDuplicates().openProfileInCaseOfPrivateChat().openProfileInCaseOfDuplicateChat());
+      .keepStack().removeDuplicates().openProfileInCaseOfPrivateChat());
   }
 
   @Override
