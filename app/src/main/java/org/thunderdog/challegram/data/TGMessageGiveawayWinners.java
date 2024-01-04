@@ -16,11 +16,8 @@ package org.thunderdog.challegram.data;
 
 import android.graphics.Canvas;
 import android.graphics.RectF;
-import android.graphics.drawable.Drawable;
 import android.text.style.ClickableSpan;
-import android.util.Log;
 import android.view.Gravity;
-import android.view.MotionEvent;
 import android.view.View;
 
 import androidx.annotation.NonNull;
@@ -35,19 +32,14 @@ import org.thunderdog.challegram.loader.ComplexReceiver;
 import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
-import org.thunderdog.challegram.tool.PorterDuffPaint;
 import org.thunderdog.challegram.tool.Screen;
-import org.thunderdog.challegram.util.CustomTypefaceSpan;
+import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.util.text.Counter;
 import org.thunderdog.challegram.util.text.FormattedText;
 import org.thunderdog.challegram.util.text.Text;
-import org.thunderdog.challegram.util.text.TextColorSet;
 import org.thunderdog.challegram.util.text.TextEntity;
 import org.thunderdog.challegram.util.text.TextEntityCustom;
-import org.thunderdog.challegram.util.text.TextPart;
-import org.thunderdog.challegram.util.text.TextWrapper;
 
 import me.vkryl.td.MessageId;
 import me.vkryl.td.Td;
@@ -70,7 +62,7 @@ public class TGMessageGiveawayWinners extends TGMessageGiveawayBase implements T
 
   @Override
   protected int onBuildContent (int maxWidth) {
-    content = new Content(maxWidth);
+    content = new Content(maxWidth - Screen.dp(CONTENT_PADDING_DP * 2));
 
     content.padding(Screen.dp(30));
     content.add(new ContentDrawable(R.drawable.baseline_party_popper_72));
@@ -90,7 +82,7 @@ public class TGMessageGiveawayWinners extends TGMessageGiveawayBase implements T
 
     FormattedText formattedText = TGMessageServiceImpl.getPlural(tdlib, null, R.string.xGiveawayWinnersSelectedInfo, giveawayWinners.winnerCount, gvwf);
     Text.Builder b = new Text.Builder(
-      formattedText, maxWidth,
+      formattedText, maxWidth - Screen.dp(CONTENT_PADDING_DP * 2),
       getGiveawayTextStyleProvider(),
       getTextColorSet(), null
     ).viewProvider(currentViews).textFlags(Text.FLAG_ALIGN_CENTER);
@@ -102,7 +94,7 @@ public class TGMessageGiveawayWinners extends TGMessageGiveawayBase implements T
     content.padding(Screen.dp(BLOCK_MARGIN));
     content.add(Lang.boldify(Lang.getString(R.string.GiveawayWinners)), getTextColorSet(), currentViews);
     content.padding(Screen.dp(6));
-    content.add(new ContentBubbles(this, maxWidth)
+    content.add(new ContentBubbles(this, maxWidth - Screen.dp(CONTENT_PADDING_DP * 2 + 60))
       .setOnClickListener(this::onBubbleClick)
       .addChatIds(giveawayWinners.winnerUserIds));
 
@@ -111,7 +103,7 @@ public class TGMessageGiveawayWinners extends TGMessageGiveawayBase implements T
 
     /* * */
 
-    participantsCounter = new Counter.Builder().allBold(true).textSize(11).noBackground().textColor(ColorId.text).build();
+    participantsCounter = new Counter.Builder().allBold(true).textSize(11).noBackground().textColor(ColorId.badgeText).build();
     participantsCounter.setCount(giveawayWinners.winnerCount, false, "x" + giveawayWinners.winnerCount, false);
     backgroundCounterRect.set(
       maxWidth / 2f - participantsCounter.getWidth() / 2f - Screen.dp(8),
@@ -132,6 +124,12 @@ public class TGMessageGiveawayWinners extends TGMessageGiveawayBase implements T
   }
 
   private void onBubbleClick (TdApi.MessageSender senderId) {
+    final long userId = Td.getSenderUserId(senderId);
+    if (userId != 0) {
+      tdlib.ui().openPrivateProfile(controller(), userId, openParameters());
+      return;
+    }
+
     tdlib.ui().openChat(controller(), Td.getSenderId(senderId), new TdlibUi.ChatOpenParameters()
       .keepStack().removeDuplicates().openProfileInCaseOfPrivateChat());
   }
@@ -155,7 +153,7 @@ public class TGMessageGiveawayWinners extends TGMessageGiveawayBase implements T
       final float cor = Math.min(outlineCounterRect.width(), outlineCounterRect.height()) / 2f;
       final float cbr = Math.min(backgroundCounterRect.width(), backgroundCounterRect.height()) / 2f;
       c.drawRoundRect(outlineCounterRect, cor, cor, Paints.fillingPaint(Theme.getColor(useBubbles() ? ColorId.filling : ColorId.background)));
-      c.drawRoundRect(backgroundCounterRect, cbr, cbr, Paints.fillingPaint(getCounterBackgroundColor()));
+      c.drawRoundRect(backgroundCounterRect, cbr, cbr, Paints.fillingPaint(Theme.getColor(ColorId.badge)));
       participantsCounter.draw(c, contentCenterX, participantsCounterY, Gravity.CENTER, 1f);
     }
 
@@ -164,7 +162,19 @@ public class TGMessageGiveawayWinners extends TGMessageGiveawayBase implements T
 
   @Override
   public void onClick (View view, TGInlineKeyboard keyboard, TGInlineKeyboard.Button button) {
+    loadPremiumGiveawayInfo();
+  }
 
+  @Override
+  protected void onPremiumGiveawayInfoLoaded (TdApi.PremiumGiveawayInfo result, @Nullable TdApi.Error error) {
+    super.onPremiumGiveawayInfoLoaded(result, error);
+    if (error != null) {
+      UI.showError(error);
+      return;
+    }
+    if (!isDestroyed()) {
+      showPremiumGiveawayInfoPopup(giveawayWinners.winnerCount, giveawayWinners.monthCount, giveawayWinners.boostedChatId, giveawayWinners.additionalChatCount, null, giveawayWinners.actualWinnersSelectionDate, giveawayWinners.prizeDescription);
+    }
   }
 
   @Override

@@ -22,6 +22,7 @@ import android.view.View;
 
 import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.core.Lang;
+import org.thunderdog.challegram.data.TGInlineKeyboard;
 import org.thunderdog.challegram.loader.ComplexReceiver;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.tool.Fonts;
@@ -30,6 +31,7 @@ import org.thunderdog.challegram.tool.Screen;
 import java.util.ArrayList;
 
 import me.vkryl.android.ViewUtils;
+import me.vkryl.android.util.ViewProvider;
 import me.vkryl.core.lambda.RunnableData;
 
 public class BubbleWrapView2 {
@@ -39,26 +41,30 @@ public class BubbleWrapView2 {
   static final float START_Y = 0f;
   static final float SPACING = 8f;
 
-  private ArrayList<BubbleView> bubbles;
+  private ArrayList<BubbleView2> bubbles;
 
   private final Tdlib tdlib;
+  private final ViewProvider viewProvider;
 
-  public BubbleWrapView2(Tdlib tdlib) {
+  public BubbleWrapView2(Tdlib tdlib, ViewProvider viewProvider) {
     this.tdlib = tdlib;
+    this.viewProvider = viewProvider;
 
     bubbles = new ArrayList<>(10);
     paint = new TextPaint(Paint.ANTI_ALIAS_FLAG | Paint.DITHER_FLAG | Paint.FILTER_BITMAP_FLAG);
     paint.setStyle(Paint.Style.FILL);
-    paint.setTypeface(Fonts.getRobotoRegular());
+    paint.setTypeface(Fonts.getRobotoMedium());
     paint.setTextSize(Screen.dp(14f));
   }
 
   public void addBubble (final TdApi.MessageSender senderId, int maxTextWidth) {
-    bubbles.add(new BubbleView(tdlib, paint, senderId, maxTextWidth));
+    BubbleView2 bubbleView2 = new BubbleView2(viewProvider, tdlib, paint, senderId, maxTextWidth);
+    bubbleView2.setOnClickListener(v -> completeTouch(v, senderId));
+    bubbles.add(bubbleView2);
   }
 
   public void requestFiles (ComplexReceiver complexReceiver) {
-    for (BubbleView v : bubbles) {
+    for (BubbleView2 v : bubbles) {
       v.requestFile(complexReceiver);
     }
   }
@@ -68,11 +74,8 @@ public class BubbleWrapView2 {
     if (length == 0) {
       return 0;
     } else {
-      BubbleView bubble = null;
-      while (length != 0 && (bubble = bubbles.get(length - 1)).isHiding()) {
-        length--;
-      }
-      return bubble.isHiding() ? 0 : bubble.getY() + bubble.getHeight();
+      BubbleView2 bubble = bubbles.get(length - 1);
+      return bubble.getY() + bubble.getHeight();
     }
   }
 
@@ -93,10 +96,7 @@ public class BubbleWrapView2 {
     float cy = Screen.dp(START_Y);
 
     for (int i = 0; i < length; i++) {
-      BubbleView bubble = bubbles.get(i);
-      if (bubble.isHiding()) {
-        continue;
-      }
+      BubbleView2 bubble = bubbles.get(i);
       if (cx + bubble.getWidth() > maxX) {
         cx = startX;
         cy = cy + bubble.getHeight() + add;
@@ -109,13 +109,13 @@ public class BubbleWrapView2 {
     int rw = 0;
     int oy = Screen.dp(START_Y);
     for (int i = 0; i < length; i++) {
-      final BubbleView bubble = bubbles.get(i);
+      final BubbleView2 bubble = bubbles.get(i);
       if (oy == bubble.getY()) {
         rw += bubble.getWidth();
       } else {
         rw += Screen.dp(SPACING * (i - rs - 1));
         for (int j = rs; j < i; j++) {
-          BubbleView b = bubbles.get(j);
+          BubbleView2 b = bubbles.get(j);
           b.setXY(b.getX() + ((width - rw) / 2), b.getY());
         }
         rw = bubble.getWidth();
@@ -126,7 +126,7 @@ public class BubbleWrapView2 {
     if (rw > 0) {
       rw += Screen.dp(SPACING * (bubbles.size() - rs - 1));
       for (int j = rs; j < bubbles.size(); j++) {
-        BubbleView b = bubbles.get(j);
+        BubbleView2 b = bubbles.get(j);
         b.setXY(b.getX() + ((width - rw) / 2), b.getY());
       }
     }
@@ -135,12 +135,9 @@ public class BubbleWrapView2 {
   private int lastX, lastY;
 
   public void draw (Canvas c, ComplexReceiver complexReceiver, int x, int y) {
-    c.save();
-    c.translate(lastX = x, lastY = y);
-    for (BubbleView view : bubbles) {
-      view.draw(c, complexReceiver, width);
+    for (BubbleView2 view : bubbles) {
+      view.draw(c, complexReceiver, width, lastX = x, lastY = y);
     }
-    c.restore();
   }
 
   public RunnableData<TdApi.MessageSender> onClickListener;
@@ -152,73 +149,62 @@ public class BubbleWrapView2 {
   // Touch
 
   private int caughtIndex = -1;
-  private int startX, startY;
 
-  private void clearTouch () {
-    caughtIndex = -1;
-  }
-
-  private void completeTouch (View v) {
+  private void completeTouch (View v, TdApi.MessageSender senderId) {
     ViewUtils.onClick(v);
     if (onClickListener != null) {
-      onClickListener.runWithData(bubbles.get(caughtIndex).getSenderId());
+      onClickListener.runWithData(senderId);
     }
   }
 
   public boolean onTouchEvent (View v, MotionEvent e) {
-    switch (e.getAction()) {
-      case MotionEvent.ACTION_DOWN: {
-        startX = (int) e.getX() - lastX;
-        startY = (int) e.getY() - lastY;
+    if (bubbles.isEmpty()) {
+      return false;
+    }
 
-        int spacing = (int) ((float) Screen.dp(SPACING) * .5f);
+    int x = Math.round(e.getX() - lastX);
+    int y = Math.round(e.getY() - lastY);
 
-        caughtIndex = -1;
+    if (e.getAction() == MotionEvent.ACTION_DOWN) {
+      caughtIndex = findButtonByPosition(x, y);
+    }
 
-        for (int i = 0; i < bubbles.size(); i++) {
-          BubbleView view = bubbles.get(i);
+    boolean result = caughtIndex != -1 && caughtIndex >= 0 && caughtIndex < bubbles.size() && bubbles.get(caughtIndex).onTouchEvent(v, e);
+    if (caughtIndex != -1 && (e.getAction() == MotionEvent.ACTION_CANCEL || e.getAction() == MotionEvent.ACTION_UP)) {
+      caughtIndex = -1;
+    }
+    return result;
+  }
 
-          int cx = view.getX();
-          int cy = view.getY();
-          int w = view.getWidth();
-          int h = view.getHeight();
+  private int findButtonByPosition (int x, int y) {
+    final int spacing = (int) ((float) Screen.dp(SPACING) * .5f);
 
-          if (Lang.rtl()) {
-            cx = width - cx - w;
-          }
+    for (int i = 0; i < bubbles.size(); i++) {
+      final BubbleView2 view = bubbles.get(i);
 
-          if (startX >= cx - spacing && startX < cx + w + spacing && startY >= cy - spacing && startY < cy + h + spacing) {
-            caughtIndex = i;
-            break;
-          }
-        }
+      int cx = view.getX();
+      int cy = view.getY();
+      int w = view.getWidth();
+      int h = view.getHeight();
 
-        return caughtIndex != -1;
+      if (Lang.rtl()) {
+        cx = width - cx - w;
       }
-      case MotionEvent.ACTION_CANCEL: {
-        if (caughtIndex != -1) {
-          clearTouch();
-        }
-        return true;
-      }
-      case MotionEvent.ACTION_MOVE: {
-        if (caughtIndex != -1) {
-          if (Math.abs(startX - e.getX()) > Screen.getTouchSlop() || Math.abs(startY - e.getY()) > Screen.getTouchSlop()) {
-            clearTouch();
-          }
-        }
-        return true;
-      }
-      case MotionEvent.ACTION_UP: {
-        if (caughtIndex != -1) {
-          completeTouch(v);
-          return true;
-        }
-        return false;
-      }
-      default: {
-        return false;
+
+      if (x >= cx - spacing && x < cx + w + spacing && y >= cy - spacing && y < cy + h + spacing) {
+        return i;
       }
     }
+    return -1;
+  }
+
+  public boolean performLongPress (View view) {
+    boolean result = false;
+    for (BubbleView2 button : bubbles) {
+      if (button.performLongPress(view)) {
+        result = true;
+      }
+    }
+    return result;
   }
 }
