@@ -5017,6 +5017,10 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     return CHAT_ACCESS_OK;
   }
 
+  public void toggleBroadcast (long chatId, Client.ResultHandler handler) {
+    client().send(new TdApi.ToggleSupergroupIsBroadcastGroup(chatId), handler);
+  }
+
   public void blockSender (TdApi.MessageSender sender, @Nullable TdApi.BlockList blockList, Client.ResultHandler handler) {
     client().send(new TdApi.SetMessageSenderBlockList(sender, blockList), handler);
   }
@@ -10679,6 +10683,26 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     return false;
   }
 
+  public boolean canConvertToBroadcast (long chatId) {
+    TdApi.ChatMemberStatus status = chatStatus(chatId);
+    if (isSupergroup(chatId)) {
+      if (status != null) {
+        switch (status.getConstructor()) {
+          case TdApi.ChatMemberStatusCreator.CONSTRUCTOR:
+            return true;
+          case TdApi.ChatMemberStatusAdministrator.CONSTRUCTOR:
+          case TdApi.ChatMemberStatusRestricted.CONSTRUCTOR:
+          case TdApi.ChatMemberStatusLeft.CONSTRUCTOR:
+          case TdApi.ChatMemberStatusBanned.CONSTRUCTOR:
+          case TdApi.ChatMemberStatusMember.CONSTRUCTOR:
+            break;
+        }
+      }
+    }
+    return false;
+  }
+
+
   public boolean isBroadcastGroup (long chatId) {
     TdApi.Supergroup supergroup = chatToSupergroup(chatId);
     return supergroup != null && supergroup.isBroadcastGroup;
@@ -11404,6 +11428,10 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
 
   public boolean isSettingSuggestion (TdApi.SuggestedAction action) {
     return action.getConstructor() == TdApi.SuggestedActionCheckPhoneNumber.CONSTRUCTOR || action.getConstructor() == TdApi.SuggestedActionCheckPassword.CONSTRUCTOR;
+  }
+
+  public boolean isBroadcastConvertSuggestion (TdApi.SuggestedAction action) {
+    return action.getConstructor() == TdApi.SuggestedActionConvertToBroadcastGroup.CONSTRUCTOR;
   }
 
   public int getSettingSuggestionCount () {
