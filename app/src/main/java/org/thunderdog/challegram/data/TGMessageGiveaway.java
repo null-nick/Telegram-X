@@ -27,7 +27,6 @@ import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.component.chat.MessageView;
 import org.thunderdog.challegram.component.chat.MessagesManager;
 import org.thunderdog.challegram.core.Lang;
-import org.thunderdog.challegram.loader.ComplexReceiver;
 import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
@@ -123,10 +122,6 @@ public class TGMessageGiveaway extends TGMessageGiveawayBase implements TGInline
 
   private void onBubbleClick (TdApi.MessageSender senderId) {
     tdlib.ui().openChat(controller(), Td.getSenderId(senderId), new TdlibUi.ChatOpenParameters().keepStack().removeDuplicates().openProfileInCaseOfPrivateChat().openProfileInCaseOfDuplicateChat());
-  }
-
-  @Override public void requestGiveawayAvatars (ComplexReceiver complexReceiver, boolean isUpdate) {
-    content.requestFiles(complexReceiver);
   }
 
   @Override protected void drawContent (MessageView view, Canvas c, int startX, int startY, int maxWidth) {
