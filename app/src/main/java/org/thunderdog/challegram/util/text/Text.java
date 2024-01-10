@@ -100,6 +100,7 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
   public static final int FLAG_NO_CLICKABLE = 1 << 18;
   public static final int FLAG_TRIM_END = 1 << 19;
   public static final int FLAG_NO_SPACING = 1 << 20;
+  public static final int FLAG_ALWAYS_BREAK = 1 << 21;
 
   private static final int FLAG_DESTROYED = 1 << 23;
   private static final int FLAG_IN_LONG_PRESS = 1 << 24;
@@ -663,6 +664,10 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
     return (textFlags & FLAG_ABORT_PROCESS) != 0;
   }
 
+  public void setTextFlag (int flag, boolean value) {
+    setTextFlags(BitwiseUtils.setFlag(textFlags, flag, value));
+  }
+
   public boolean setTextFlags (int flags) {
     if (this.textFlags != flags) {
       this.textFlags = flags;
@@ -844,7 +849,11 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
   }
 
   public void changeMaxWidth (int maxWidth) {
-    if (this.maxWidth != maxWidth) {
+    changeMaxWidth(maxWidth, false);
+  }
+
+  public void changeMaxWidth (int maxWidth, boolean force) {
+    if (this.maxWidth != maxWidth || force) {
       set(maxWidth, originalText, entities);
     }
   }
@@ -910,6 +919,13 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
       final int totalLength = in.length();
       for (int index = 0; index < totalLength; ) {
         int indexOfNewLine = in.indexOf('\n', index);
+        if (BitwiseUtils.hasFlag(textFlags, Text.FLAG_ALWAYS_BREAK)) {
+          int indexOfSpace = in.indexOf(' ', index); //indexOfSpace(in, index);
+          if (indexOfSpace != -1 && (indexOfSpace < indexOfNewLine || indexOfNewLine == -1)) {
+            indexOfNewLine = indexOfSpace;
+          }
+        }
+
         int length = indexOfNewLine == -1 ? totalLength - index : indexOfNewLine - index;
 
         processLine(in, index, index + length, out, emojiCallback);
@@ -986,6 +1002,7 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
       LinkedList<DiffMatchPatch.Diff> list = DiffMatchPatch.instance().diff_main(in, debug.toString());
       for (DiffMatchPatch.Diff diff : list) {
         if (!diff.operation.equals(DiffMatchPatch.Operation.EQUAL) && diff.text.trim().length() > 0) {
+          android.util.Log.i("WTF_DEBUG", "TEXT PARSING PROBABLY FAILED:\n" + diff.operation + ": " + diff.text + "\n" + in);
           UI.showToast("TEXT PARSING PROBABLY FAILED:\n" + diff.operation + ": " + diff.text + "\n" + in, Toast.LENGTH_LONG);
         }
       }
@@ -2084,11 +2101,33 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
     if (isDestroyed()) {
       return;
     }
+
+    final boolean useCenter = (textFlags & FLAG_ALIGN_CENTER) != 0;
+    final int searchX;
+
+    if (useCenter) {
+      int width = getLineWidth(part.getLineIndex());
+      int cx = lastStartX + maxWidth / 2;
+      int sx = cx - width / 2, ex = cx + width / 2;
+      searchX = part.makeX(sx, ex, 0) - lastStartX;
+    } else {
+      searchX = part.makeX(lastStartX, lastEndX, lastEndXBottomPadding) - lastStartX;
+    }
+
+    int px = searchX;
+    int py = part.getY() + getPartVerticalOffset(part);
+    int px1 = px + (int) part.getWidth();
+    int py1 = py + getPartHeight(part);
+
+    outRect.set(px, py, px1, py1);
+
+    /*
     outRect.set(0, part.getY(), getLineWidth(part.getLineIndex()), part.getY() + getLineHeight(part.getLineIndex()));
     if (getEntityCount() > 0) {
       outRect.left = part.getX();
       outRect.right = part.getX() + (int) part.getWidth();
     }
+    */
     TextEntity entity = part.getEntity();
     if (entity != null) {
       int i = parts.indexOf(part);
@@ -2104,8 +2143,8 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
         int bound = getBackgroundPadding(defaultTextColorSet, entity, compareMode != TextEntity.COMPARE_MODE_NORMAL, false);
         outRect.top -= bound;
         outRect.bottom += bound;
-        outRect.left = parts.get(start).getX();
-        outRect.right = parts.get(end).getX() + (int) parts.get(end).getWidth();
+        // outRect.left = parts.get(start).getX();
+        // outRect.right = parts.get(end).getX() + (int) parts.get(end).getWidth();
       }
     }
     outRect.offset(lastStartX, lastStartY);
