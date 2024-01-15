@@ -5022,6 +5022,9 @@
   <string name="ConvertToBroadcastGroupHint">You can convert your current group to a **Broadcast Group**.\n\nBroadcast Groups have no limit on the members but only admins can send messages.\n\n**This action cannot be undone.**</string>
   <string name="ConvertToBroadcastGroupConfirmHint">Members who are not admins will **permanently** lose their right to send messages in the group.\n\n**This action cannot be undone.**</string>
   <string name="ConvertToBroadcastGroupConfirm">Yes, I am sure, convert.</string>
+  <string name="ConvertToBroadcastGroupAlertTitle">Success</string>
+  <string name="ConvertToBroadcastGroupAlertText">Group \"%1$s\" was successfully converted to Broadcast Group.\n\nNow there is no limit on the members count but only admins can send messages.</string>
+  <string name="ConvertToBroadcastGroupAlertClose">Got it</string>
 
   <string name="GiveawayCongratulations">Congratulations</string>
   <string name="GiveawayUnclaimedPrize">Unclaimed Prize</string>
@@ -5097,8 +5100,8 @@
 
   <string name="GiveawayInfoOngoingPart1_one">This giveaway is sponsored by the admins of %2$s, who acquired %1$s Telegram Premium subscription for %3$s months for its followers.</string>
   <string name="GiveawayInfoOngoingPart1_other">This giveaway is sponsored by the admins of %2$s, who acquired %1$s Telegram Premium subscriptions for %3$s months for its followers.</string>
-  <string name="GiveawayInfoOngoingPart2_one">On %2$s, Telegram will automatically selected %1$s random user that joined %3$s.</string>
-  <string name="GiveawayInfoOngoingPart2_other">On %2$s, Telegram will automatically selected %1$s random users that joined %3$s.</string>
+  <string name="GiveawayInfoOngoingPart2_one">On %2$s, Telegram will automatically select %1$s random user that joined %3$s.</string>
+  <string name="GiveawayInfoOngoingPart2_other">On %2$s, Telegram will automatically select %1$s random users that joined %3$s.</string>
 
   <string name="GiveawayInfoPartExtended_one">%2$s also included %1$s %3$s with the prizes. The channel admins are responsible for delivering these prizes.</string>
   <string name="GiveawayInfoPartExtended_other">%2$s also included %1$s %3$s with the prizes. The channel admins are responsible for delivering these prizes.</string>
