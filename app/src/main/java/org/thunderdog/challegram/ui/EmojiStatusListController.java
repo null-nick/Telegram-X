@@ -51,11 +51,11 @@ import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.unsorted.Settings;
+import org.thunderdog.challegram.util.StickerSetsDataProvider;
 import org.thunderdog.challegram.util.StringList;
 import org.thunderdog.challegram.v.CustomRecyclerView;
 import org.thunderdog.challegram.v.RtlGridLayoutManager;
 import org.thunderdog.challegram.widget.EmojiLayout;
-import org.thunderdog.challegram.util.StickerSetsDataProvider;
 import org.thunderdog.challegram.widget.ForceTouchView;
 
 import java.util.ArrayList;
@@ -1386,11 +1386,11 @@ public class EmojiStatusListController extends ViewController<EmojiLayout> imple
           Lang.getString(R.string.SetEmojiAsStatusTimed2Days),
           Lang.getString(R.string.SetEmojiAsStatusTimedCustom)
         }, new int[] {
-          ViewController.OPTION_COLOR_NORMAL,
-          ViewController.OPTION_COLOR_NORMAL,
-          ViewController.OPTION_COLOR_NORMAL,
-          ViewController.OPTION_COLOR_NORMAL,
-          ViewController.OPTION_COLOR_NORMAL,
+          OptionColor.NORMAL,
+          OptionColor.NORMAL,
+          OptionColor.NORMAL,
+          OptionColor.NORMAL,
+          OptionColor.NORMAL,
         }, new int[] {
           R.drawable.baseline_access_time_24,
           R.drawable.baseline_access_time_24,

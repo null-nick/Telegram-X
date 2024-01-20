@@ -333,7 +333,8 @@ public class Settings {
   private static final String KEY_PUSH_REPORTED_ERROR = "push_reported_error";
   private static final String KEY_PUSH_REPORTED_ERROR_DATE = "push_reported_error_date";
   private static final String KEY_CRASH_DEVICE_ID = "crash_device_id";
-  public static final String KEY_IS_EMULATOR = "is_emulator";
+  private static final String KEY_IS_EMULATOR = "is_emulator";
+  private static final String KEY_EMULATOR_DETECTION_RESULT = "emulator";
 
   private static final @Deprecated String KEY_EMOJI_COUNTERS_OLD = "counters_v2";
   private static final @Deprecated String KEY_EMOJI_RECENTS_OLD = "recents_v2";
@@ -6207,10 +6208,64 @@ public class Settings {
     return pmc.getBoolean(KEY_IS_EMULATOR, false);
   }
 
-  public void markAsEmulator () {
-    if (!isEmulator()) {
+  public static class EmulatorDetectionResult {
+    public static final int FLAG_EMULATOR_DETECTED = 1;
+
+    public final long time, installationId, elapsed, flags;
+
+    public EmulatorDetectionResult (long time, long installationId, long elapsed, long flags) {
+      this.time = time;
+      this.installationId = installationId;
+      this.elapsed = elapsed;
+      this.flags = flags;
+    }
+
+    public boolean isDetected () {
+      return BitwiseUtils.hasFlag(flags, FLAG_EMULATOR_DETECTED);
+    }
+
+    public long[] toLongArray () {
+      return new long[] {
+        time,
+        installationId,
+        elapsed,
+        flags
+      };
+    }
+
+    public static EmulatorDetectionResult restore (long[] array) {
+      if (array == null || array.length != 4) {
+        return null;
+      }
+      return new EmulatorDetectionResult(
+        array[0],
+        array[1],
+        array[2],
+        array[3]
+      );
+    }
+  }
+
+  @Nullable
+  public EmulatorDetectionResult getLastEmulatorDetectionResult () {
+    long[] emulatorDetectionResult = pmc.getLongArray(KEY_EMULATOR_DETECTION_RESULT);
+    if (emulatorDetectionResult == null) {
+      return null;
+    }
+    return EmulatorDetectionResult.restore(emulatorDetectionResult);
+  }
+
+  public void trackEmulatorDetectionResult (long installationId, long elapsed, boolean isEmulator) {
+    EmulatorDetectionResult result = new EmulatorDetectionResult(
+      System.currentTimeMillis(),
+      installationId,
+      elapsed,
+      isEmulator ? EmulatorDetectionResult.FLAG_EMULATOR_DETECTED : 0
+    );
+    long[] data = result.toLongArray();
+    pmc.putLongArray(KEY_EMULATOR_DETECTION_RESULT, data);
+    if (isEmulator) {
       putBoolean(KEY_IS_EMULATOR, true);
-      TdlibManager.instance().setIsEmulator(true);
     }
   }
 
