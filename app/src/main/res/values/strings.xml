@@ -5154,13 +5154,6 @@
   <string name="GiveawayInfoClose">Close</string>
   <string name="GiveawayViewMyPrize">View my prize</string>
 
-  <string name="EmulatorWarning">You are running **Telegram X** on an **emulated device**.\n\n**Note**: if you don\'t have an **existing** Telegram account, you may need a **real device** to create it.\n\nIn case you see this warning on a real device (such as phone, tablet, etc), press **report issue**.</string>
-  <string name="EmulatorWarningTitle">Emulator detected</string>
-  <string name="EmulatorWarningBtnReport">Report issue</string>
-  <string name="EmulatorWarningBtnOk">Got it</string>
-  <string name="EmulatorWarningReport">**Note**: you will need **GitHub account** to report this issue.\n\nAlternatively you can copy the link and send it to tgx-android@pm.me</string>
-  <string name="EmulatorWarningReportBtn">Report on GitHub</string>
-
   <string name="AddFolderWithXChats_one">Add Folder with %1$s chat</string>
   <string name="AddFolderWithXChats_other">Add Folder with %1$s chats</string>
   <string name="AddFolderAndJoinXChats_one">Add Folder and Join %1$s chat</string>
@@ -5200,14 +5193,11 @@
   <string name="ThisChatCantBeShared">This chat can’t be shared</string>
   <string name="ArchiveAsFolder">Archive as Folder</string>
   <string name="HoldAndDragToReorder">Hold and drag to reorder</string>
-<<<<<<< HEAD
   <string name="EmulatorWarning">You are running **Telegram X** on an **emulated device**.\n\n**Note**: if you don\'t have an **existing** Telegram account, you may need a **real device** to create it.\n\nIn case you see this warning on a real device (such as phone, tablet, etc), press **report issue**.</string>
   <string name="EmulatorWarningTitle">Emulator detected</string>
   <string name="EmulatorWarningBtnReport">Report issue</string>
   <string name="EmulatorWarningBtnOk">Got it</string>
   <string name="EmulatorWarningReport">**Note**: you will need **GitHub account** to report this issue.\n\nAlternatively you can copy the link and send it to tgx-android@pm.me</string>
   <string name="EmulatorWarningReportBtn">Report on GitHub</string>
-=======
->>>>>>> nikita/chat-folders
 
 </resources>
