@@ -1912,8 +1912,6 @@
   <string name="JoinChat">Join Chat</string>
   <string name="JoinXChats_one">Join %1$s chat</string>
   <string name="JoinXChats_other">Join %1$s chats</string>
-  <string name="NoChatsToJoin">No chats to join</string>
-  <string name="SelectChatsToJoin">Select chats to join</string>
   <string name="RequestJoinChannel">Request to Join Channel</string>
   <string name="RequestJoinGroup">Request to Join Group</string>
   <string name="MemberCanJoinGroup">%1$s will be able to return to the group.</string>
@@ -3905,9 +3903,6 @@
   <string name="SelectAll">Select All</string>
   <string name="SelectUnread">Select Unread</string>
   <string name="SelectMuted">Select Muted</string>
-
-  <string name="HeaderActionSelectAll">Select all</string>
-  <string name="HeaderActionDeselectAll">Deselect all</string>
 
   <string name="ClearXHistoriesConfirm_one">Are you sure you want to clear history in %1$s chat?</string>
   <string name="ClearXHistoriesConfirm_other">Are you sure you want to clear history in %1$s chats?</string>
