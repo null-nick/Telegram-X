@@ -12185,6 +12185,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       if (result instanceof InlineResultCommon) {
         ((InlineResultCommon) result).setNeedCloseButton(true);
         ((InlineResultCommon) result).setClickHelper(new ClickHelper(getAttachedFilesClickHelperDelegate()));
+        ((InlineResultCommon) result).rebuildLayout();
       }
     }
 
