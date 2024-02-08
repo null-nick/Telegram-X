@@ -2067,8 +2067,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
           return;
         }
 
-        sendFiles(sendButton, files, needGroupAttachedFiles, true, !musicEntries.isEmpty() && !files.isEmpty() ? null : caption, sendOptions);
-        sendMusic(sendButton, musicEntries, needGroupAttachedFiles, true, caption, sendOptions);
+        sendFiles(sendButton, files, true, true, !musicEntries.isEmpty() && !files.isEmpty() ? null : caption, sendOptions);
+        sendMusic(sendButton, musicEntries, true, true, caption, sendOptions);
         discardAttachedFiles(true);
         if (inputView != null) {
           inputView.setInput("", false, true);
@@ -12148,7 +12148,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private InlineResultsWrap attachedFiles;
-  private boolean needGroupAttachedFiles;
   private ClickHelper.Delegate attachedFilesClickHelperDelegate;
 
   private ClickHelper.Delegate getAttachedFilesClickHelperDelegate () {
@@ -12176,7 +12175,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     return attachedFilesClickHelperDelegate;
   }
 
-  public void setFilesToAttach (ArrayList<InlineResult<?>> results, boolean needGroupMedia) {
+  public void setFilesToAttach (ArrayList<InlineResult<?>> results) {
     if (results == null || results.isEmpty()) {
       discardAttachedFiles(true);
       return;
@@ -12230,7 +12229,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
       contentView.addView(attachedFiles);
     }
 
-    needGroupAttachedFiles = needGroupMedia;
     attachedFiles.showItems(this, results, false, null, null, null, !isFocused());
     checkAttachedFiles(true);
   }
