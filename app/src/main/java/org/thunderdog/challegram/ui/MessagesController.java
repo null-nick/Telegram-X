@@ -8438,6 +8438,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
         emojiLayout = new EmojiLayout(context());
         emojiLayout.initWithMediasEnabled(this, true, this, this, false);
         emojiLayout.setAllowPremiumFeatures(isSelfChat());
+        emojiLayout.setAllowMedia(!hasAttachedFiles());
         bottomWrap.addView(emojiLayout);
         if (inputView != null) {
           textFormattingLayout = new TextFormattingLayout(context(), this, inputView);
@@ -12116,6 +12117,9 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
     setCustomCaptionPlaceholder(hasAttachedFiles ? Lang.getString(R.string.Caption) : null);
     checkSendButton(animated);
+    if (emojiLayout != null) {
+      emojiLayout.setAllowMedia(!hasAttachedFiles);
+    }
 
     if (animated) {
       attachedFilesHeight.animateTo(height);
