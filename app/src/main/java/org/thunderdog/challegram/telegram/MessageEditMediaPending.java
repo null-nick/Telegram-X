@@ -1,10 +1,12 @@
 package org.thunderdog.challegram.telegram;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.data.TD;
 import org.thunderdog.challegram.loader.ImageFile;
+import org.thunderdog.challegram.loader.ImageGalleryFile;
 
 import me.vkryl.td.ChatId;
 
@@ -20,9 +22,9 @@ public class MessageEditMediaPending implements TdlibEditMediaManager.UploadFutu
   public final TdApi.InputMessageContent content;
   private final TdlibEditMediaManager.UploadFuture inputFileFuture;
   private final @Nullable TdlibEditMediaManager.UploadFuture inputFileThumbnailFuture;
-  private final @Nullable ImageFile preview;
+  private final @NonNull ImageFile preview;
 
-  MessageEditMediaPending (Tdlib tdlib, long chatId, long messageId, TdApi.InputMessageContent content, @Nullable ImageFile preview) {
+  MessageEditMediaPending (Tdlib tdlib, long chatId, long messageId, TdApi.InputMessageContent content, @NonNull ImageFile preview) {
     this.chatId = chatId;
     this.messageId = messageId;
     this.content = content;
@@ -44,33 +46,70 @@ public class MessageEditMediaPending implements TdlibEditMediaManager.UploadFutu
     }
   }
 
+  public boolean isPhoto () {
+    return content.getConstructor() == TdApi.InputMessagePhoto.CONSTRUCTOR;
+  }
+
+  public boolean isWebp () {
+    return preview.isWebp();
+  }
+
+  public TdApi.Photo getPhoto () {
+    if (content.getConstructor() != TdApi.InputMessagePhoto.CONSTRUCTOR) {
+      throw new IllegalStateException();
+    }
+    TdApi.InputMessagePhoto photo = (TdApi.InputMessagePhoto) content;
+
+    return new TdApi.Photo(photo.addedStickerFileIds != null && photo.addedStickerFileIds.length > 0, null, new TdApi.PhotoSize[]{
+      new TdApi.PhotoSize("i", inputFileFuture.file, photo.width, photo.height, null)
+    });
+  }
+
   public boolean isVideo () {
     return content.getConstructor() == TdApi.InputMessageVideo.CONSTRUCTOR;
   }
 
-  public int width () {
-    switch (content.getConstructor()) {
-      case TdApi.InputMessagePhoto.CONSTRUCTOR:
-        return ((TdApi.InputMessagePhoto) content).width;
-      case TdApi.InputMessageVideo.CONSTRUCTOR:
-        return ((TdApi.InputMessageVideo) content).width;
-      case TdApi.InputMessageAnimation.CONSTRUCTOR:
-        return ((TdApi.InputMessageAnimation) content).width;
-      default:
-        return 0;
+  public TdApi.Video getVideo () {
+    if (content.getConstructor() != TdApi.InputMessageVideo.CONSTRUCTOR) {
+      throw new IllegalStateException();
     }
+    TdApi.InputMessageVideo video = (TdApi.InputMessageVideo) content;
+
+    return new TdApi.Video(video.duration, video.width, video.height, "",
+      ((ImageGalleryFile) preview).getVideoMimeType(),
+      video.addedStickerFileIds != null && video.addedStickerFileIds.length > 0, video.supportsStreaming, null,
+      inputFileThumbnailFuture != null ?
+        new TdApi.Thumbnail(new TdApi.ThumbnailFormatJpeg(), video.thumbnail.width, video.thumbnail.height, inputFileThumbnailFuture.file) : null,
+      inputFileFuture.file);
   }
 
-  public int height () {
+  public boolean isAnimation () {
+    return content.getConstructor() == TdApi.InputMessageAnimation.CONSTRUCTOR;
+  }
+
+  public TdApi.Animation getAnimation () {
+    if (content.getConstructor() != TdApi.InputMessageAnimation.CONSTRUCTOR) {
+      throw new IllegalStateException();
+    }
+    TdApi.InputMessageAnimation animation = (TdApi.InputMessageAnimation) content;
+
+    return new TdApi.Animation(animation.duration, animation.width, animation.height, "",
+      ((ImageGalleryFile) preview).getVideoMimeType(), animation.addedStickerFileIds != null && animation.addedStickerFileIds.length > 0, null,
+      inputFileThumbnailFuture != null ?
+        new TdApi.Thumbnail(new TdApi.ThumbnailFormatJpeg(), animation.thumbnail.width, animation.thumbnail.height, inputFileThumbnailFuture.file) : null,
+      inputFileFuture.file);
+  }
+
+  public boolean hasSpoiler () {
     switch (content.getConstructor()) {
       case TdApi.InputMessagePhoto.CONSTRUCTOR:
-        return ((TdApi.InputMessagePhoto) content).height;
+        return ((TdApi.InputMessagePhoto) content).hasSpoiler;
       case TdApi.InputMessageVideo.CONSTRUCTOR:
-        return ((TdApi.InputMessageVideo) content).height;
+        return ((TdApi.InputMessageVideo) content).hasSpoiler;
       case TdApi.InputMessageAnimation.CONSTRUCTOR:
-        return ((TdApi.InputMessageAnimation) content).height;
+        return ((TdApi.InputMessageAnimation) content).hasSpoiler;
       default:
-        return 0;
+        return false;
     }
   }
 
@@ -81,17 +120,26 @@ public class MessageEditMediaPending implements TdlibEditMediaManager.UploadFutu
     }
   }
 
-  private TdApi.File file;
+  private boolean fileCreated;
+  private boolean thumbCreated;
 
   @Override
   public void onFileUpdate (int id, long fileId, TdApi.File file) {
-    if (id == FUTURE_ID_MAIN) {
-      if (this.file == null) {
-        callback.onMediaPreliminaryUploadStart(this, file);
-      }
-      this.file = file;
+    boolean needUpdate = false;
+
+    if (id == FUTURE_ID_MAIN && !fileCreated) {
+      fileCreated = true;
+      needUpdate = true;
     }
-    // ?
+
+    if (id == FUTURE_ID_THUMB && !thumbCreated) {
+      thumbCreated = true;
+      needUpdate = true;
+    }
+
+    if (needUpdate && inputFileFuture.file != null && (inputFileThumbnailFuture == null || inputFileThumbnailFuture.file != null)) {
+      callback.onMediaPreliminaryUploadStart(this, inputFileFuture.file);
+    }
   }
 
   @Override
@@ -99,8 +147,14 @@ public class MessageEditMediaPending implements TdlibEditMediaManager.UploadFutu
     checkStatus();
   }
 
+  private boolean failed;
+
   @Override
   public void onFail (int id, boolean isCanceled) {
+    if (failed) {
+      return;
+    }
+    failed = true;
     cancel();
     callback.onMediaPreliminaryUploadFailed(this, isCanceled);
   }
@@ -111,11 +165,6 @@ public class MessageEditMediaPending implements TdlibEditMediaManager.UploadFutu
 
   public TdApi.File getFile () {
     return inputFileFuture.file;
-  }
-
-  @Nullable
-  public ImageFile getPreviewFile () {
-    return preview;
   }
 
   private void checkStatus () {
