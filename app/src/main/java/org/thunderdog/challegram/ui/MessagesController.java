@@ -427,19 +427,19 @@ public class MessagesController extends ViewController<MessagesController.Argume
     } else if (viewId == R.id.btn_sendOnceOnline) {
       TdApi.MessageSendOptions sendOptions = Td.newSendOptions(new TdApi.MessageSchedulingStateSendWhenOnline());
       if (!sendShowingVoice(sendButton, sendOptions)) {
-        sendText(true, sendOptions);
+        send(sendOptions, true);
       }
     } else if (viewId == R.id.btn_sendScheduled) {
       tdlib.ui().pickSchedulingState(this, sendOptions -> {
         if (!sendShowingVoice(sendButton, sendOptions)) {
-          sendText(true, sendOptions);
+          send(sendOptions, true);
         }
       }, getChatId(), false, false, null, null);
     } else if (viewId == R.id.btn_sendNoMarkdown) {
       if (isEditingMessage()) {
         saveMessage(false);
       } else {
-        pickDateOrProceed(Td.newSendOptions(), (sendOptions, disableMarkdown) -> sendText(false, sendOptions));
+        pickDateOrProceed(Td.newSendOptions(), (sendOptions, disableMarkdown) -> send(sendOptions, false));
       }
     } else if (viewId == R.id.btn_sendToast) {
       TdApi.FormattedText newText = inputView.getOutputText(true);
@@ -448,7 +448,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     } else if (viewId == R.id.btn_sendNoSound) {
       pickDateOrProceed(Td.newSendOptions(true), (modifiedSendOptions, disableMarkdown) -> {
         if (!sendShowingVoice(sendButton, modifiedSendOptions)) {
-          sendText(true, modifiedSendOptions);
+          send(modifiedSendOptions, true);
         }
       });
     }
@@ -2039,7 +2039,10 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private void send (TdApi.MessageSendOptions sendOptions) {
-    final boolean applyMarkdown = true;
+    send(sendOptions, true);
+  }
+
+  private void send (TdApi.MessageSendOptions sendOptions, boolean applyMarkdown) {
     if (!sendShowingVoice(sendButton, sendOptions)) {
       if (isEditingMessage()) {
         saveMessage(applyMarkdown);
@@ -2820,6 +2823,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     updateBottomBar(false);
 
     closeCommandsKeyboard(false);
+    discardAttachedFiles(false);
 
     if (previewSearchSender == null) {
       manager.openChat(chat, messageThread, previewSearchFilter, this, areScheduled, !inPreviewMode && !isInForceTouchMode());
@@ -2981,6 +2985,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     checkRoundVideo();
     checkInlineResults();
     checkBroadcastingSomeAction();
+    checkAttachedFiles(false);
     if (pinnedMessagesBar != null) {
       pinnedMessagesBar.setAnimationsDisabled(!isFocused());
     }
@@ -3990,7 +3995,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
   private void saveDraft () {
     if (canSaveDraft()) {
-      if (isEditingMessage() || hasAttachedFiles()) {
+      if (isEditingMessage()) {
         // TODO save local draft
       } else if (inputView != null && inputView.textChangedSinceChatOpened() && isFocused()) {
         final TdApi.FormattedText outputText = inputView.getOutputText(false);
@@ -4013,6 +4018,9 @@ public class MessagesController extends ViewController<MessagesController.Argume
           messageThreadId,
           !Td.isEmpty(draftMessage) ? draftMessage : null
         ), tdlib.okHandler());
+        if (hasAttachedFiles()) {
+          // TODO save local draft ?
+        }
       }
     }
   }
@@ -6904,7 +6912,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
     needShowEmojiKeyboardAfterHideMessageOptions = false;
     saveDraft();
-    // discardAttachedFiles(true);
 
     if (inSelectMode()) {
       finishSelectMode(-1);
@@ -6915,6 +6922,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     this.editContext = new MessageInputContext(this, tdlib, msg);
     TdApi.FormattedText text = Td.textOrCaption(msg.content);
     setInEditMode(true, text.text);
+    checkAttachedFiles(true);
     sendButton.setIsActive(!StringUtils.isEmpty(text.text) || isEditingCaption());
     updateReplyBarVisibility(true);
     if (inputView != null) {
@@ -6938,6 +6946,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     }
     setInEditMode(false, "");
     editContext = null;
+    checkAttachedFiles(true);
     if (inputView != null) {
       updateSendButton(inputView.getInput(), true);
     }
@@ -9166,7 +9175,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private void checkSendButton (boolean animated) {
-    setSendVisible(inputView.getText().length() > 0 || isEditingMessage() || hasAttachedFiles() || isVoiceShowing, animated && getParentOrSelf().isAttachedToNavigationController());
+    setSendVisible(inputView != null && inputView.getText().length() > 0 || isEditingMessage() || hasAttachedFiles() || isVoiceShowing, animated && getParentOrSelf().isAttachedToNavigationController());
   }
 
   private void displaySendButton () {
@@ -9237,6 +9246,9 @@ public class MessagesController extends ViewController<MessagesController.Argume
   private final BoolAnimator sendShown = new BoolAnimator(ANIMATOR_SEND, this, AnimatorUtils.DECELERATE_INTERPOLATOR, 150l);
 
   private void setSendVisible (boolean isVisible, boolean animated) {
+    if (isVisible && sendButton != null && sendButton.getVisibility() != View.VISIBLE) { // fix
+      displaySendButton();
+    }
     if (this.sendShown.getValue() != isVisible || !animated) {
       hideBottomHint();
       if (!sendShown.isAnimating()) {
@@ -11124,7 +11136,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   @Override
   protected void onEnterSearchMode () {
     super.onEnterSearchMode();
-    discardAttachedFiles(true);
+    checkAttachedFiles(true);
     manager.onPrepareToSearch();
     if (searchByUserViewWrapper != null) {
       searchByUserViewWrapper.prepare();
@@ -11153,6 +11165,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   @Override
   protected void onAfterLeaveSearchMode () {
     super.onAfterLeaveSearchMode();
+    checkAttachedFiles(true);
     resetSearchControls(true);
     if (searchByUserViewWrapper != null) {
       searchByUserViewWrapper.dismiss();
@@ -12120,6 +12133,10 @@ public class MessagesController extends ViewController<MessagesController.Argume
     final boolean hasAttachedFiles = hasAttachedFiles();
     final float height = hasAttachedFiles ? attachedFiles.getMinItemsHeight() : 0;
 
+    if (attachedFiles != null) {
+      attachedFiles.setHidden(!hasAttachedFiles, animated);
+    }
+
     setCustomCaptionPlaceholder(hasAttachedFiles ? Lang.getString(R.string.Caption) : null);
     checkSendButton(animated);
     if (emojiLayout != null) {
@@ -12134,18 +12151,22 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private float getAttachedFilesOffset () {
-    return attachedFilesHeight.getFactor();
+    return attachedFilesHeight.getFactor() * (1f - getSearchTransformFactor());
   }
 
   public boolean hasAttachedFiles () {
-    return attachedFiles != null && attachedFiles.isDisplayingItems();
+    return !needHideAttachedFiles() && attachedFiles != null && attachedFiles.isDisplayingItems();
   }
 
-  public void discardAttachedFiles (boolean animated) {
+  private void discardAttachedFiles (boolean animated) {
     if (attachedFiles != null) {
       attachedFiles.showItems(this, null, false, null, null, null, !isFocused());
       checkAttachedFiles(animated);
     }
+  }
+
+  private boolean needHideAttachedFiles () {
+    return inSearchMode() || !isFocused() || isEditingMessage();
   }
 
   @Override
@@ -12239,7 +12260,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       contentView.addView(attachedFiles);
     }
 
-    attachedFiles.showItems(this, results, false, null, null, null, !isFocused());
+    attachedFiles.showItems(this, results, false, null, null, null, needHideAttachedFiles());
     checkAttachedFiles(true);
   }
 }
