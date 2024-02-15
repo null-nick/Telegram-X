@@ -2985,7 +2985,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
     checkRoundVideo();
     checkInlineResults();
     checkBroadcastingSomeAction();
-    checkAttachedFiles(false);
     if (pinnedMessagesBar != null) {
       pinnedMessagesBar.setAnimationsDisabled(!isFocused());
     }
@@ -9175,7 +9174,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private void checkSendButton (boolean animated) {
-    setSendVisible(inputView != null && inputView.getText().length() > 0 || isEditingMessage() || hasAttachedFiles() || isVoiceShowing, animated && getParentOrSelf().isAttachedToNavigationController());
+    setSendVisible(inputView.getText().length() > 0 || isEditingMessage() || hasAttachedFiles() || isVoiceShowing, animated && getParentOrSelf().isAttachedToNavigationController());
   }
 
   private void displaySendButton () {
@@ -12138,7 +12137,9 @@ public class MessagesController extends ViewController<MessagesController.Argume
     }
 
     setCustomCaptionPlaceholder(hasAttachedFiles ? Lang.getString(R.string.Caption) : null);
-    checkSendButton(animated);
+    if (inputView != null) {
+      checkSendButton(animated);
+    }
     if (emojiLayout != null) {
       emojiLayout.setAllowMedia(!hasAttachedFiles);
     }
@@ -12166,7 +12167,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private boolean needHideAttachedFiles () {
-    return inSearchMode() || !isFocused() || isEditingMessage();
+    return inSearchMode() || isEditingMessage();
   }
 
   @Override
@@ -12178,6 +12179,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private InlineResultsWrap attachedFiles;
+  private CustomItemAnimator attachedFilesAnimator;
   private ClickHelper.Delegate attachedFilesClickHelperDelegate;
 
   private ClickHelper.Delegate getAttachedFilesClickHelperDelegate () {
@@ -12196,7 +12198,12 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
           Object tag = view.getTag();
           if (tag instanceof InlineResult<?>) {
+            if (attachedFiles.getRecyclerView().getItemAnimator() == null) {
+              attachedFiles.getRecyclerView().setItemAnimator(attachedFilesAnimator);
+            }
+
             attachedFiles.removeItem((InlineResult<?>) tag);
+            scheduleRemoveAttachedFilesAnimator();
             checkAttachedFiles(true);
           }
         }
@@ -12205,7 +12212,27 @@ public class MessagesController extends ViewController<MessagesController.Argume
     return attachedFilesClickHelperDelegate;
   }
 
-  public void setFilesToAttach (ArrayList<InlineResult<?>> results) {
+  private Runnable attachedFilesAnimatorRemoveRunnable;
+
+  private void scheduleRemoveAttachedFilesAnimator () {
+    if (attachedFilesAnimatorRemoveRunnable != null) {
+      UI.cancel(attachedFilesAnimatorRemoveRunnable);
+    }
+    attachedFilesAnimatorRemoveRunnable = this::removeAttachedFilesAnimator;
+    UI.post(attachedFilesAnimatorRemoveRunnable, 500);
+  }
+
+  private void removeAttachedFilesAnimator () {
+    attachedFilesAnimatorRemoveRunnable = null;
+    final RecyclerView recyclerView = attachedFiles.getRecyclerView();
+    if (recyclerView.getItemAnimator() != null && recyclerView.getItemAnimator().isRunning()) {
+      scheduleRemoveAttachedFilesAnimator();
+      return;
+    }
+    recyclerView.setItemAnimator(null);
+  }
+
+  public void setFilesToAttach (ArrayList<InlineResult<?>> results, boolean needShowKeyboard) {
     if (results == null || results.isEmpty()) {
       discardAttachedFiles(true);
       return;
@@ -12240,7 +12267,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
           return top;
         }
       };
-      attachedFiles.getRecyclerView().setItemAnimator(new CustomItemAnimator(AnimatorUtils.DECELERATE_INTERPOLATOR, 150L));
+      attachedFilesAnimator = new CustomItemAnimator(AnimatorUtils.DECELERATE_INTERPOLATOR, 150L);
+      attachedFiles.getRecyclerView().setItemAnimator(null);
       attachedFiles.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
       attachedFiles.setOffsetProvider(new InlineResultsWrap.OffsetProvider() {
         @Override
@@ -12262,5 +12290,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
     attachedFiles.showItems(this, results, false, null, null, null, needHideAttachedFiles());
     checkAttachedFiles(true);
+    if (inputView != null && needShowKeyboard) {
+      showKeyboard();
+    }
   }
 }

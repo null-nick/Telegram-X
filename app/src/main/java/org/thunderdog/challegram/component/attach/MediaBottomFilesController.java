@@ -127,7 +127,7 @@ public class MediaBottomFilesController extends MediaBottomBaseController<Void> 
           }
           UI.post(() -> {
             if (mediaLayout.getTarget() != null && mediaLayout.getTarget().isFocused()) {
-              mediaLayout.getTarget().setFilesToAttach(results);
+              mediaLayout.getTarget().setFilesToAttach(results, false);
               mediaLayout.hide(false);
             }
           });
@@ -244,7 +244,7 @@ public class MediaBottomFilesController extends MediaBottomBaseController<Void> 
         final String environmentPath = baseExternalDir.getPath();
         final boolean isRemovable = Environment.isExternalStorageRemovable();
         StatFs fs = new StatFs(environmentPath);
-        String text = Lang.getString(R.string.FreeXofY, Strings.buildSize(U.getFreeMemorySize(fs)), Strings.buildSize(U.getTotalMemorySize(fs)));
+        String text = Lang.getString(R.string.FreeXofY, Strings.buildSize(StorageUtils.freeMemorySize(fs)), Strings.buildSize(StorageUtils.totalMemorySize(fs)));
         InlineResultCommon internalStorage = new InlineResultCommon(context, tdlib, KEY_FOLDER + environmentPath, ColorId.fileAttach, isRemovable ? R.drawable.baseline_sd_storage_24 : R.drawable.baseline_storage_24, Lang.getString(isRemovable ? R.string.SdCard : R.string.InternalStorage), text).setDisableProgressInteract(true);
         items.add(createItem(internalStorage, R.id.btn_internalStorage));
       }
@@ -1027,7 +1027,7 @@ public class MediaBottomFilesController extends MediaBottomBaseController<Void> 
     final int id = view.getId();
     if (id == R.id.btn_addCaption) {
       if (mediaLayout.getTarget() != null) {
-        mediaLayout.getTarget().setFilesToAttach(new ArrayList<>(selectedItems));
+        mediaLayout.getTarget().setFilesToAttach(new ArrayList<>(selectedItems), true);
         mediaLayout.hide(false);
       }
     }
@@ -1054,7 +1054,7 @@ public class MediaBottomFilesController extends MediaBottomBaseController<Void> 
           selectItem(item, result);
         } else {
           if (mediaLayout.getTarget() != null) {
-            mediaLayout.getTarget().setFilesToAttach(new ArrayList<>(Collections.singleton(result)));
+            mediaLayout.getTarget().setFilesToAttach(new ArrayList<>(Collections.singleton(result)), false);
             mediaLayout.hide(false);
           }
         }
