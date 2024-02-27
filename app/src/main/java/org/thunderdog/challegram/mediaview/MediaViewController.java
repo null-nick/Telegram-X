@@ -5488,6 +5488,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
           ImageView imageView = new ImageView(context);
           imageView.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
           imageView.setImageResource(getResId(
+            AvatarPickerMode.NONE,
             R.drawable.baseline_arrow_upward_18,
             R.drawable.dot_baseline_account_circle_18,
             R.drawable.dot_baseline_group_circle_18,
@@ -5500,7 +5501,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
           lp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
           lp.leftMargin = Screen.dp(6f);
 
-          final int textRes = getResId(0, R.string.ProfilePhoto, R.string.GroupPhoto, R.string.ChannelPhoto);
+          final int textRes = getResId(R.string.ProfilePhoto, R.string.GroupPhoto, R.string.ChannelPhoto, 0,0);
           TextView textView = new NoScrollTextView(context);
           textView.setTextColor(0xaaffffff);
           textView.setSingleLine(true);
