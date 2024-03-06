@@ -37,6 +37,8 @@ import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Strings;
 import org.thunderdog.challegram.tool.UI;
 import org.thunderdog.challegram.tool.Views;
+import org.thunderdog.challegram.util.text.bidi.BiDiEntity;
+import org.thunderdog.challegram.util.text.bidi.BiDiUtils;
 
 import me.vkryl.core.BitwiseUtils;
 import me.vkryl.core.ColorUtils;
@@ -49,24 +51,23 @@ public class TextPart {
   private final Text source;
   private String line;
   private @Nullable TextEntity entity;
-  private @Nullable Text.DirectionEntity directionEntity;
 
   private int flags;
   private int x, y;
   private int start, end;
   private float width;
   private int height = -1;
+  private @BiDiEntity int bidiEntity;
 
   private final int lineIndex, paragraphIndex;
 
-  public TextPart (Text source, String line, int start, int end, int lineIndex, int paragraphIndex, @Nullable Text.DirectionEntity directionEntity) {
+  public TextPart (Text source, String line, int start, int end, int lineIndex, int paragraphIndex) {
     this.source = source;
     this.line = line;
     this.start = start;
     this.end = end;
     this.lineIndex = lineIndex;
     this.paragraphIndex = paragraphIndex;
-    this.directionEntity = directionEntity;
   }
 
   public TooltipOverlayView.TooltipBuilder newTooltipBuilder (View view) {
@@ -108,12 +109,16 @@ public class TextPart {
     this.entity = entity;
   }
 
-  public @Nullable TextEntity getEntity () {
-    return entity;
+  public void setBidiEntity (@BiDiEntity int bidiEntity) {
+    this.bidiEntity = bidiEntity;
   }
 
-  public @Nullable Text.DirectionEntity getDirectionEntity () {
-    return directionEntity;
+  public @BiDiEntity int getBidiEntity () {
+    return bidiEntity;
+  }
+
+  public @Nullable TextEntity getEntity () {
+    return entity;
   }
 
   public float getWidth () {
@@ -324,7 +329,7 @@ public class TextPart {
   }
 
   public boolean wouldMergeWithNextPart (TextPart part) {
-    return part != null && part != this && emojiInfo == null && part.emojiInfo == null && media == null && part.media == null && trimmedLine == null && part.trimmedLine == null && this.y == part.y && line == part.line && end == part.start && isSameEntity(part.entity) && directionEntity == part.directionEntity && requiresTopLayer() == part.requiresTopLayer();
+    return part != null && part != this && emojiInfo == null && part.emojiInfo == null && media == null && part.media == null && trimmedLine == null && part.trimmedLine == null && this.y == part.y && line == part.line && end == part.start && isSameEntity(part.entity) && bidiEntity == part.bidiEntity && requiresTopLayer() == part.requiresTopLayer();
   }
 
   @NonNull
@@ -457,19 +462,28 @@ public class TextPart {
       drawEmoji(c, x, y, textPaint, alpha);
     } else {
       final int textY = y + source.getAscent(textSize) + textPaint.baselineShift;
-      if (DEBUG) {
-        if (color == 0 && directionEntity != null) {
+      if (DEBUG && BiDiUtils.isValid(bidiEntity)) {
+        if (color == 0) {
           // color = ColorUtils.alphaColor(0.5f, ColorUtils.hslToRgb((float) Math.random(), 0.5f, 0.5f));
           // color = ColorUtils.alphaColor(0.5f, ColorUtils.hslToRgb(directionEntity.paragraphIndex / 6f, 0.5f, 0.5f));
-          color = directionEntity.direction == Strings.DIRECTION_RTL ? 0x400000FF : (directionEntity.direction == Strings.DIRECTION_LTR ? 0x40FF0000 : 0);
+          color = BiDiUtils.isRtl(bidiEntity) ? 0x400000FF : 0x40FF0000;
         }
         c.drawRect(x, textY - Screen.dp(16), x + width, textY, Paints.fillingPaint(color));
         c.drawRect(x, textY - Screen.dp(16), x + width, textY, Paints.strokeSmallPaint(0xFF000000));
       }
-      if (trimmedLine != null) {
-        c.drawText(trimmedLine, x, textY, textPaint);
+
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M && BiDiUtils.isValid(bidiEntity)) {
+        if (trimmedLine != null) {
+          c.drawTextRun(trimmedLine, 0, trimmedLine.length(), 0, trimmedLine.length(), x, textY, BiDiUtils.isRtl(bidiEntity), textPaint);
+        } else {
+          c.drawTextRun(line, start, end, start, end, x, textY, BiDiUtils.isRtl(bidiEntity), textPaint);
+        }
       } else {
-        c.drawText(line, start, end, x, textY, textPaint);
+        if (trimmedLine != null) {
+          c.drawText(trimmedLine, x, textY, textPaint);
+        } else {
+          c.drawText(line, start, end, x, textY, textPaint);
+        }
       }
     }
   }
