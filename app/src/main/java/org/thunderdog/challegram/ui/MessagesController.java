@@ -2851,6 +2851,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       inputView.setChat(chat, messageThread, getCustomInputPlaceholder(), silentButton != null && silentButton.getIsSilent());
     }
     ignoreDraftLoad = false;
+    discardAttachedFiles(false);
     updateBottomBar(false);
 
     closeCommandsKeyboard(false);
