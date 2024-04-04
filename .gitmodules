@@ -103,11 +103,6 @@
 	url = https://github.com/TGX-Android/webrtc
 	shallow = true
 	branch = main
-[submodule "pffft"]
-	path = app/jni/third_party/pffft
-	url = https://github.com/TGX-Android/pffft
-	shallow = true
-	branch = main
 [submodule "tgcalls"]
 	path = app/jni/third_party/tgcalls
 	url = https://github.com/TGX-Android/tgcalls
