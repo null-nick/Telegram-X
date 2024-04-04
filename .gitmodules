@@ -93,6 +93,7 @@
 	path = app/jni/third_party/openh264
 	url = https://github.com/cisco/openh264
 	shallow = true
+	branch = v2.4.1
 [submodule "abseil"]
 	path = app/jni/third_party/abseil-cpp
 	url = https://github.com/abseil/abseil-cpp
@@ -100,11 +101,6 @@
 [submodule "webrtc"]
 	path = app/jni/third_party/webrtc
 	url = https://github.com/TGX-Android/webrtc
-	shallow = true
-	branch = main
-[submodule "webrtc_rnnoise"]
-	path = app/jni/third_party/webrtc_deps/third_party/rnnoise
-	url = https://github.com/TGX-Android/rnnoise
 	shallow = true
 	branch = main
 [submodule "pffft"]
@@ -125,10 +121,5 @@
 [submodule "crc32c"]
 	path = app/jni/third_party/crc32c
 	url = https://github.com/google/crc32c
-	shallow = true
-	branch = main
-[submodule "rnnoise"]
-	path = app/jni/third_party/rnnoise
-	url = https://github.com/xiph/rnnoise
 	shallow = true
 	branch = main
