@@ -123,6 +123,11 @@
 	url = https://github.com/google/crc32c
 	shallow = true
 	branch = main
+[submodule "rnnoise"]
+	path = app/jni/third_party/rnnoise
+	url = https://github.com/xiph/rnnoise
+	shallow = true
+	branch = master
 [submodule "rtc_base"]
 	path = app/jni/third_party/webrtc_deps/base
 	url = https://chromium.googlesource.com/chromium/src/base
