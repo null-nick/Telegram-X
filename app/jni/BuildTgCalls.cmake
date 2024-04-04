@@ -97,8 +97,14 @@ target_link_libraries(tgcalls PUBLIC
 
 set(TGCALLS_LIB "tgcallsjni")
 
-# "${THIRDPARTY_DIR}/webrtc_deps"
-# "${WEBRTC_BASE_DIR}/android/build_info.cc"
+# SDK 26+
+# "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/aaudio_player.cc"
+# "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/aaudio_recorder.cc"
+# "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/aaudio_wrapper.cc"\
+
+# libaom, dav1d:
+# "${WEBRTC_DIR}/sdk/android/src/jni/libaom_av1_encoder.cc"
+# "${WEBRTC_DIR}/sdk/android/src/jni/dav1d_codec.cc"
 
 add_library(${TGCALLS_LIB} SHARED
   tgvoip.cpp
@@ -114,12 +120,15 @@ add_library(${TGCALLS_LIB} SHARED
   "${WEBRTC_DIR}/sdk/android/native_api/video/wrapper.cc"
   "${WEBRTC_DIR}/sdk/android/native_api/network_monitor/network_monitor.cc"
 
+  "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/audio_device_module.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/audio_record_jni.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/audio_track_jni.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/java_audio_device_module.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/opensles_common.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/opensles_player.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/opensles_recorder.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/jni_generator_helper.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/jni_helpers.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/jvm.cc"
+
+  "${WEBRTC_DIR}/sdk/android/src/jni/logging/log_sink.cc"
 
   "${WEBRTC_DIR}/sdk/android/src/jni/pc/add_ice_candidate_observer.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/pc/audio.cc"
@@ -151,44 +160,45 @@ add_library(${TGCALLS_LIB} SHARED
   "${WEBRTC_DIR}/sdk/android/src/jni/pc/turn_customizer.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/pc/video.cc"
 
-  "${WEBRTC_DIR}/sdk/android/native_api/jni/class_loader.cc"
-  "${WEBRTC_DIR}/sdk/android/native_api/jni/java_types.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/egl_base_10_impl.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/android_video_track_source.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/android_network_monitor.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/java_i420_buffer.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/jni_common.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/builtin_audio_decoder_factory_factory.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/builtin_audio_encoder_factory_factory.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/android_histogram.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/android_metrics.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/h264_utils.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/android_network_monitor.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/android_video_track_source.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/builtin_audio_decoder_factory_factory.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/builtin_audio_encoder_factory_factory.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/egl_base_10_impl.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/encoded_image.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/java_audio_device_module.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/h264_utils.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/java_i420_buffer.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/jni_common.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/jni_generator_helper.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/jni_helpers.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/jvm.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/native_capturer_observer.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/nv12_buffer.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/nv21_buffer.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/video_codec_status.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/scoped_java_ref_counted.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/software_video_decoder_factory.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/software_video_encoder_factory.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/timestamp_aligner.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/audio_device_module.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/audio_record_jni.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/audio_track_jni.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/logging/log_sink.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/native_capturer_observer.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/video_codec_info.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/video_codec_status.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/video_decoder_factory_wrapper.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/video_decoder_fallback.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/video_decoder_wrapper.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/video_encoder_factory_wrapper.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/video_encoder_fallback.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/video_encoder_wrapper.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/video_frame.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/video_sink.cc"
+  "${WEBRTC_DIR}/sdk/android/src/jni/video_track.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/vp8_codec.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/vp9_codec.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/wrapped_native_i420_buffer.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/yuv_helper.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/video_track.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/video_encoder_fallback.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/video_decoder_wrapper.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/video_encoder_factory_wrapper.cc"
-  "${WEBRTC_DIR}/sdk/android/src/jni/video_encoder_wrapper.cc"
+
+  "${WEBRTC_DIR}/sdk/android/native_api/jni/class_loader.cc"
+  "${WEBRTC_DIR}/sdk/android/native_api/jni/java_types.cc"
 )
 target_include_directories(${TGCALLS_LIB} PRIVATE
   "${WEBRTC_DIR}/generated"
