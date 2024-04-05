@@ -4,12 +4,12 @@ set(WEBRTC_DIR "${THIRDPARTY_DIR}/webrtc")
 set(WEBRTC_BASE_DIR "${THIRDPARTY_DIR}/webrtc_deps/base")
 
 # Commit Telegram X currently relies on:
-# https://github.com/ali-fareed/webrtc/tree/9f535bc11e3fd19909eb3de2f5c0836c1e3f83f4
+# https://github.com/ali-fareed/webrtc/tree/e3dfe44d1aea15a1aabded19d71884412e772245
 # Origin:
-# https://github.com/TelegramMessenger/Telegram-iOS/tree/cb79afd6e87deb03582a0af7bc6a5b3e1479cf51/third-party/webrtc
+# https://github.com/TelegramMessenger/Telegram-iOS/tree/ae3ee3d063df2dcde868a50aa6a6bbc8cfd8c63f/third-party/webrtc
 
 # Source files list:
-# https://github.com/TelegramMessenger/Telegram-iOS/blob/cb79afd6e87deb03582a0af7bc6a5b3e1479cf51/third-party/webrtc/BUILD
+# https://github.com/TelegramMessenger/Telegram-iOS/blob/ae3ee3d063df2dcde868a50aa6a6bbc8cfd8c63f/third-party/webrtc/BUILD
 
 #"${WEBRTC_DIR}/rtc_base/socket_address.h"
 #"${WEBRTC_DIR}/rtc_base/arraysize.h"
