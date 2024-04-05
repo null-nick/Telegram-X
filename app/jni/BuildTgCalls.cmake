@@ -100,7 +100,7 @@ set(TGCALLS_LIB "tgcallsjni")
 # SDK 26+
 # "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/aaudio_player.cc"
 # "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/aaudio_recorder.cc"
-# "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/aaudio_wrapper.cc"\
+# "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/aaudio_wrapper.cc"
 
 # libaom, dav1d:
 # "${WEBRTC_DIR}/sdk/android/src/jni/libaom_av1_encoder.cc"
@@ -113,12 +113,19 @@ add_library(${TGCALLS_LIB} SHARED
   "${WEBRTC_DIR}/sdk/android/native_api/base/init.cc"
   "${WEBRTC_DIR}/sdk/android/native_api/codecs/wrapper.cc"
 
+  "${WEBRTC_DIR}/sdk/android/native_api/jni/application_context_provider.cc"
+  "${WEBRTC_DIR}/sdk/android/native_api/jni/class_loader.cc"
+  "${WEBRTC_DIR}/sdk/android/native_api/jni/java_types.cc"
   "${WEBRTC_DIR}/sdk/android/native_api/jni/jvm.cc"
+
+  "${WEBRTC_DIR}/sdk/android/native_api/network_monitor/network_monitor.cc"
+
   "${WEBRTC_DIR}/sdk/android/native_api/peerconnection/peer_connection_factory.cc"
+
   "${WEBRTC_DIR}/sdk/android/native_api/stacktrace/stacktrace.cc"
+
   "${WEBRTC_DIR}/sdk/android/native_api/video/video_source.cc"
   "${WEBRTC_DIR}/sdk/android/native_api/video/wrapper.cc"
-  "${WEBRTC_DIR}/sdk/android/native_api/network_monitor/network_monitor.cc"
 
   "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/audio_device_module.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/audio_device/audio_record_jni.cc"
@@ -196,9 +203,6 @@ add_library(${TGCALLS_LIB} SHARED
   "${WEBRTC_DIR}/sdk/android/src/jni/vp9_codec.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/wrapped_native_i420_buffer.cc"
   "${WEBRTC_DIR}/sdk/android/src/jni/yuv_helper.cc"
-
-  "${WEBRTC_DIR}/sdk/android/native_api/jni/class_loader.cc"
-  "${WEBRTC_DIR}/sdk/android/native_api/jni/java_types.cc"
 )
 target_include_directories(${TGCALLS_LIB} PRIVATE
   "${WEBRTC_DIR}/generated"
