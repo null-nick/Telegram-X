@@ -919,6 +919,10 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
       return true;
     };
 
+    if (needUseGlobalBidiObject()) {
+      currentParagraphStart = 0;
+      currentParagraphBidi = new Bidi(in, Lang.rtl() ? Bidi.DIRECTION_DEFAULT_RIGHT_TO_LEFT : Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT);
+    }
     try {
       boolean prevIsNewLine = false;
       final int totalLength = in.length();
@@ -973,6 +977,7 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
       currentY += getCurrentLineHeight();
       paragraphCount++;
     } catch (LimitReachedException ignored) { }
+    currentParagraphBidi = null;
 
     int lineCount = out.isEmpty() ? 1 : out.get(out.size() - 1).getLineIndex() + 1;
     while (getLineCount() < lineCount) {
@@ -1169,6 +1174,10 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
     }
   }
 
+  private boolean needUseGlobalBidiObject () {
+    return BitwiseUtils.hasFlag(textFlags, FLAG_IGNORE_NEWLINES);
+  }
+
   private void fixPartsOrder (TextPart[] partsArray, byte[] partsLevels, int partStart, int partEnd) {
     if (partEnd - partStart < 2) {
       return;
@@ -1274,8 +1283,11 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
       return;
     }
 
-    currentParagraphStart = start;
-    currentParagraphBidi = new Bidi(in.substring(start, end), Lang.rtl() ? Bidi.DIRECTION_DEFAULT_RIGHT_TO_LEFT : Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT);
+    final boolean useGlobalBidi = needUseGlobalBidiObject();
+    if (!useGlobalBidi) {
+      currentParagraphStart = start;
+      currentParagraphBidi = new Bidi(in.substring(start, end), Lang.rtl() ? Bidi.DIRECTION_DEFAULT_RIGHT_TO_LEFT : Bidi.DIRECTION_DEFAULT_LEFT_TO_RIGHT);
+    }
 
     boolean first = true;
     boolean lastIsSpace = false;
@@ -1306,7 +1318,9 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
       processEntities(in, start + count, end, out, emojiCallback, false);
     }
 
-    currentParagraphBidi = null;
+    if (!useGlobalBidi) {
+      currentParagraphBidi = null;
+    }
   }
 
   private int findBidiRunEnd (int start) {
@@ -2609,7 +2623,7 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterAnimator.TextD
   }
 
   public void draw (Canvas c, int startX, int startY, @Nullable TextColorSet defaultTheme, @FloatRange(from = 0f, to = 1f) float alpha, ComplexReceiver receiver) {
-    draw(c, startX, startX/* + getWidth()*/, 0, startY, defaultTheme, alpha, receiver);
+    draw(c, startX, startX + getWidth(), 0, startY, defaultTheme, alpha, receiver);
   }
 
   public void draw (Canvas c, int startX, int endX, int endXBottomPadding, int startY, @Nullable TextColorSet defaultTheme, @FloatRange(from = 0f, to = 1f) float alpha) {
