@@ -5858,4 +5858,182 @@ public class TD {
 
     return content;
   }
+
+
+  public static void getTexts (ArrayList<TdApi.RichText> texts, TdApi.PageBlock[] blocks) {
+    for (TdApi.PageBlock block : blocks) {
+      getTexts(texts, block);
+    }
+  }
+
+
+  public static void getTexts (ArrayList<TdApi.RichText> texts, TdApi.PageBlock block) {
+    switch (block.getConstructor()) {
+      case TdApi.PageBlockTitle.CONSTRUCTOR: {
+        final TdApi.PageBlockTitle title = (TdApi.PageBlockTitle) block;
+        texts.add(title.title);
+        break;
+      }
+      case TdApi.PageBlockSubtitle.CONSTRUCTOR: {
+        final TdApi.PageBlockSubtitle subtitle = (TdApi.PageBlockSubtitle) block;
+        texts.add(subtitle.subtitle);
+        break;
+      }
+      case TdApi.PageBlockAuthorDate.CONSTRUCTOR: {
+        final TdApi.PageBlockAuthorDate authorDate = (TdApi.PageBlockAuthorDate) block;
+        texts.add(authorDate.author);
+        break;
+      }
+      case TdApi.PageBlockHeader.CONSTRUCTOR: {
+        final TdApi.PageBlockHeader header = (TdApi.PageBlockHeader) block;
+        texts.add(header.header);
+        break;
+      }
+      case TdApi.PageBlockSubheader.CONSTRUCTOR: {
+        final TdApi.PageBlockSubheader subheader = (TdApi.PageBlockSubheader) block;
+        texts.add(subheader.subheader);
+        break;
+      }
+      case TdApi.PageBlockKicker.CONSTRUCTOR: {
+        final TdApi.PageBlockKicker kicker = (TdApi.PageBlockKicker) block;
+        texts.add(kicker.kicker);
+        break;
+      }
+      case TdApi.PageBlockParagraph.CONSTRUCTOR: {
+        final TdApi.PageBlockParagraph paragraph = (TdApi.PageBlockParagraph) block;
+        texts.add(paragraph.text);
+        break;
+      }
+      case TdApi.PageBlockPreformatted.CONSTRUCTOR: {
+        final TdApi.PageBlockPreformatted preformatted = (TdApi.PageBlockPreformatted) block;
+        texts.add(preformatted.text);
+        break;
+      }
+      case TdApi.PageBlockFooter.CONSTRUCTOR: {
+        final TdApi.PageBlockFooter footer = (TdApi.PageBlockFooter) block;
+        texts.add(footer.footer);
+        break;
+      }
+      case TdApi.PageBlockDivider.CONSTRUCTOR: {
+        final TdApi.PageBlockDivider divider = (TdApi.PageBlockDivider) block;
+        break;
+      }
+      case TdApi.PageBlockAnchor.CONSTRUCTOR: {
+        final TdApi.PageBlockAnchor anchor = (TdApi.PageBlockAnchor) block;
+        break;
+      }
+      case TdApi.PageBlockList.CONSTRUCTOR: {
+        final TdApi.PageBlockList list = (TdApi.PageBlockList) block;
+        for (TdApi.PageBlockListItem item : list.items) {
+          getTexts(texts, item.pageBlocks);
+        }
+        break;
+      }
+      case TdApi.PageBlockBlockQuote.CONSTRUCTOR: {
+        final TdApi.PageBlockBlockQuote blockQuote = (TdApi.PageBlockBlockQuote) block;
+        texts.add(blockQuote.text);
+        texts.add(blockQuote.credit);
+        break;
+      }
+      case TdApi.PageBlockPullQuote.CONSTRUCTOR: {
+        final TdApi.PageBlockPullQuote pullQuote = (TdApi.PageBlockPullQuote) block;
+        texts.add(pullQuote.text);
+        texts.add(pullQuote.credit);
+        break;
+      }
+      case TdApi.PageBlockAnimation.CONSTRUCTOR: {
+        final TdApi.PageBlockAnimation animation = (TdApi.PageBlockAnimation) block;
+        texts.add(animation.caption.text);
+        texts.add(animation.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockAudio.CONSTRUCTOR: {
+        final TdApi.PageBlockAudio audio = (TdApi.PageBlockAudio) block;
+        texts.add(audio.caption.text);
+        texts.add(audio.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockPhoto.CONSTRUCTOR: {
+        final TdApi.PageBlockPhoto photo = (TdApi.PageBlockPhoto) block;
+        texts.add(photo.caption.text);
+        texts.add(photo.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockVideo.CONSTRUCTOR: {
+        final TdApi.PageBlockVideo video = (TdApi.PageBlockVideo) block;
+        texts.add(video.caption.text);
+        texts.add(video.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockVoiceNote.CONSTRUCTOR: {
+        final TdApi.PageBlockVoiceNote voiceNote = (TdApi.PageBlockVoiceNote) block;
+        texts.add(voiceNote.caption.text);
+        texts.add(voiceNote.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockCover.CONSTRUCTOR: {
+        final TdApi.PageBlockCover cover = (TdApi.PageBlockCover) block;
+        getTexts(texts, cover.cover);
+        break;
+      }
+      case TdApi.PageBlockEmbedded.CONSTRUCTOR: {
+        final TdApi.PageBlockEmbedded embedded = (TdApi.PageBlockEmbedded) block;
+        texts.add(embedded.caption.text);
+        texts.add(embedded.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockEmbeddedPost.CONSTRUCTOR: {
+        final TdApi.PageBlockEmbeddedPost embeddedPost = (TdApi.PageBlockEmbeddedPost) block;
+        getTexts(texts, embeddedPost.pageBlocks);
+        texts.add(embeddedPost.caption.text);
+        texts.add(embeddedPost.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockCollage.CONSTRUCTOR: {
+        final TdApi.PageBlockCollage collage = (TdApi.PageBlockCollage) block;
+        getTexts(texts, collage.pageBlocks);
+        texts.add(collage.caption.text);
+        texts.add(collage.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockSlideshow.CONSTRUCTOR: {
+        final TdApi.PageBlockSlideshow slideshow = (TdApi.PageBlockSlideshow) block;
+        getTexts(texts, slideshow.pageBlocks);
+        texts.add(slideshow.caption.text);
+        texts.add(slideshow.caption.credit);
+        break;
+      }
+      case TdApi.PageBlockChatLink.CONSTRUCTOR: {
+        final TdApi.PageBlockChatLink chatLink = (TdApi.PageBlockChatLink) block;
+        break;
+      }
+      case TdApi.PageBlockTable.CONSTRUCTOR: {
+        final TdApi.PageBlockTable table = (TdApi.PageBlockTable) block;
+        for (TdApi.PageBlockTableCell[] cells : table.cells) {
+          for (TdApi.PageBlockTableCell cell : cells) {
+            texts.add(cell.text);
+          }
+        }
+        texts.add(table.caption);
+        break;
+      }
+      case TdApi.PageBlockDetails.CONSTRUCTOR: {
+        final TdApi.PageBlockDetails details = (TdApi.PageBlockDetails) block;
+        getTexts(texts, details.pageBlocks);
+        texts.add(details.header);
+        break;
+      }
+      case TdApi.PageBlockRelatedArticles.CONSTRUCTOR: {
+        final TdApi.PageBlockRelatedArticles relatedArticles = (TdApi.PageBlockRelatedArticles) block;
+        texts.add(relatedArticles.header);
+        break;
+      }
+      case TdApi.PageBlockMap.CONSTRUCTOR: {
+        final TdApi.PageBlockMap map = (TdApi.PageBlockMap) block;
+        texts.add(map.caption.text);
+        texts.add(map.caption.credit);
+        break;
+      }
+    }
+  }
 }
