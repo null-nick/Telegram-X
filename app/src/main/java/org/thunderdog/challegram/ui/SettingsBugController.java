@@ -1211,8 +1211,20 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
 
       builder.setRawItems(items);
       builder.setDisableToggles(true);
-      builder.setOnSettingItemClick((view, settingsId, item, doneButton, settingsAdapter) -> {
+      builder.setOnSettingItemClick((view, settingsId, item, doneButton, settingsAdapter, window) -> {
         if (item.getViewType() == ListItem.TYPE_CHECKBOX_OPTION && item.getId() == viewId) {
+          if (viewId == R.id.btn_secret_tgcallsOptions && !item.isSelected()) {
+            //noinspection WrongConstant
+            @VoIP.DebugOption int option = item.getIntValue();
+            if ((VoIP.DebugOption.SERVER_FILTERS_MASK & option) != 0) {
+              for (ListItem otherItem : settingsAdapter.getItems()) {
+                if (otherItem != item && otherItem.getId() == viewId && otherItem.isSelected() && ((VoIP.DebugOption.SERVER_FILTERS_MASK & otherItem.getIntValue()) != 0)) {
+                  window.showErrorTooltip(this, view, "You can enable only one server filter at a time");
+                  return;
+                }
+              }
+            }
+          }
           final boolean isSelect = settingsAdapter.toggleView(view);
           item.setSelected(isSelect);
         }
@@ -1229,7 +1241,7 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
               String version = item.getStringValue();
               VoIP.setForceDisableVersion(version, !isEnabled);
             } else if (viewId == R.id.btn_secret_tgcallsOptions) {
-              //noinspection SwitchIntDef
+              //noinspection WrongConstant
               VoIP.setDebugOptionEnabled(item.getIntValue(), isEnabled);
             }
           }
@@ -1498,7 +1510,7 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       }
     })
       .setAllowResize(false);
-    b.setOnSettingItemClick((view, settingsId, item, doneButton, settingsAdapter) -> {
+    b.setOnSettingItemClick((view, settingsId, item, doneButton, settingsAdapter, window) -> {
       //noinspection ResourceType
       if (item.getId() == 7 && wrap[0] != null && wrap[0].window != null && !wrap[0].window.isWindowHidden()) {
         wrap[0].window.hideWindow(true);
