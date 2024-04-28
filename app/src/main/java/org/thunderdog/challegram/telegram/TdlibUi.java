@@ -1942,7 +1942,19 @@ public class TdlibUi extends Handler {
 
   public void openChat (final TdlibDelegate context, final TdApi.MessageSender senderId, @Nullable ChatOpenParameters openParameters) {
     long chatId = Td.getSenderId(senderId);
-    openChat(context, chatId, openParameters);
+    final TdApi.Function<TdApi.Chat> function;
+    switch (senderId.getConstructor()) {
+      case TdApi.MessageSenderUser.CONSTRUCTOR:
+        function = new TdApi.CreatePrivateChat(((TdApi.MessageSenderUser) senderId).userId, false);
+        break;
+      case TdApi.MessageSenderChat.CONSTRUCTOR:
+        function = new TdApi.GetChat(((TdApi.MessageSenderChat) senderId).chatId);
+        break;
+      default:
+        Td.assertMessageSender_439d4c9c();
+        throw Td.unsupported(senderId);
+    }
+    openChat(context, chatId, function, openParameters);
   }
 
   private void openChat (final TdlibDelegate context, final long chatId, final TdApi.Function<?> createRequest, final @Nullable ChatOpenParameters params) {
@@ -2395,7 +2407,7 @@ public class TdlibUi extends Handler {
     openChat(context, chatId, new ChatOpenParameters().keepStack().highlightMessage(messageId).ensureHighlightAvailable().messageThread(messageThread).urlOpenParameters(openParameters));
   }
 
-  public void openMessage (final TdlibDelegate context, final TdApi.MessageLinkInfo messageLink, final UrlOpenParameters openParameters) {
+  public void openMessage (final TdlibDelegate context, final TdApi.MessageLinkInfo messageLink, final @Nullable UrlOpenParameters openParameters) {
     if (messageLink.message != null) {
       // TODO support for album, media timestamp, etc
       MessageId messageId = new MessageId(messageLink.message.chatId, messageLink.message.id);
@@ -2405,7 +2417,7 @@ public class TdlibUi extends Handler {
           if (error != null) {
             openMessage(context, messageLink.chatId, messageId, openParameters);
           } else {
-            ThreadInfo messageThread = ThreadInfo.openedFromMessage(context.tdlib(), messageThreadInfo, openParameters.messageId);
+            ThreadInfo messageThread = ThreadInfo.openedFromMessage(context.tdlib(), messageThreadInfo, openParameters != null ? openParameters.messageId : null);
             if (Config.SHOW_CHANNEL_POST_REPLY_INFO_IN_COMMENTS) {
               TdApi.Message message = messageThread.getOldestMessage();
               if (message != null && message.replyTo == null && message.forwardInfo != null && tdlib.isChannelAutoForward(message)) {
@@ -3086,7 +3098,7 @@ public class TdlibUi extends Handler {
         if (StringUtils.isEmpty(domain)) {
           return null;
         }
-        int postId = StringUtils.parseInt(uri.getQueryParameter("post"));
+        long postId = StringUtils.parseLong(uri.getQueryParameter("post"));
         if (postId != 0) {
           return tMeUrl + domain + "/" + postId;
         }
@@ -3131,8 +3143,8 @@ public class TdlibUi extends Handler {
         break;
       }
       case "privatepost": {
-        long supergroupId = StringUtils.parseInt(uri.getQueryParameter("channel"));
-        int messageId = StringUtils.parseInt(uri.getQueryParameter("msg_id"));
+        long supergroupId = StringUtils.parseLong(uri.getQueryParameter("channel"));
+        long messageId = StringUtils.parseLong(uri.getQueryParameter("msg_id"));
         if (supergroupId != 0) {
           if (messageId != 0) {
             return tMeUrl + "c/" + supergroupId + "/" + messageId;
@@ -3273,7 +3285,7 @@ public class TdlibUi extends Handler {
     String command = segments.get(0);
     String pathArg = segments.size() > 1 ? segments.get(1) : null;
 
-    int postId = StringUtils.parseInt(pathArg);
+    long postId = StringUtils.parseLong(pathArg);
 
     if (!Strings.isValidLink(command) && postId != 0) {
       return TME_URL_MESSAGE;
