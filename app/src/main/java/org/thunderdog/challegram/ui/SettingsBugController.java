@@ -627,6 +627,18 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           view.setData(Strings.buildSize(logSize[1]));
         } else if (itemId == R.id.btn_tdlib_androidLogs) {
           view.getToggler().setRadioEnabled(Settings.instance().getLogSettings().needAndroidLog(), isUpdate);
+        } else if (itemId == R.id.btn_resolutionOption) {
+          switch (Settings.instance().getResolutionOption()) {
+            case Settings.RESOLUTION_OPTION_LOW:
+              view.setData(R.string.ResolutionLow);
+              break;
+            case Settings.RESOLUTION_OPTION_MEDIUM:
+              view.setData(R.string.ResolutionMedium);
+              break;
+            case Settings.RESOLUTION_OPTION_HIGH:
+              view.setData(R.string.ResolutionHigh);
+              break;
+          }
         }
       }
     };
@@ -736,27 +748,36 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         break;
       }
       case Section.EXPERIMENTS: {
-        if (!FeatureAvailability.Released.CHAT_FOLDERS) {
-          if (!items.isEmpty()) {
-            items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
-          }
+        // if (!FeatureAvailability.Released.CHAT_FOLDERS) {
+        //   if (!items.isEmpty()) {
+        //     items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+        //   }
           items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_experiment, 0, R.string.Experiment_ChatFolders).setLongValue(Settings.EXPERIMENT_FLAG_ENABLE_FOLDERS));
           items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
           items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getMarkdownStringSecure(this, R.string.Experiment_ChatFoldersInfo)));
-        }
+        // }
 
-        if (testerLevel >= Tdlib.TESTER_LEVEL_TESTER || Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_SHOW_PEER_IDS)) {
-          if (!items.isEmpty()) {
-            items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
-          }
+        // if (/*testerLevel >= Tdlib.TESTER_LEVEL_TESTER || */ Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_SEND_HQ_PHOTO)) {
+        //   if (!items.isEmpty()) {
+        //     items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+        //   }
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_resolutionOption, 0, R.string.Experiment_ResolutionOption));
+          items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getMarkdownStringSecure(this, R.string.Experiment_ResolutionInfo)));
+        // }
+
+        // if (/*testerLevel >= Tdlib.TESTER_LEVEL_TESTER || */ Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_SHOW_PEER_IDS)) {
+        //   if (!items.isEmpty()) {
+        //     items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+        //   }
           items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_experiment, 0, R.string.Experiment_PeerIds).setLongValue(Settings.EXPERIMENT_FLAG_SHOW_PEER_IDS));
           items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
           items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.Experiment_PeerIdsInfo));
-        }
+        // }
 
-        if (items.isEmpty()) {
-          items.add(new ListItem(ListItem.TYPE_EMPTY, 0, 0, R.string.ExperimentalSettingsUnavailable));
-        }
+        // if (items.isEmpty()) {
+        //   items.add(new ListItem(ListItem.TYPE_EMPTY, 0, 0, R.string.ExperimentalSettingsUnavailable));
+        // }
 
         break;
       }
@@ -1456,6 +1477,8 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       viewTdlibLog(v, true);
     } else if (viewId == R.id.btn_tdlib_androidLogs) {
       Settings.instance().getLogSettings().setNeedAndroidLog(adapter.toggleView(v));
+    } else if (viewId == R.id.btn_resolutionOption) {
+      showResolutionOption();
     }
   }
 
@@ -1621,5 +1644,26 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       Log.setEnabledTags(tags);
       adapter.updateValuedSettingById(R.id.btn_log_tags);
     }
+  }
+
+  private void showResolutionOption () {
+    int resolutionOption = Settings.instance().getResolutionOption();
+    showSettings(new SettingsWrapBuilder(R.id.btn_resolutionOption).setRawItems(new ListItem[] {
+      new ListItem(ListItem.TYPE_RADIO_OPTION, R.id.btn_resolutionLow, 0, R.string.ResolutionLow, R.id.btn_resolutionOption, resolutionOption == Settings.RESOLUTION_OPTION_LOW),
+      new ListItem(ListItem.TYPE_RADIO_OPTION, R.id.btn_resolutionMedium, 0, R.string.ResolutionMedium, R.id.btn_resolutionOption, resolutionOption == Settings.RESOLUTION_OPTION_MEDIUM),
+      new ListItem(ListItem.TYPE_RADIO_OPTION, R.id.btn_resolutionHigh, 0, R.string.ResolutionHigh, R.id.btn_resolutionOption, resolutionOption == Settings.RESOLUTION_OPTION_HIGH),
+    }).setAllowResize(false).addHeaderItem(Lang.getString(R.string.Experiment_ResolutionInfo)).setIntDelegate((id, result) -> {
+      int newResolutionOption = Settings.instance().getResolutionOption();
+      int resolutionResult = result.get(R.id.btn_resolutionOption);
+      if (resolutionResult == R.id.btn_resolutionLow) {
+        newResolutionOption = Settings.RESOLUTION_OPTION_LOW;
+      } else if (resolutionResult == R.id.btn_resolutionMedium) {
+        newResolutionOption = Settings.RESOLUTION_OPTION_MEDIUM;
+      } else if (resolutionResult == R.id.btn_resolutionHigh) {
+        newResolutionOption = Settings.RESOLUTION_OPTION_HIGH;
+      }
+      Settings.instance().setResolutionOption(newResolutionOption);
+      adapter.updateValuedSettingById(R.id.btn_resolutionOption);
+    }));
   }
 }
