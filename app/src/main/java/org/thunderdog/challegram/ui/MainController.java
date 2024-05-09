@@ -110,6 +110,7 @@ import org.thunderdog.challegram.unsorted.Passcode;
 import org.thunderdog.challegram.unsorted.Settings;
 import org.thunderdog.challegram.unsorted.Test;
 import org.thunderdog.challegram.util.AppUpdater;
+import org.thunderdog.challegram.util.FeatureAvailability;
 import org.thunderdog.challegram.util.StringList;
 import org.thunderdog.challegram.util.text.Counter;
 import org.thunderdog.challegram.util.text.IconSpan;
@@ -645,9 +646,11 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
 
   @Override
   public void onSuggestedLanguagePackChanged (String languagePackId, TdApi.LanguagePackInfo languagePackInfo) {
-    if (isFocused()) {
-      showSuggestions();
-    }
+    executeOnUiThreadOptional(() -> {
+      if (isFocused()) {
+        showSuggestions();
+      }
+    });
   }
 
   @Override
@@ -1042,10 +1045,15 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
   }
 
   private void showSuggestions () {
+    if (!UI.inUiThread())
+      throw new IllegalStateException();
     if (showLanguageSuggestion()) {
       return;
     }
     if (showEmojiUpdateSuggestion()) {
+      return;
+    }
+    if (showFoldersSetupSuggestion()) {
       return;
     }
   }
@@ -1144,6 +1152,21 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
       });
     }, 100);
     return true;
+  }
+
+  private boolean foldersAlertShown;
+
+  private boolean showFoldersSetupSuggestion () {
+    if (isFocused() && hasFolders() && Settings.instance().hasPendingFeatureAddedNotification(FeatureAvailability.Feature.CHAT_FOLDERS) && !foldersAlertShown) {
+      foldersAlertShown = true;
+      if (BuildConfig.DEBUG) {
+        openAlert(R.string.AppName, "Folders are here.");
+      }
+      // TODO: actually show the Folders intro pop-up.
+      // TODO: call `Settings.instance().revokeFeatureNotifications(FeatureAvailability.Feature.CHAT_FOLDERS);` after an explicit user interaction with the pop-up
+      return true;
+    }
+    return false;
   }
 
   @Override
@@ -2298,23 +2321,13 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
   private void showShareableFoldersLimitReached (View view) {
     UI.forceVibrateError(view);
     PopupLayout popupLayout = PopupLayout.parentOf(view);
-    if (tdlib.hasPremium()) {
-      CharSequence message = Lang.getMarkdownString(this, R.string.ShareableFoldersLimitReached, tdlib.addedShareableChatFolderCountMax());
-      popupLayout.tooltipManager().builder(view).show(tdlib, message).hideDelayed();
-    } else {
-      tdlib.ui().showPremiumLimitInfo(this, popupLayout.tooltipManager(), view, TdlibUi.PremiumLimit.SHAREABLE_FOLDER_COUNT);
-    }
+    tdlib.ui().showLimitReachedInfo(this, popupLayout.tooltipManager(), view, TdlibUi.PremiumLimit.SHAREABLE_FOLDER_COUNT);
   }
 
   private void showChatFolderInviteLinksLimitReached (View view) {
     UI.forceVibrateError(view);
     PopupLayout popupLayout = PopupLayout.parentOf(view);
-    if (tdlib.hasPremium()) {
-      CharSequence message = Lang.getMarkdownString(this, R.string.ChatFolderInviteLinksLimitReached, tdlib.chatFolderInviteLinkCountMax());
-      popupLayout.tooltipManager().builder(view).show(tdlib, message).hideDelayed();
-    } else {
-      tdlib.ui().showPremiumLimitInfo(this, popupLayout.tooltipManager(), view, TdlibUi.PremiumLimit.CHAT_FOLDER_INVITE_LINK_COUNT);
-    }
+    tdlib.ui().showLimitReachedInfo(this, popupLayout.tooltipManager(), view, TdlibUi.PremiumLimit.CHAT_FOLDER_INVITE_LINK_COUNT);
   }
 
   private void showChatFolderInviteLinkOptions (int chatFolderId, TdApi.ChatFolderInviteLink inviteLink) {
@@ -2668,6 +2681,7 @@ public class MainController extends ViewPagerController<Void> implements Menu, M
       checkTabs();
       checkMenu();
       checkMargins();
+      showFoldersSetupSuggestion();
     }
   }
 

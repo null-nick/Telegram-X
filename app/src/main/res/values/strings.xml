@@ -3330,6 +3330,7 @@
   <string name="error_CHANNELS_ADMIN_LOCATED_TOO_MUCH">Sorry, you have too many location-based groups already. Please delete one of your existing ones first.</string>
   <string name="error_PREMIUM_ACCOUNT_REQUIRED">This feature requires Telegram Premium subscription.</string>
   <string name="error_INVITE_REQUEST_SENT">Request to join this chat has been sent.</string>
+  <string name="error_INVITE_SLUG_EXPIRED">The link is expired or was revoked by creator.</string>
   <string name="errorPrivacyAddMember">Sorry, the user restricted who can add them to chats in their privacy settings.</string>
   <string name="UserPrivacyRestricted">Sorry, the user restricted this action in their privacy settings.</string>
   <string name="NobodyLikesSpam2">Sorry, you can interact only with mutual contacts at the moment.</string> <!--PEER_FLOOD-->
@@ -4847,10 +4848,26 @@
   <string name="PremiumRequiredNewChats">This setting requires a **Telegram Premium** subscription.</string>
   <string name="PremiumRequired">This feature requires a **Telegram Premium** subscription.</string>
   <string name="PremiumRequiredMoveFolder">Subscribe to **Telegram Premium** to move the "%1$s" folder.</string>
-  <string name="PremiumRequiredCreateFolder">You have reached the limit of **%1$d** folders. You can double the limit to **%2$d** folders by subscribing to **Telegram Premium**.</string>
-  <string name="PremiumRequiredChatsInFolder">Sorry, you can\'t add more than **%1$d** chats to a folder. You can increase this limit to **%2$d** by subscribing to **Telegram Premium**.</string>
-  <string name="PremiumRequiredAddShareableFolder">You can only have **%1$d** shareable folders. Upgrade to **Telegram Premium** to increase this limit to **%2$d**.</string>
-  <string name="PremiumRequiredCreateChatFolderInviteLink">You reached the limit of links, either remove some or upgrade to Telegram Premium.</string>
+
+  <string name="LimitCreateFolder_one">You have reached the limit of **%1$s** folder.</string>
+  <string name="LimitCreateFolder_other">You have reached the limit of **%1$s** folders.</string>
+  <string name="PremiumLimitCreateFolder_one">You have reached the limit of %1$s folder. You can double the limit to %2$s by subscribing to **Telegram Premium**</string>
+  <string name="PremiumLimitCreateFolder_other">You have reached the limit of %1$s folders. You can double the limit to %2$s by subscribing to **Telegram Premium**</string>
+
+  <string name="LimitChatsInFolder_one">Sorry, you can\'t add more than **%1$s** chat to a folder. Please create a new one.</string>
+  <string name="LimitChatsInFolder_other">Sorry, you can\'t add more than **%1$s** chats to a folder. Please create a new one.</string>
+  <string name="PremiumLimitChatsInFolder_one">Sorry, you can\'t add more than %1$s chat to a folder. You can increase the limit to %2$s by subscribing to **Telegram Premium**.</string>
+  <string name="PremiumLimitChatsInFolder_other">Sorry, you can\'t add more than %1$s chats to a folder. You can increase the limit to %2$s by subscribing to **Telegram Premium**.</string>
+
+  <string name="LimitAddShareableFolder_one">Sorry, you can\'t have more than **%1$s** shareable folder.</string>
+  <string name="LimitAddShareableFolder_other">Sorry, you can\'t have more than **%1$s** shareable folders.</string>
+  <string name="PremiumLimitAddShareableFolder_one">You can only have %1$s shareable folder. You can increase the limit to %2$s by subscribing to **Telegram Premium**.</string>
+  <string name="PremiumLimitAddShareableFolder_other">You can only have %1$s shareable folders. You can increase the limit to %2$s by subscribing to **Telegram Premium**.</string>
+
+  <string name="LimitChatFolderInviteLink_one">Sorry, you can\'t have more than **%1$s** link to a folder.</string>
+  <string name="LimitChatFolderInviteLink_other">Sorry, you can\'t have more than **%1$s** links to a folder.</string>
+  <string name="PremiumLimitChatFolderInviteLink_one">You can only create **%1$s** link. You can increase the limit to %2$s by subscribing to **Telegram Premium**.</string>
+  <string name="PremiumLimitChatFolderInviteLink_other">You can only create **%1$s** links. You can increase the limit to %2$s by subscribing to **Telegram Premium**.</string>
 
   <string name="XRestrictedVoiceMessages">%1$s doesn\'t accept voice messages.</string>
   <string name="XRestrictedVideoMessages">%1$s doesn\'t accept video messages.</string>
@@ -5073,10 +5090,6 @@
   <string name="ChatFoldersPositionBottom">Bottom</string>
   <string name="ChatFolderChangeIcon">Change Icon</string>
   <string name="ChatFolderAddChats">Add Chats</string>
-  <string name="ChatFolderLimitReached">You have reached the limit of **%1$d** folders.</string>
-  <string name="ChatsInFolderLimitReached">Sorry, you can\'t add more than **%1$d** chats to a folder. Please create a new one.</string>
-  <string name="ChatFolderInviteLinksLimitReached">Sorry, you can\'t have more than **%1$d** links to a folder.</string>
-  <string name="ShareableFoldersLimitReached">Sorry, you can\'t have more than **%1$d** shareable folders.</string>
   <string name="FolderVisible">Folder visible</string>
   <string name="NewFolder">New Folder</string>
   <string name="CreateNewFolder">Create New Folder</string>
@@ -5127,6 +5140,7 @@
 
   <string name="ExperimentalSettings">Experimental settings</string>
   <string name="ExperimentalSettingsWarning">**Warning:** those are experimental settings. Some may not work. Others may break the app. Any of them might disappear without a trace.\n\nUse at your own risk.</string>
+  <string name="ExperimentalSettingsUnavailable">No experiments available. Come back later.</string>
   <string name="Experiment_PeerIds">Show Peer IDs in Profiles</string>
   <string name="Experiment_PeerIdsInfo">Show API identifiers of users and chats in their profiles</string>
   <string name="Experiment_ChatFolders">Enable Chat Folders</string>
