@@ -950,6 +950,7 @@
   <string name="NoVoiceMessages">No Voice messages</string>
   <string name="NoFiles">No Files</string>
   <string name="NoMusic">No Music</string>
+  <string name="NoFilter">No Filter</string>
   <string name="Other">Other</string>
   <string name="AutoplayGifs">Autoplay GIFs</string>
   <string name="QuickTranslate">Quick translate</string>
@@ -5094,7 +5095,7 @@
   <string name="NewFolder">New Folder</string>
   <string name="CreateNewFolder">Create New Folder</string>
   <string name="HideFolder">Hide Folder</string>
-  <string name="HideFolderInfo">To display %1$s folder again, go to %2$s > %3$s</string>
+  <string name="HideFolderInfo2">To display %1$s folder again, go to %2$s > %3$s > %1$s</string>
   <string name="HideAllChats">Hide All Chats</string>
   <string name="EditFolder">Edit Folder</string>
   <string name="EditFolders">Edit Folders</string>
@@ -5110,9 +5111,11 @@
   <string name="FolderRemoveExclusionConfirmUser">Are you sure you want to remove "%1$s" from the always excluded list?</string>
   <string name="FolderRemoveExclusionConfirmType">Are you sure you want to remove "%1$s" from the always excluded list?</string>
   <string name="IncludeChats">Include Chats</string>
+  <string name="IncludeChatsHint">Include chats…</string>
   <string name="IncludeChatsInfo_one">You can select only one cloud and only one secret chat.</string>
   <string name="IncludeChatsInfo_other">You can select up to %1$s cloud chats and the same number of secret chats.</string>
   <string name="ExcludeChats">Exclude Chats</string>
+  <string name="ExcludeChatsHint">Exclude chats…</string>
   <string name="ExcludeChatsInfo_one">You can select only one cloud chat and only one secret chat</string>
   <string name="ExcludeChatsInfo_other">You can select up to %1$s cloud chats and the same number of secret chats.</string>
   <string name="FolderIncludedChats">Included Chats</string>
