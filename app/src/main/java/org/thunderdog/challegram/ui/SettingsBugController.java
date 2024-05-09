@@ -757,20 +757,23 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getMarkdownStringSecure(this, R.string.Experiment_ChatFoldersInfo)));
         }
 
-        // if (testerLevel >= Tdlib.TESTER_LEVEL_TESTER || Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_SEND_HQ_PHOTO)) {
+        if (/*testerLevel >= Tdlib.TESTER_LEVEL_TESTER || */ Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_SEND_HQ_PHOTO)) {
+          if (!items.isEmpty()) {
+            items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+          }
           items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
           items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_resolutionOption, 0, R.string.Experiment_ResolutionOption));
           items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getMarkdownStringSecure(this, R.string.Experiment_ResolutionInfo)));
-        // }
+        }
 
-          // if (testerLevel >= Tdlib.TESTER_LEVEL_TESTER || Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_SHOW_PEER_IDS)) {
-          // if (!items.isEmpty()) {
-          //   items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
-          // }
+        if (/*testerLevel >= Tdlib.TESTER_LEVEL_TESTER || */ Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_SHOW_PEER_IDS)) {
+          if (!items.isEmpty()) {
+            items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+          }
           items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_experiment, 0, R.string.Experiment_PeerIds).setLongValue(Settings.EXPERIMENT_FLAG_SHOW_PEER_IDS));
           items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
           items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.Experiment_PeerIdsInfo));
-        // }
+        }
 
         if (items.isEmpty()) {
           items.add(new ListItem(ListItem.TYPE_EMPTY, 0, 0, R.string.ExperimentalSettingsUnavailable));
