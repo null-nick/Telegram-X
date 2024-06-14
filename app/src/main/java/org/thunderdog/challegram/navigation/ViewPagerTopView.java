@@ -83,6 +83,8 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
   public static final @Dimension(unit = Dimension.DP) float DEFAULT_ITEM_SPACING = 6f;
   public static final @Dimension(unit = Dimension.DP) float COMPACT_ITEM_SPACING = 4f;
 
+  private static final boolean APPLY_HORIZONTAL_MARGIN = false; // BuildConfig.DEBUG
+
   public static class Item {
     public final CharSequence string;
     public final boolean needFakeBold;
@@ -497,7 +499,11 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
   }
 
   public void addItem (int item) {
-    addItemAtIndex(new Item(item), -1);
+    addItem(new Item(item));
+  }
+
+  public void addItem (Item item) {
+    addItemAtIndex(item, -1);
   }
 
   public void addItemAtIndex (int item, int index) {
@@ -535,8 +541,9 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
     } else {
       item.untrimString(paint);
     }
-    addView(newBackgroundView(index), index);
-    // addView(newBackgroundView(items.size() - 1)); ???
+    // We already have backgroundView with insertion index, adding for the last one
+    // (for which there is no backgroundView yet)
+    addView(newBackgroundView(items.size() - 1));
     invalidate();
   }
 
@@ -552,14 +559,28 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
     }
 
     items.remove(index);
+
     onUpdateItems();
 
     if ((int) selectionFactor >= items.size()) {
       selectionFactor--;
     }
 
-    removeViewAt(index);
+    // Removing BackgroundView for the last item only, as other just update dimensions
+    removeViewAt(getChildCount() - 1);
     invalidate();
+  }
+
+  private void updateFollowingBackgroundViews (int fromIndex, int delta) {
+    for (int i = 0; i < getChildCount(); i++) {
+      View view = getChildAt(i);
+      if (view instanceof BackgroundView) {
+        BackgroundView backgroundView = (BackgroundView) view;
+        if (backgroundView.index >= fromIndex) {
+          backgroundView.index += delta;
+        }
+      }
+    }
   }
 
   private TextPaint getItemTextPaint (Item item) {
@@ -714,7 +735,11 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
           BackgroundView backgroundView = (BackgroundView) child;
           int itemIndex = backgroundView.index;
           int itemX = calculateItemX(itemIndex, child.getWidth(), getWidth());
-          child.setTranslationX(itemX);
+          if (APPLY_HORIZONTAL_MARGIN) {
+            Views.setLeftMargin(child, itemX);
+          } else {
+            child.setTranslationX(itemX);
+          }
           int itemWidth = getItemWidth(itemIndex, selectionFactor) + itemPadding * 2;
           if (itemWidth != backgroundView.lastItemWidth) {
             backgroundView.invalidate();
@@ -732,12 +757,12 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
         this.selectionLeft = selectionLeft;
         this.selectionWidth = selectionWidth;
       }
-      callListener = (fromIndex == -1 && toIndex == -1) || (fromIndex != -1 && toIndex != -1 && Math.abs(toIndex - fromIndex) == 1);
+      callListener = (fromIndex == -1 && toIndex == -1) || (fromIndex != -1 && toIndex != -1 && Math.abs(toIndex - fromIndex) == 1 && !selectionChangeListener.hasPendingUserInteraction());
     } else {
-      callListener = fromIndex != -1 && toIndex != -1 && Math.abs(toIndex - fromIndex) > 1;
+      callListener = fromIndex != -1 && toIndex != -1 && (Math.abs(toIndex - fromIndex) > 1 || selectionChangeListener.hasPendingUserInteraction());
     }
     float totalFactor = items.size() > 1 ? selectionFactor / (float) (items.size() - 1) : 0;
-    if (callListener && selectionChangeListener != null && (lastCallSelectionLeft != selectionLeft || lastCallSelectionWidth != selectionWidth || lastCallSelectionFactor != totalFactor)) {
+    if (callListener && selectionChangeListener != null && (lastCallSelectionLeft != selectionLeft || lastCallSelectionWidth != selectionWidth || lastCallSelectionFactor != totalFactor || (showLabelOnActiveOnly && set))) {
       int firstItemWidth = getItemWidth(0, selectionFactor);
       int lastItemWidth = getItemWidth(items.size() - 1, selectionFactor);
       selectionChangeListener.onSelectionChanged(lastCallSelectionLeft = selectionLeft, lastCallSelectionWidth = selectionWidth, firstItemWidth, lastItemWidth, lastCallSelectionFactor = totalFactor, !set);
@@ -757,14 +782,10 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
     }
   }
 
-  /*public void resendSectionChangeEvent (boolean animated) {
-    if (items != null && !items.isEmpty()) {
-      selectionChangeListener.onSelectionChanged(lastCallSelectionLeft, lastCallSelectionWidth, items.get(0).actualWidth, items.get(items.size() - 1).actualWidth, lastCallSelectionFactor, animated);
-    }
-  }*/
-
   public interface SelectionChangeListener {
     void onSelectionChanged (int selectionLeft, int selectionRight, int firstItemWidth, int lastItemWidth, float totalFactor, boolean animated);
+    default boolean hasPendingUserInteraction () { return false; }
+    default void resetUserInteraction () { }
   }
 
   private SelectionChangeListener selectionChangeListener;
@@ -778,7 +799,7 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
     if (this.selectionFactor != factor) {
       this.selectionFactor = factor;
       if (toIndex != -1 && (int) factor == toIndex && factor % 1f == 0) {
-        fromIndex = toIndex = -1;
+        fromIndex = toIndex = -1; selectionChangeListener.resetUserInteraction();
       }
 
       recalculateSelection(selectionFactor, true);
@@ -801,6 +822,10 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
         recalculateSelection(toIndex, false);
       }
     }
+  }
+
+  public void resetFromTo () {
+    setFromTo(-1, -1);
   }
 
   public boolean setTextFromToColorId (@ColorId int fromColorId, @ColorId int toColorId) {
@@ -1284,14 +1309,20 @@ public class ViewPagerTopView extends FrameLayoutFix implements RtlCheckListener
 
     @Override
     protected void onMeasure (int widthMeasureSpec, int heightMeasureSpec) {
+      float translationX;
       if (topView.shouldWrapContent()) {
         int itemWidth = topView.items.get(index).getExpandedWidth() + topView.itemPadding * 2;
         super.onMeasure(MeasureSpec.makeMeasureSpec(itemWidth, MeasureSpec.EXACTLY), heightMeasureSpec);
-        setTranslationX(topView.calculateItemX(index, itemWidth, MeasureSpec.getSize(widthMeasureSpec)));
+        translationX = topView.calculateItemX(index, itemWidth, MeasureSpec.getSize(widthMeasureSpec));
       } else {
         int itemWidth = topView.calculateCommonItemWidth(MeasureSpec.getSize(widthMeasureSpec));
         super.onMeasure(MeasureSpec.makeMeasureSpec(itemWidth, MeasureSpec.EXACTLY), heightMeasureSpec);
-        setTranslationX(itemWidth * index);
+        translationX = itemWidth * index;
+      }
+      if (APPLY_HORIZONTAL_MARGIN) {
+        Views.setLeftMargin(this, (int) translationX);
+      } else {
+        setTranslationX(translationX);
       }
     }
 

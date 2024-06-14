@@ -23,6 +23,8 @@ import androidx.recyclerview.widget.RecyclerView;
 import org.thunderdog.challegram.unsorted.Size;
 import org.thunderdog.challegram.v.CustomRecyclerView;
 
+import me.vkryl.core.MathUtils;
+
 public class ComplexRecyclerView extends CustomRecyclerView implements Runnable {
   private StretchyHeaderView headerView;
   private ViewController<?> target;
@@ -30,14 +32,13 @@ public class ComplexRecyclerView extends CustomRecyclerView implements Runnable 
 
   private float scrollFactor;
   private boolean factorLocked;
-  private boolean needHeaderExpand = true;
   private int totalY;
 
   public ComplexRecyclerView (Context context, ViewController<?> target) {
     super(context);
     this.target = target;
 
-    this.scrollFactor = 1f;
+    this.scrollFactor = getMaxFactor();
     this.factorLocked = true;
     setHasFixedSize(true);
     setVerticalScrollBarEnabled(false);
@@ -62,18 +63,19 @@ public class ComplexRecyclerView extends CustomRecyclerView implements Runnable 
   }
 
   public void setHeaderView (StretchyHeaderView headerView, ViewController<?> target) {
-    setHeaderView(headerView, target, /* needExpand */ true);
-  }
-
-  public void setHeaderView (StretchyHeaderView headerView, ViewController<?> target, boolean needExpand) {
     this.headerView = headerView;
     this.target = target;
-    this.needHeaderExpand = needExpand;
+  }
+
+  private float getMaxFactor () {
+    int maxHeight = Size.getHeaderBigPortraitSize(true);
+    int targetMaxHeight = target.getMaximumHeaderHeight();
+    return 1f - (float) (maxHeight - targetMaxHeight) / (float) Size.getHeaderSizeDifference(true);
   }
 
   public float getScrollFactor () {
     if (getChildCount() == 0) {
-      return 1f;
+      return getMaxFactor();
     }
     if (headerView == null || factorLocked) {
       return scrollFactor;
@@ -120,15 +122,10 @@ public class ComplexRecyclerView extends CustomRecyclerView implements Runnable 
       return;
     }
     View view = getLayoutManager().findViewByPosition(0);
-    float t = view == null ? target.getMaximumHeaderHeight() : -view.getTop();
-    float factor = 1f - t / (float) Size.getHeaderSizeDifference(needHeaderExpand);
-    if (factor >= 1f) {
-      scrollFactor = 1f;
-    } else if (factor <= 0f) {
-      scrollFactor = 0f;
-    } else {
-      scrollFactor = factor;
-    }
+    int diff = Size.getHeaderBigPortraitSize(true) - target.getMaximumHeaderHeight();
+    float t = view == null ? Size.getHeaderSizeDifference(true) : -view.getTop() + diff;
+    float factor = 1f - t / (float) Size.getHeaderSizeDifference(true);
+    scrollFactor = MathUtils.clamp(factor);
     if ((flags & FLAG_FORCE) == 0) {
       headerView.setScaleFactor(scrollFactor, scrollFactor, scrollFactor, true);
       if (floatingButton != null && target.getFloatingButtonId() != 0) {
@@ -136,11 +133,11 @@ public class ComplexRecyclerView extends CustomRecyclerView implements Runnable 
       }
       if (updateFilling && target.headerView != null) {
         if (scrollFactor == 1f) {
-          target.headerView.setBackgroundHeight(Size.getHeaderBigPortraitSize(needHeaderExpand));
+          target.headerView.setBackgroundHeight(Size.getHeaderBigPortraitSize(true));
         } else if (scrollFactor == 0f) {
           target.headerView.setBackgroundHeight(Size.getHeaderPortraitSize());
         } else {
-          target.headerView.setBackgroundHeight(Size.getHeaderPortraitSize() + (int) (Size.getHeaderSizeDifference(needHeaderExpand) * scrollFactor));
+          target.headerView.setBackgroundHeight(Size.getHeaderPortraitSize() + (int) (Size.getHeaderSizeDifference(true) * scrollFactor));
         }
       }
     }

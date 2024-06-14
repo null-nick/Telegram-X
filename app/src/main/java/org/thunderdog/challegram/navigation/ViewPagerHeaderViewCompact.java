@@ -42,7 +42,10 @@ import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.unsorted.Size;
 
+import me.vkryl.android.animatorx.AnimatorListener;
+import me.vkryl.android.animatorx.FloatAnimator;
 import me.vkryl.android.widget.FrameLayoutFix;
+import me.vkryl.core.MathUtils;
 
 public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerHeaderView, StretchyHeaderView, ViewPagerTopView.SelectionChangeListener {
   private static class VH extends RecyclerView.ViewHolder {
@@ -78,9 +81,21 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
       manager.setReverseLayout(Lang.rtl());
       if (needScroll) {
         manager.scrollToPositionWithOffset(0, scrollOffset);
+        hasUserInteraction = false;
       }
     }
     getTopView().checkRtl();
+  }
+
+  @Override
+  public boolean hasPendingUserInteraction () {
+    return hasUserInteraction;
+  }
+
+  @Override
+  public void resetUserInteraction () {
+    hasUserInteraction = false;
+    resetUserInteraction = false;
   }
 
   private static class A extends RecyclerView.Adapter<VH> {
@@ -177,15 +192,36 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
         c.restoreToCount(saveCount);
       }
     };
+    recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+      private boolean dragging;
+
+      @Override
+      public void onScrollStateChanged (@NonNull RecyclerView recyclerView, int newState) {
+        dragging = newState == RecyclerView.SCROLL_STATE_DRAGGING;
+        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+          if (resetUserInteraction) {
+            resetUserInteraction();
+          }
+        }
+      }
+
+      @Override
+      public void onScrolled (@NonNull RecyclerView recyclerView, int dx, int dy) {
+        if (dx != 0 && dragging) {
+          hasUserInteraction = true;
+        }
+      }
+    });
     recyclerView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Size.getHeaderPortraitSize(), Gravity.TOP));
     recyclerView.setOverScrollMode(Config.HAS_NICE_OVER_SCROLL_EFFECT ? OVER_SCROLL_IF_CONTENT_SCROLLS :OVER_SCROLL_NEVER);
     recyclerView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, Lang.rtl()));
     recyclerView.setAdapter(adapter);
-    recyclerView.setHasFixedSize(true);
     addView(recyclerView);
 
     setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Size.getHeaderBigPortraitSize(true)));
   }
+
+  private boolean hasUserInteraction, resetUserInteraction;
 
   public void setFadingEdgeLength (@Dimension(unit = Dimension.DP) float length) {
     if (fadingEdgeLength != length) {
@@ -236,34 +272,38 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
       return;
     }
 
-    final int availScrollX = viewWidth - parentWidth;
-    final int scrolledX;
-    if (Lang.rtl()) {
-      scrolledX = availScrollX + view.getLeft();
-    } else {
-      scrolledX = -view.getLeft();
+    //noinspection UnnecessaryLocalVariable
+    final int maxViewLeft = parentPaddingLeft;
+    final int minViewLeft = parentWidth - viewWidth - parentPaddingRight;
+    if (minViewLeft > maxViewLeft) {
+      return;
     }
-    int viewX = -scrolledX;
+    final int viewLeft = MathUtils.clamp(view.getLeft(), minViewLeft, maxViewLeft); // TODO RTL
 
     final Interpolator interpolator = QUINTIC_INTERPOLATOR;
     int animationDuration = RecyclerView.UNDEFINED_DURATION;
 
     if ((getParent() != null && ((View) getParent()).getMeasuredWidth() > getMeasuredWidth()) || (topView.getMeasuredWidth() - parentWidth) < lastItemWidth / 2) {
-      int desiredViewLeft = (int) (parentPaddingLeft * (1f - totalFactor) - (viewWidth - parentWidth + parentPaddingRight) * totalFactor);
-      if (viewX != desiredViewLeft) {
-        recyclerView.stopScroll();
-        int diff = (desiredViewLeft - viewX) * (Lang.rtl() ? 1 : -1);
+      int desiredViewLeft = (int) (maxViewLeft * (1f - totalFactor) + minViewLeft * totalFactor);
+      if (viewLeft != desiredViewLeft) {
+        int diff = (viewLeft - desiredViewLeft)/* * (Lang.rtl() ? -1 : 1)*/;  // TODO RTL
         if (animated) {
           if (topViewTranslationX != 0f) {
             animationDuration = computeScrollDuration(diff, parentWidth);
           }
+          recyclerView.stopScroll();
           recyclerView.smoothScrollBy(diff, 0, interpolator, animationDuration);
+          if (hasUserInteraction) {
+            resetUserInteraction = true;
+          }
         } else {
-          recyclerView.scrollBy(diff, 0);
+          pseudoSmoothScrollBy(diff);
         }
+      } else {
+        resetUserInteraction();
       }
     } else {
-      int visibleSelectionX = selectionLeft + viewX;
+      int visibleSelectionX = selectionLeft + viewLeft;
       int desiredSelectionX;
       if (parentPaddingLeft > 0) {
         desiredSelectionX = parentPaddingLeft;
@@ -272,25 +312,29 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
       }
 
       if (visibleSelectionX != desiredSelectionX) {
-        int newViewX = viewX + (desiredSelectionX - visibleSelectionX);
-        int minX = parentWidth - parentPaddingRight - viewWidth;
-        if (newViewX < minX) {
-          newViewX = minX;
-        }
-        if (newViewX != viewX) {
-          recyclerView.stopScroll();
-          int offset = (viewX - newViewX) * (Lang.rtl() ? -1 : 1);
+        int newViewLeft = viewLeft + (desiredSelectionX - visibleSelectionX);
+        newViewLeft = MathUtils.clamp(newViewLeft, minViewLeft, maxViewLeft);
+        if (newViewLeft != viewLeft) {
+          int offset = (viewLeft - newViewLeft)/* * (Lang.rtl() ? -1 : 1)*/; // TODO RTL
           if (animated) {
             if (topViewTranslationX != 0f) {
               animationDuration = computeScrollDuration(offset, parentWidth);
             }
+            recyclerView.stopScroll();
             recyclerView.smoothScrollBy(offset, 0, interpolator, animationDuration);
+            if (hasUserInteraction) {
+              resetUserInteraction = true;
+            }
           } else {
-            recyclerView.scrollBy(offset, 0);
+            pseudoSmoothScrollBy(offset);
           }
+        } else {
+          resetUserInteraction();
         }
       }
-    }/* else {
+    }
+
+    /* else {
       int visibleSelectionLeft = selectionLeft + viewOffset;
 
       int desiredLeft = (int) ((float) Screen.dp(16f) * (selectionLeft >= selectionWidth ? 1f : (float) selectionLeft / (float) selectionWidth));
@@ -323,6 +367,46 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
         .setDuration(animationDuration)
         .setInterpolator(interpolator)
         .start();
+    }
+  }
+
+  private FloatAnimator scrollByAnimator;
+  private int scrolledBy, finalScrollBy;
+
+  private void pseudoSmoothScrollBy (int scrollX) {
+    if (scrollByAnimator != null && scrollByAnimator.isAnimating()) {
+      finalScrollBy = scrollX + scrolledBy;
+      return;
+    }
+
+    recyclerView.stopScroll();
+    int threshold = Screen.dp(2f);
+    if (Math.abs(scrollX) >= threshold && hasUserInteraction) {
+      long duration = computeScrollDuration(scrollX, recyclerView.getMeasuredWidth());
+
+      scrollByAnimator = new FloatAnimator(duration, QUINTIC_INTERPOLATOR, 0, new AnimatorListener<>() {
+        @Override
+        public void onAnimationUpdate (Float newValue) {
+          int desiredScrollBy = (int) (finalScrollBy * newValue);
+          int scrollBy = (desiredScrollBy - scrolledBy);
+          recyclerView.scrollBy(scrollBy, 0);
+          scrolledBy += scrollBy;
+        }
+
+        @Override
+        public void onAnimationFinish (Float finalValue, boolean byAnimationEnd) {
+          resetUserInteraction();
+          scrollByAnimator = null;
+        }
+      });
+
+      scrolledBy = 0;
+      finalScrollBy = scrollX;
+
+      scrollByAnimator.setAnimatedValue(1f);
+    } else {
+      recyclerView.scrollBy(scrollX, 0);
+      resetUserInteraction();
     }
   }
 
