@@ -1,0 +1,57 @@
+name: Build Telegram X
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+      with:
+        submodules: true
+        fetch-depth: 1
+
+    - name: Set up JDK 17
+      uses: actions/setup-java@v2
+      with:
+        distribution: 'adopt'
+        java-version: '17'
+
+    - name: Install Android Command Line Tools
+      run: |
+        mkdir -p $HOME/.android/cmdline-tools
+        wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O cmdline-tools.zip
+        unzip cmdline-tools.zip -d $HOME/.android/cmdline-tools
+        mv $HOME/.android/cmdline-tools/cmdline-tools $HOME/.android/cmdline-tools/latest
+
+    - name: Install Android SDK components
+      run: |
+        yes | $HOME/.android/cmdline-tools/latest/bin/sdkmanager --sdk_root=$HOME/.android "platform-tools" "platforms;android-34" "build-tools;34.0.0" "cmake;3.22.1" "ndk;23.2.8568313" "ndk;22.1.7171670"
+
+    - name: Install dependencies
+      run: sudo apt-get update && sudo apt-get install -y git git-lfs wget
+
+    - name: Install Git LFS
+      run: git lfs install
+
+    - name: Clone repository with submodules
+      run: git clone --recursive --depth=1 --shallow-submodules https://github.com/TGX-Android/Telegram-X tgx
+
+    - name: Create keystore.properties
+      run: |
+        echo "keystore.file=${{ secrets.KEYSTORE_FILE }}" >> $GITHUB_WORKSPACE/keystore.properties
+        echo "keystore.password=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_WORKSPACE/keystore.properties
+        echo "key.alias=${{ secrets.KEY_ALIAS }}" >> $GITHUB_WORKSPACE/keystore.properties
+        echo "key.password=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_WORKSPACE/keystore.properties
+
+    - name: Run setup script
+      run: |
+        cd tgx
+        ./scripts/setup.sh
+
+    - name: Build project
+      run: ./gradlew assembleUniversalRelease
