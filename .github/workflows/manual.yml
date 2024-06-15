@@ -72,7 +72,10 @@ jobs:
         echo "keystore.password=${{ secrets.KEYSTORE_PASSWORD }}" >> $GITHUB_WORKSPACE/keystore.properties
         echo "key.alias=${{ secrets.KEY_ALIAS }}" >> $GITHUB_WORKSPACE/keystore.properties
         echo "key.password=${{ secrets.KEY_PASSWORD }}" >> $GITHUB_WORKSPACE/keystore.properties
-
+    - name: Importing secrets
+      run: |
+        echo "${{ secrets.LOCAL_PROPERTIES }}" | base64 -d > local.properties
+        echo "${{ secrets.KEYSTORE_SECRET }}" | base64 -d > keystore.properties
     - name: Run setup script
       run: |
         cd tgx
