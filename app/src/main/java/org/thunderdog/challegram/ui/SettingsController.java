@@ -97,6 +97,7 @@ import me.vkryl.core.StringUtils;
 import me.vkryl.core.collection.IntList;
 import me.vkryl.core.lambda.CancellableRunnable;
 import me.vkryl.core.reference.ReferenceList;
+import me.vkryl.td.ChatId;
 import me.vkryl.td.Td;
 
 public class SettingsController extends ViewController<Void> implements
@@ -396,7 +397,7 @@ public class SettingsController extends ViewController<Void> implements
     this.headerCell.initWithController(this, true);
     this.headerCell.setInnerMargins(Screen.dp(56f), Screen.dp(49f));
     this.headerCell.setPhotoOpenCallback(this);
-    this.headerCell.setOnEmojiStatusClickListener((v, text, part, openParameters) -> {
+    this.headerCell.setOnEmojiStatusClickListener(v -> {
       EmojiStatusSelectorEmojiPage.Wrapper c = new EmojiStatusSelectorEmojiPage.Wrapper(context, tdlib, SettingsController.this, new EmojiStatusSelectorEmojiPage.AnimationsEmojiStatusSetDelegate() {
         @Override
         public void onAnimationStart () {
@@ -419,7 +420,6 @@ public class SettingsController extends ViewController<Void> implements
         }
       });
       c.show();
-      return false;
     });
     updateHeader();
 
@@ -630,7 +630,7 @@ public class SettingsController extends ViewController<Void> implements
     items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_tweakSettings, R.drawable.baseline_extension_24, R.string.TweakSettings));
     items.add(new ListItem(ListItem.TYPE_SEPARATOR));
     if (Settings.instance().chatFoldersEnabled()) {
-      items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_chatFolders, R.drawable.baseline_folder_24, R.string.ChatFolders));
+      items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_chatFolders, R.drawable.baseline_folder_copy_24, R.string.ChatFolders));
       items.add(new ListItem(ListItem.TYPE_SEPARATOR));
     }
     items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_languageSettings, R.drawable.baseline_language_24, R.string.Language));
@@ -923,9 +923,11 @@ public class SettingsController extends ViewController<Void> implements
   private void updateHeader () {
     TdApi.User user = tdlib.myUser();
     if (headerCell != null) {
+      long chatId = user != null ? ChatId.fromUserId(user.id) : 0;
       headerCell.getAvatarReceiver().requestUser(tdlib, tdlib.myUserId(), AvatarReceiver.Options.FULL_SIZE);
       headerCell.setText(user != null ? TD.getUserName(user) : Lang.getString(R.string.LoadingUser), getSubtext());
       headerCell.setEmojiStatus(user);
+      headerCell.setAllowTitleClick(chatId);
       headerCell.invalidate();
     }
   }
@@ -1223,7 +1225,7 @@ public class SettingsController extends ViewController<Void> implements
         showBuildOptions(true);
       } else {
         tdlib.getTesterLevel(testerLevel -> runOnUiThreadOptional(() ->
-          showBuildOptions(testerLevel >= Tdlib.TESTER_LEVEL_TESTER)
+          showBuildOptions(testerLevel >= Tdlib.TesterLevel.TESTER)
         ));
       }
     }

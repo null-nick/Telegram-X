@@ -27,8 +27,11 @@ import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.animation.Interpolator;
 
 import androidx.annotation.Dimension;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -37,9 +40,13 @@ import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.tool.Screen;
+import org.thunderdog.challegram.tool.Views;
 import org.thunderdog.challegram.unsorted.Size;
 
+import me.vkryl.android.animatorx.AnimatorListener;
+import me.vkryl.android.animatorx.FloatAnimator;
 import me.vkryl.android.widget.FrameLayoutFix;
+import me.vkryl.core.MathUtils;
 
 public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerHeaderView, StretchyHeaderView, ViewPagerTopView.SelectionChangeListener {
   private static class VH extends RecyclerView.ViewHolder {
@@ -75,9 +82,21 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
       manager.setReverseLayout(Lang.rtl());
       if (needScroll) {
         manager.scrollToPositionWithOffset(0, scrollOffset);
+        hasUserInteraction = false;
       }
     }
     getTopView().checkRtl();
+  }
+
+  @Override
+  public boolean hasPendingUserInteraction () {
+    return hasUserInteraction;
+  }
+
+  @Override
+  public void resetUserInteraction () {
+    hasUserInteraction = false;
+    resetUserInteraction = false;
   }
 
   private static class A extends RecyclerView.Adapter<VH> {
@@ -88,16 +107,17 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
     }
 
     @Override
-    public VH onCreateViewHolder (ViewGroup parent, int viewType) {
+    @NonNull
+    public VH onCreateViewHolder (@NonNull ViewGroup parent, int viewType) {
       if (topView.getParent() != null) {
-        Log.w("ViewPagerHeaderViewCompact: topView is already attached to another cel");
+        Log.w("ViewPagerHeaderViewCompact: topView is already attached to another cell");
         ((ViewGroup) topView.getParent()).removeView(topView);
       }
       return new VH(topView);
     }
 
     @Override
-    public void onBindViewHolder (VH holder, int position) { }
+    public void onBindViewHolder (@NonNull VH holder, int position) { }
 
     @Override
     public int getItemCount () {
@@ -138,12 +158,12 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
           return;
         }
         View child = getChildAt(0);
-        int leftSpan = -child.getLeft();
+        int leftSpan = -child.getLeft() + Views.getLeftMargin(child);
         float leftFadeStrength = leftSpan < length ? Math.max(0f, leftSpan / (float) length) : 1f;
         float leftLength = leftFadeStrength * length;
         boolean drawLeft = leftLength > 1f /* px */;
 
-        int rightSpan = child.getRight() - getWidth();
+        int rightSpan = child.getRight() - getWidth() + Views.getRightMargin(child);
         float rightFadeStrength = rightSpan < length ? Math.max(0f, rightSpan / (float) length) : 1f;
         float rightLength = rightFadeStrength * length;
         boolean drawRight = rightLength > 1f /* px */;
@@ -173,6 +193,26 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
         c.restoreToCount(saveCount);
       }
     };
+    recyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
+      private boolean dragging;
+
+      @Override
+      public void onScrollStateChanged (@NonNull RecyclerView recyclerView, int newState) {
+        dragging = newState == RecyclerView.SCROLL_STATE_DRAGGING;
+        if (newState == RecyclerView.SCROLL_STATE_IDLE) {
+          if (resetUserInteraction) {
+            resetUserInteraction();
+          }
+        }
+      }
+
+      @Override
+      public void onScrolled (@NonNull RecyclerView recyclerView, int dx, int dy) {
+        if (dx != 0 && dragging) {
+          hasUserInteraction = true;
+        }
+      }
+    });
     recyclerView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Size.getHeaderPortraitSize(), Gravity.TOP));
     recyclerView.setOverScrollMode(Config.HAS_NICE_OVER_SCROLL_EFFECT ? OVER_SCROLL_IF_CONTENT_SCROLLS :OVER_SCROLL_NEVER);
     recyclerView.setLayoutManager(new LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, Lang.rtl()));
@@ -181,6 +221,8 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
 
     setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Size.getHeaderBigPortraitSize(true)));
   }
+
+  private boolean hasUserInteraction, resetUserInteraction;
 
   public void setFadingEdgeLength (@Dimension(unit = Dimension.DP) float length) {
     if (fadingEdgeLength != length) {
@@ -195,39 +237,106 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
     if (view == null) {
       return;
     }
-    final int viewWidth = view.getMeasuredWidth();
+
+    final int viewWidth;
+    final int topViewMarginRightDiff;
+    final ViewPagerTopView topView = getTopView();
+    if (topView.shouldWrapContent()) {
+      final float selectionFactor = totalFactor * (topView.getItemCount() - 1);
+      final int totalWidth = topView.getTotalWidth();
+      final int itemsWidth = topView.getItemsWidth(selectionFactor);
+      int widthDiff = Math.min(itemsWidth - totalWidth, 0);
+      topViewMarginRightDiff = widthDiff - Views.getRightMargin(topView);
+      Views.setRightMargin(topView, widthDiff);
+      viewWidth = itemsWidth;
+    } else {
+      topViewMarginRightDiff = 0;
+      Views.setRightMargin(topView, 0);
+      viewWidth = topView.getMeasuredWidth();
+    }
+
+    final View headerView = (View) getParent();
+    final int headerWidth = headerView != null ? headerView.getMeasuredWidth() : 0;
     final int parentWidth = recyclerView.getMeasuredWidth();
+    if (parentWidth == 0 || viewWidth == 0 || headerWidth == 0) {
+      return;
+    }
+    final int selfWidth = getMeasuredWidth();
+    final int selfMaxWidth = Math.max(headerWidth
+      - headerView.getPaddingLeft()
+      - headerView.getPaddingRight()
+      - Views.getLeftMargin(this)
+      - Views.getRightMargin(this), selfWidth);
     final int parentPaddingLeft = recyclerView.getPaddingLeft();
     final int parentPaddingRight = recyclerView.getPaddingRight();
-    if (viewWidth <= parentWidth - parentPaddingLeft - parentPaddingRight) {
+    final int parentMaxWidth = Math.max(selfMaxWidth
+      - getPaddingLeft()
+      - getPaddingRight()
+      - Views.getLeftMargin(recyclerView)
+      - Views.getRightMargin(recyclerView), parentWidth);
+    if (viewWidth <= parentMaxWidth - parentPaddingLeft - parentPaddingRight) {
+      if (animated && topViewMarginRightDiff != 0) {
+        float topViewTranslationX = topViewMarginRightDiff / 2f;
+        topView.setTranslationX(topViewTranslationX);
+        topView.animate()
+          .translationX(0f)
+          .setInterpolator(QUINTIC_INTERPOLATOR)
+          .setDuration(computeScrollDuration(topViewTranslationX, viewWidth));
+      }
       return;
     }
     if (recyclerView.isComputingLayout()) {
       return;
     }
 
-    final int availScrollX = viewWidth - parentWidth;
-    final int scrolledX;
-    if (Lang.rtl()) {
-      scrolledX = availScrollX + view.getLeft();
-    } else {
-      scrolledX = -view.getLeft();
+    //noinspection UnnecessaryLocalVariable
+    final int maxViewLeft = parentPaddingLeft;
+    final int minViewLeft = parentWidth - viewWidth - parentPaddingRight;
+    if (minViewLeft > maxViewLeft) {
+      return;
     }
-    int viewX = -scrolledX;
-
-    if ((getParent() != null && ((View) getParent()).getMeasuredWidth() > getMeasuredWidth()) || (viewWidth - parentWidth) < lastItemWidth / 2) {
-      int desiredViewLeft = (int) (parentPaddingLeft * (1f - totalFactor) - (viewWidth - parentWidth + parentPaddingRight) * totalFactor);
-      if (viewX != desiredViewLeft) {
-        recyclerView.stopScroll();
-        int diff = (desiredViewLeft - viewX) * (Lang.rtl() ? 1 : -1);
-        if (animated) {
-          recyclerView.smoothScrollBy(diff, 0);
-        } else {
-          recyclerView.scrollBy(diff, 0);
-        }
+    final int viewLeft = MathUtils.clamp(view.getLeft(), minViewLeft, maxViewLeft); // TODO RTL
+    final float topViewTranslationX;
+    if (animated && topViewMarginRightDiff != 0) {
+      int oldViewWidth = viewWidth - topViewMarginRightDiff;
+      if (oldViewWidth <= parentMaxWidth - parentPaddingLeft - parentPaddingRight) {
+        topViewTranslationX = topViewMarginRightDiff;
+      } else {
+        topViewTranslationX = view.getLeft() - viewLeft;
       }
     } else {
-      int visibleSelectionX = selectionLeft + viewX;
+      topViewTranslationX = 0f;
+    }
+
+    final Interpolator interpolator = QUINTIC_INTERPOLATOR;
+    int animationDuration = RecyclerView.UNDEFINED_DURATION;
+
+    if ((selfWidth < selfMaxWidth) || (topView.getMaxStableWidth() - parentWidth) < lastItemWidth / 2) {
+      int desiredViewLeft = (int) (maxViewLeft * (1f - totalFactor) + minViewLeft * totalFactor);
+      if (viewLeft != desiredViewLeft) {
+        int diff = (viewLeft - desiredViewLeft)/* * (Lang.rtl() ? -1 : 1)*/;  // TODO RTL
+        if (animated) {
+          if (topViewTranslationX != 0f) {
+            animationDuration = computeScrollDuration(diff, parentWidth);
+          }
+          recyclerView.stopScroll();
+          if (topViewTranslationX != 0f) {
+            postSmoothScrollBy(diff, interpolator, animationDuration);
+          } else {
+            recyclerView.smoothScrollBy(diff, 0, interpolator, animationDuration);
+          }
+          if (hasUserInteraction) {
+            resetUserInteraction = true;
+          }
+        } else {
+          cancelSmoothScroll();
+          pseudoSmoothScrollBy(diff);
+        }
+      } else {
+        resetUserInteraction();
+      }
+    } else {
+      int visibleSelectionX = selectionLeft + viewLeft;
       int desiredSelectionX;
       if (parentPaddingLeft > 0) {
         desiredSelectionX = parentPaddingLeft;
@@ -236,46 +345,101 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
       }
 
       if (visibleSelectionX != desiredSelectionX) {
-        int newViewX = viewX + (desiredSelectionX - visibleSelectionX);
-        int minX = parentWidth - parentPaddingRight - viewWidth;
-        if (newViewX < minX) {
-          newViewX = minX;
-        }
-        if (newViewX != viewX) {
-          recyclerView.stopScroll();
-          int offset = (viewX - newViewX) * (Lang.rtl() ? -1 : 1);
+        int newViewLeft = viewLeft + (desiredSelectionX - visibleSelectionX);
+        newViewLeft = MathUtils.clamp(newViewLeft, minViewLeft, maxViewLeft);
+        if (newViewLeft != viewLeft) {
+          int offset = (viewLeft - newViewLeft)/* * (Lang.rtl() ? -1 : 1)*/; // TODO RTL
           if (animated) {
-            recyclerView.smoothScrollBy(offset, 0);
+            if (topViewTranslationX != 0f) {
+              animationDuration = computeScrollDuration(offset, parentWidth);
+            }
+            recyclerView.stopScroll();
+            if (topViewTranslationX != 0f) {
+              postSmoothScrollBy(offset, interpolator, animationDuration);
+            } else {
+              recyclerView.smoothScrollBy(offset, 0, interpolator, animationDuration);
+            }
+            if (hasUserInteraction) {
+              resetUserInteraction = true;
+            }
           } else {
-            recyclerView.scrollBy(offset, 0);
+            cancelSmoothScroll();
+            pseudoSmoothScrollBy(offset);
           }
+        } else {
+          resetUserInteraction();
         }
       }
-    }/* else {
-      int visibleSelectionLeft = selectionLeft + viewOffset;
-
-      int desiredLeft = (int) ((float) Screen.dp(16f) * (selectionLeft >= selectionWidth ? 1f : (float) selectionLeft / (float) selectionWidth));
-
-      if (visibleSelectionLeft != desiredLeft) {
-        int newViewLeft = viewOffset + (desiredLeft - visibleSelectionLeft);
-
-        int maxLeft = parentWidth - viewWidth;
-        if (newViewLeft < maxLeft) {
-          newViewLeft = maxLeft;
-        }
-
-
-        if (newViewLeft != viewOffset) {
-          recyclerView.stopScroll();
-          int offset = viewOffset - newViewLeft;
-          if (animated) {
-            recyclerView.smoothScrollBy(offset, 0);
-          } else {
-            recyclerView.scrollBy(offset, 0);
-          }
-        }
+    }
+    if (animated && topViewTranslationX != 0f) {
+      if (animationDuration == RecyclerView.UNDEFINED_DURATION) {
+        animationDuration = computeScrollDuration(topViewTranslationX, parentWidth);
       }
-    }*/
+      topView.setTranslationX(topViewTranslationX);
+      topView.animate()
+        .translationX(0f)
+        .setDuration(animationDuration)
+        .setInterpolator(interpolator);
+    }
+  }
+
+  private @Nullable Runnable smoothScrollStarter;
+
+  private void postSmoothScrollBy (int dx, @Nullable Interpolator interpolator, int duration) {
+    cancelSmoothScroll();
+    smoothScrollStarter = () -> {
+      recyclerView.smoothScrollBy(dx, 0, interpolator, duration);
+      smoothScrollStarter = null;
+    };
+    recyclerView.postOnAnimation(smoothScrollStarter);
+  }
+
+  private void cancelSmoothScroll () {
+    if (smoothScrollStarter != null) {
+      recyclerView.removeCallbacks(smoothScrollStarter);
+      smoothScrollStarter = null;
+    }
+  }
+
+
+  private FloatAnimator scrollByAnimator;
+  private int scrolledBy, finalScrollBy;
+
+  private void pseudoSmoothScrollBy (int scrollX) {
+    if (scrollByAnimator != null && scrollByAnimator.isAnimating()) {
+      finalScrollBy = scrollX + scrolledBy;
+      return;
+    }
+
+    recyclerView.stopScroll();
+    int threshold = Screen.dp(2f);
+    if (Math.abs(scrollX) >= threshold && hasUserInteraction) {
+      long duration = computeScrollDuration(scrollX, recyclerView.getMeasuredWidth());
+
+      scrollByAnimator = new FloatAnimator(duration, QUINTIC_INTERPOLATOR, 0, new AnimatorListener<>() {
+        @Override
+        public void onAnimationUpdate (Float newValue) {
+          int desiredScrollBy = (int) (finalScrollBy * newValue);
+          int scrollBy = (desiredScrollBy - scrolledBy);
+          recyclerView.scrollBy(scrollBy, 0);
+          scrolledBy += scrollBy;
+        }
+
+        @Override
+        public void onAnimationFinish (Float finalValue, boolean byAnimationEnd) {
+          resetUserInteraction();
+          scrollByAnimator = null;
+        }
+      });
+
+      scrolledBy = 0;
+      finalScrollBy = scrollX;
+
+      scrollByAnimator.setAnimatedValue(1f);
+    } else {
+      recyclerView.scrollBy(scrollX, 0);
+      resetUserInteraction();
+    }
   }
 
   public boolean canScrollLeft () {
@@ -339,5 +503,15 @@ public class ViewPagerHeaderViewCompact extends FrameLayoutFix implements PagerH
     //noinspection Range
     recyclerView.setAlpha(scaleFactor <= TOP_SCALE_LIMIT ? 0f : (scaleFactor - TOP_SCALE_LIMIT) / TOP_SCALE_LIMIT);
     recyclerView.setTranslationY(Size.getHeaderSizeDifference(true) * (1f - scaleFactor));
+  }
+
+  private static final Interpolator QUINTIC_INTERPOLATOR = t -> {
+    t -= 1.0f;
+    return t * t * t * t * t + 1.0f;
+  };
+
+  private static int computeScrollDuration(float dx, int containerSize) {
+    float duration = ((Math.abs(dx) / containerSize) + 1) * 300;
+    return Math.min((int) duration, 2000);
   }
 }
