@@ -341,6 +341,7 @@ public class Settings {
   private static final String KEY_CRASH_DEVICE_ID = "crash_device_id";
   private static final String KEY_IS_EMULATOR = "is_emulator";
   private static final String KEY_EMULATOR_DETECTION_RESULT = "emulator";
+  private static final String KEY_PLAYBACK_SPEED = "playback_speed";
 
   private static final @Deprecated String KEY_EMOJI_COUNTERS_OLD = "counters_v2";
   private static final @Deprecated String KEY_EMOJI_RECENTS_OLD = "recents_v2";
@@ -513,6 +514,8 @@ public class Settings {
   public static final long TUTORIAL_QR_SCAN = 1 << 18;
   public static final long TUTORIAL_SELECT_LANGUAGE_INLINE_MODE = 1 << 19;
   public static final long TUTORIAL_MULTIPLE_LINK_PREVIEWS = 1 << 20;
+  public static final long TUTORIAL_PLAYBACK_SPEED_HOLD = 1 << 21;
+  public static final long TUTORIAL_PLAYBACK_SPEED_SWIPE = 1 << 22;
 
   @Nullable
   private Long _tutorialFlags;
@@ -7224,5 +7227,18 @@ public class Settings {
 
   public boolean sendHqPhotos () {
     return isExperimentEnabled(EXPERIMENT_FLAG_SEND_HQ_PHOTO);
+  }
+  @Nullable
+  private Integer _playbackSpeed;
+
+  public void setPlaybackSpeed (int speed) {
+    pmc.putInt(KEY_PLAYBACK_SPEED, _playbackSpeed = speed);
+  }
+
+  public int getPlaybackSpeed () {
+    if (_playbackSpeed == null) {
+      _playbackSpeed = pmc.getInt(KEY_PLAYBACK_SPEED, 100);
+    }
+    return _playbackSpeed;
   }
 }
