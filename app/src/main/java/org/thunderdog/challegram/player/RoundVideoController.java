@@ -72,6 +72,7 @@ import org.thunderdog.challegram.widget.ImageReceiverView;
 import org.thunderdog.challegram.widget.RectFrameLayout;
 
 import me.vkryl.android.AnimatorUtils;
+import me.vkryl.android.animator.BoolAnimator;
 import me.vkryl.android.animator.FactorAnimator;
 import me.vkryl.android.widget.FrameLayoutFix;
 import me.vkryl.core.MathUtils;
@@ -124,6 +125,7 @@ public class RoundVideoController extends BasePlaybackController implements
 
     // Set playback state that will be used in setSource
     this.isPlaying = true;
+    checkVisualPlayPause(false);
 
     // Reset displayingFrame state in case previous video was paused
     checkPlayingThroughPip();
@@ -188,6 +190,20 @@ public class RoundVideoController extends BasePlaybackController implements
       setSource(null, -1);
       setProgressVisible(true);
       tdlib.files().downloadFile(file);
+    }
+  }
+
+  public void seekTo (float progress, boolean play) {
+    if (exoPlayer != null) {
+      final long duration = exoPlayer.getDuration();
+      final long position = (long) (progress * exoPlayer.getDuration());
+      exoPlayer.seekTo(position);
+      if (play) {
+        if (object != null) {
+          TdlibManager.instance().player().playPauseMessage(tdlib, object, null);
+        }
+      }
+      setPlayProgress(progress, position, duration);
     }
   }
 
@@ -287,7 +303,7 @@ public class RoundVideoController extends BasePlaybackController implements
   private RectFrameLayout rootView;
   private CircleFrameLayout mainPlayerView;
   private View mainTextureView;
-  private RoundProgressView mainProgressView;
+  private RoundProgressView2 mainProgressView;
   private ImageReceiverView mainPreviewView;
 
   private ExoPlayer exoPlayer;
@@ -324,6 +340,8 @@ public class RoundVideoController extends BasePlaybackController implements
       int textureSize = TGMessageVideo.getVideoSize();
       mainPlayerView = new CircleFrameLayout(context);
       mainPlayerView.setAlpha(mainVisibilityFactor);
+      mainPlayerView.setPivotX(0);
+      mainPlayerView.setPivotY(0);
       mainPlayerView.setLayoutParams(FrameLayoutFix.newParams(textureSize, textureSize));
 
       if (USE_SURFACE) {
@@ -338,8 +356,9 @@ public class RoundVideoController extends BasePlaybackController implements
       mainPreviewView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
       mainPlayerView.addView(mainPreviewView);
 
-      mainProgressView = new RoundProgressView(context);
+      mainProgressView = new RoundProgressView2(context);
       mainProgressView.setController(this);
+      mainProgressView.setIsPaused(!isPlaying);
       mainProgressView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
       mainPlayerView.addView(mainProgressView);
 
@@ -400,6 +419,10 @@ public class RoundVideoController extends BasePlaybackController implements
     }
 
     texturePrepared = true;
+  }
+
+  public RectFrameLayout getRootView () {
+    return rootView;
   }
 
   public FrameLayoutFix getPipParentView () {
@@ -936,6 +959,7 @@ public class RoundVideoController extends BasePlaybackController implements
 
   // Playback Control
 
+  private final BoolAnimator isPlayingAnimator = new BoolAnimator(ANIMATOR_IS_PLAYING, this, AnimatorUtils.DECELERATE_INTERPOLATOR, 220L);
   private boolean isPlaying;
   private float volume = 1f;
 
@@ -946,6 +970,7 @@ public class RoundVideoController extends BasePlaybackController implements
       if (this.exoPlayer != null) {
         this.exoPlayer.setPlayWhenReady(isPlaying);
       }
+      checkVisualPlayPause(UI.inUiThread());
       checkPlayingThroughPip();
       checkProgressTimer();
     }
@@ -1009,6 +1034,17 @@ public class RoundVideoController extends BasePlaybackController implements
     }
   }
 
+  private void checkVisualPlayPause (boolean animated) {
+    isPlayingAnimator.setValue(isPlaying, animated);
+    if (mainProgressView != null) {
+      mainProgressView.setIsPaused(!isPlaying);
+    }
+  }
+
+  public float getVisualIsPlaying () {
+    return isPlayingAnimator.getFloatValue();
+  }
+
   private void onProgressTick () {
     if (exoPlayer != null) {
       long duration = exoPlayer.getDuration();
@@ -1030,6 +1066,7 @@ public class RoundVideoController extends BasePlaybackController implements
   private static final int ANIMATOR_PIP_PREVIEW = 1;
   private static final int ANIMATOR_PIP_VISIBILITY = 2;
   private static final int ANIMATOR_MAIN_VISIBILITY = 3;
+  private static final int ANIMATOR_IS_PLAYING = 4;
 
   @Override
   public void onFactorChanged (int id, float factor, float fraction, FactorAnimator callee) {
@@ -1045,6 +1082,11 @@ public class RoundVideoController extends BasePlaybackController implements
         break;
       case ANIMATOR_MAIN_VISIBILITY:
         setMainVisibilityFactor(factor);
+        break;
+      case ANIMATOR_IS_PLAYING:
+        if (mainProgressView != null) {
+          mainProgressView.invalidate();
+        }
         break;
     }
   }
@@ -1259,17 +1301,21 @@ public class RoundVideoController extends BasePlaybackController implements
       overlay.setTranslationY(totalY);
     }
 
+    final float scale = (msg instanceof TGMessageVideo) ? ((TGMessageVideo) msg).getPlayerScale() : 1f;
+
     totalX += msg.getContentX();
     totalY += msg.getContentY();
 
     mainPlayerView.setTranslationX(totalX);
     mainPlayerView.setTranslationY(totalY);
+    mainPlayerView.setScaleX(scale);
+    mainPlayerView.setScaleY(scale);
 
     if (abort) {
       return false;
     }
 
-    int playerSize = TGMessageVideo.getVideoSize();
+    float playerSize = TGMessageVideo.getVideoSize() * scale;
 
     int navigationWidth = navigation.getValue().getMeasuredWidth();
     int navigationHeight = navigation.getValue().getMeasuredHeight();
