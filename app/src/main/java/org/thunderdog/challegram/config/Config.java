@@ -182,7 +182,7 @@ public class Config {
 
   public static final boolean SMOOTH_SCROLL_TO_BOTTOM_ENABLED = false; // Build.VERSION.SDK_INT < Build.VERSION_CODES.LOLLIPOP;
 
-  public static final boolean ALLOW_DEBUG_DC = BuildConfig.DEBUG || BuildConfig.EXPERIMENTAL;
+  public static final boolean ALLOW_DEBUG_DC = true;//BuildConfig.DEBUG || BuildConfig.EXPERIMENTAL;
 
   public static final boolean DEBUG_DISABLE_DOWNLOAD = false; // BuildConfig.DEBUG;
   public static final boolean DEBUG_DISABLE_IMAGES = false; // BuildConfig.DEBUG;

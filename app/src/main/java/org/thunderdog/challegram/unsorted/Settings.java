@@ -240,6 +240,7 @@ public class Settings {
   private static final String KEY_CHAT_TRANSLATE_RECENTS = "language_recents";
   private static final String KEY_DEFAULT_LANGUAGE_FOR_TRANSLATE_DRAFT = "language_draft_translate";
   private static final String KEY_INSTANT_VIEW = "settings_iv_mode";
+  private static final String KEY_RESOLUTION_OPTION = "settings_resolution_options";
   private static final String KEY_RESTRICT_CONTENT = "settings_restrict_content";
   private static final String KEY_CAMERA_ASPECT_RATIO = "settings_camera_ratio";
   private static final String KEY_CAMERA_TYPE = "settings_camera_type";
@@ -429,6 +430,7 @@ public class Settings {
   public static final long EXPERIMENT_FLAG_SHOW_PEER_IDS = 1 << 2;
 
   public static final long REMOVED_EXPERIMENT_FLAG_ENABLE_FOLDERS = 1 << 1;
+  public static final long EXPERIMENT_FLAG_SEND_HQ_PHOTO = 1 << 3;
 
   private static final @Deprecated int DISABLED_FLAG_OTHER_NEED_RAISE_TO_SPEAK = 1 << 2;
   private static final @Deprecated int DISABLED_FLAG_OTHER_AUTODOWNLOAD_IN_BACKGROUND = 1 << 3;
@@ -784,6 +786,11 @@ public class Settings {
   public static final int INSTANT_VIEW_MODE_NONE = 0;
   public static final int INSTANT_VIEW_MODE_INTERNAL = 1;
   public static final int INSTANT_VIEW_MODE_ALL = 2;
+
+  public static final int RESOLUTION_OPTION_DEFAULT = 1;
+  public static final int RESOLUTION_OPTION_LOW = 0;
+  public static final int RESOLUTION_OPTION_MEDIUM = 1;
+  public static final int RESOLUTION_OPTION_HIGH = 2;
 
   @Nullable
   private Float _chatFontSize;
@@ -2799,6 +2806,18 @@ public class Settings {
       remove(KEY_INSTANT_VIEW);
     } else {
       putInt(KEY_INSTANT_VIEW, mode);
+    }
+  }
+
+  public int getResolutionOption () {
+    return getInt(KEY_RESOLUTION_OPTION, RESOLUTION_OPTION_DEFAULT);
+  }
+
+  public void setResolutionOption (int option) {
+    if (option == RESOLUTION_OPTION_DEFAULT) {
+      remove(KEY_RESOLUTION_OPTION);
+    } else {
+      putInt(KEY_RESOLUTION_OPTION, option);
     }
   }
 
@@ -7218,5 +7237,8 @@ public class Settings {
       _playbackSpeed = pmc.getInt(KEY_PLAYBACK_SPEED, 100);
     }
     return _playbackSpeed;
+  }
+  public boolean sendHqPhotos () {
+    return isExperimentEnabled(EXPERIMENT_FLAG_SEND_HQ_PHOTO);
   }
 }
