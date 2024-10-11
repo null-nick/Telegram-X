@@ -51,6 +51,8 @@ public class Config {
   public static final boolean MODERN_IMAGE_DECODER_ENABLED = true;
   public static final boolean FORCE_SOFTWARE_IMAGE_DECODER = true;
 
+  public static final boolean WAIT_ANIMATIONS_BEFORE_START_VIDEO = true;
+
   // Allow stretch bounce in places where the glow looks ugly
   public static final boolean HAS_NICE_OVER_SCROLL_EFFECT = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S;
 
@@ -303,6 +305,8 @@ public class Config {
   public static final boolean USE_HARDWARE_PHOTO_VIEWER_CONFIG = false;
 
   public static final boolean REQUIRE_FIREBASE_SERVICES_FOR_SAFETYNET = false;
+
+  public static final boolean USE_INPUT_VIEW_CLIPPING_FIX = false;
 
   public static final int VOIP_CONNECTION_MIN_LAYER = 65;
   public static final boolean FORCE_DIRECT_TGVOIP = false;

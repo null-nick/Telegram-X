@@ -28,6 +28,7 @@ import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.data.InlineResult;
 import org.thunderdog.challegram.data.TD;
+import org.thunderdog.challegram.data.TGMessage;
 import org.thunderdog.challegram.telegram.GlobalMessageListener;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibManager;
@@ -59,10 +60,10 @@ public class TGPlayerController implements GlobalMessageListener, ProximityManag
   public static final int PLAY_FLAG_REPEAT_ONE = 1 << 2; // repeat current entry, until battery or user dies
   public static final int PLAY_FLAGS_DEFAULT = PLAY_FLAG_REPEAT;
 
-  public static final int PLAY_SPEED_NORMAL = 0;
-  public static final int PLAY_SPEED_2X = 1;
-  public static final int PLAY_SPEED_3X = 2;
-  public static final int PLAY_SPEED_4X = 2;
+  public static final int PLAY_SPEED_NORMAL = 100;
+  public static final int PLAY_SPEED_2X = 200;
+  public static final int PLAY_SPEED_3X = 300;
+  public static final int PLAY_SPEED_4X = 400;
 
   private int speed;
 
@@ -169,6 +170,7 @@ public class TGPlayerController implements GlobalMessageListener, ProximityManag
     context.global().addMessageListener(this);
     this.playbackFlags = Settings.instance().getPlayerFlags();
     this.proximityManager = new ProximityManager(this, this);
+    this.speed = Settings.instance().getPlaybackSpeed();
   }
 
   public void onUpdateFile (Tdlib tdlib, TdApi.UpdateFile updateFile) {
@@ -452,33 +454,24 @@ public class TGPlayerController implements GlobalMessageListener, ProximityManag
     }
     if (this.speed != speed) {
       this.speed = speed;
+      Settings.instance().setPlaybackSpeed(speed);
       synchronized (this) {
         notifyTrackListSpeedChanged(globalListeners, speed);
       }
     }
   }
 
+  public int getSpeed () {
+    return speed;
+  }
+
   public static @NonNull PlaybackParameters newPlaybackParameters (boolean isVoice, int speedValue) {
     PlaybackParameters parameters = PlaybackParameters.DEFAULT;
     if (speedValue != TGPlayerController.PLAY_SPEED_NORMAL) {
-      float speed;
-      float pitch = 1f;
-      switch (speedValue) {
-        case TGPlayerController.PLAY_SPEED_2X:
-          if (isVoice) {
-            speed = 1.72f;
-            pitch = .98f;
-          } else {
-            speed = 2f;
-          }
-          break;
-        default:
-          speed = 1f;
-          break;
-      }
-      if (speed != 1f) {
-        parameters = new PlaybackParameters(speed, pitch);
-      }
+      final float speed = speedValue / 100f;
+      final float pitch = speedValue > 100 ? 0.98f : 1f;
+
+      parameters = new PlaybackParameters(speed, pitch);
     }
     return parameters;
   }
@@ -1777,6 +1770,7 @@ public class TGPlayerController implements GlobalMessageListener, ProximityManag
   public static final int PAUSE_REASON_RECORD_VIDEO = 1 << 8;
   public static final int PAUSE_REASON_PROXIMITY = 1 << 9;
   public static final int PAUSE_REASON_OPEN_WEB_VIDEO = 1 << 10;
+  public static final int PAUSE_REASON_OPEN_ONCE_MEDIA = 1 << 11;
 
   private boolean needResume;
   private int pauseReasons;
@@ -1837,8 +1831,22 @@ public class TGPlayerController implements GlobalMessageListener, ProximityManag
      * @param originIndex index of message requested in {@link PlayListBuilder#buildPlayList(TdApi.Message)}
      */
     public PlayList (List<TdApi.Message> messages, int originIndex) {
-      this.messages = messages;
-      this.originIndex = originIndex;
+      this.messages = new ArrayList<>();
+
+      int newOriginIndex = -1;
+      for (int a = 0; a < messages.size(); a++) {
+        final TdApi.Message msg = messages.get(a);
+        final boolean isOrigin = a == originIndex;
+        // FIXME: this should be filtered on the PlayListBuilder implementation level
+        if (TD.isSelfDestructTypeImmediately(msg) && !isOrigin) {
+          continue;
+        }
+        if (isOrigin) {
+          newOriginIndex = this.messages.size();
+        }
+        this.messages.add(msg);
+      }
+      this.originIndex = newOriginIndex;
     }
 
     /**

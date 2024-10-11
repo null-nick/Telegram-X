@@ -51,7 +51,7 @@ public class TextPart {
   private int height = -1;
   private @BiDiEntity int bidiEntity;
 
-  private final int lineIndex, paragraphIndex;
+  private int lineIndex, paragraphIndex;
 
   public TextPart (Text source, String line, int start, int end, int lineIndex, int paragraphIndex) {
     this.source = source;
@@ -74,6 +74,11 @@ public class TextPart {
     this.line = line;
     this.start = start;
     this.end = end;
+  }
+
+  public void setLineIndex (int lineIndex, int paragraphIndex) {
+    this.lineIndex = lineIndex;
+    this.paragraphIndex = paragraphIndex;
   }
 
   public void setXY (int x, int y) {
@@ -410,4 +415,38 @@ public class TextPart {
   }
 
   private static final boolean DEBUG = false;
+
+  public int getQuoteEntityId () {
+    return entity != null ? entity.getQuoteId() : -1;
+  }
+
+  public static int getAdditionalLinesBefore (TextPart part) {
+    final TextEntity entity = part.getEntity();
+    if (entity == null) return 0;
+
+    final int startEntity = entity.getStart();
+    final int startPart = part.getStart();
+    int startLinesCount = 0;
+
+    while ((startPart - startLinesCount - 1) >= startEntity && part.getLine().charAt(startPart - startLinesCount - 1) == '\n') {
+      startLinesCount++;
+    }
+
+    return startLinesCount;
+  }
+
+  public static int getAdditionalLinesAfter (TextPart part) {
+    final TextEntity entity = part.getEntity();
+    if (entity == null) return 0;
+
+    final int endEntity = entity.getEnd();
+    final int endPart = part.getEnd();
+    int endLinesCount = 0;
+
+    while ((endPart + endLinesCount) < endEntity && part.getLine().charAt(endPart + endLinesCount) == '\n') {
+      endLinesCount++;
+    }
+
+    return endLinesCount;
+  }
 }

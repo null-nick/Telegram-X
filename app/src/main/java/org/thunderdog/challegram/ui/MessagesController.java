@@ -118,7 +118,6 @@ import org.thunderdog.challegram.component.chat.SilentButton;
 import org.thunderdog.challegram.component.chat.StickerSuggestionAdapter;
 import org.thunderdog.challegram.component.chat.TdlibSingleUnreadReactionsManager;
 import org.thunderdog.challegram.component.chat.TopBarView;
-import org.thunderdog.challegram.component.chat.VoiceInputView;
 import org.thunderdog.challegram.component.chat.VoiceVideoButtonView;
 import org.thunderdog.challegram.component.chat.WallpaperAdapter;
 import org.thunderdog.challegram.component.chat.WallpaperRecyclerView;
@@ -145,7 +144,6 @@ import org.thunderdog.challegram.data.TGMessageBotInfo;
 import org.thunderdog.challegram.data.TGMessageLocation;
 import org.thunderdog.challegram.data.TGMessageMedia;
 import org.thunderdog.challegram.data.TGMessageSticker;
-import org.thunderdog.challegram.data.TGRecord;
 import org.thunderdog.challegram.data.TGSwitchInline;
 import org.thunderdog.challegram.data.TGUser;
 import org.thunderdog.challegram.data.ThreadInfo;
@@ -155,7 +153,6 @@ import org.thunderdog.challegram.helper.BotHelper;
 import org.thunderdog.challegram.helper.FoundUrls;
 import org.thunderdog.challegram.helper.LinkPreview;
 import org.thunderdog.challegram.helper.LiveLocationHelper;
-import org.thunderdog.challegram.helper.Recorder;
 import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.loader.ImageGalleryFile;
 import org.thunderdog.challegram.loader.ImageReader;
@@ -245,6 +242,7 @@ import org.thunderdog.challegram.widget.CustomTextView;
 import org.thunderdog.challegram.widget.EmojiLayout;
 import org.thunderdog.challegram.widget.EmojiPacksInfoView;
 import org.thunderdog.challegram.widget.ForceTouchView;
+import org.thunderdog.challegram.widget.KeyboardFrameLayout;
 import org.thunderdog.challegram.widget.NoScrollTextView;
 import org.thunderdog.challegram.widget.PopupLayout;
 import org.thunderdog.challegram.widget.ProgressComponentView;
@@ -295,7 +293,7 @@ import me.vkryl.td.TdConstants;
 public class MessagesController extends ViewController<MessagesController.Arguments> implements
   Menu, Unlockable, View.OnClickListener,
   ActivityResultHandler, MoreDelegate, CommandKeyboardLayout.Callback, MediaCollectorDelegate, SelectDelegate,
-  ReplyBarView.Callback, RaiseHelper.Listener, VoiceInputView.Callback,
+  ReplyBarView.Callback, RaiseHelper.Listener,
   TGLegacyManager.EmojiLoadListener, ChatHeaderView.Callback,
   ChatListener, NotificationSettingsListener, EmojiLayout.Listener,
   MessageThreadListener, TdlibSingleUnreadReactionsManager.UnreadSingleReactionListener,
@@ -352,6 +350,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
   });
   private SeparatorView bottomShadowView;
   private boolean enableOnResume;
+
+  private KeyboardFrameLayout emojiKeyboardFrameLayout;
 
   private EmojiLayout emojiLayout;
   private TextFormattingLayout textFormattingLayout;
@@ -430,14 +430,10 @@ public class MessagesController extends ViewController<MessagesController.Argume
       openSetSenderPopup();
     } else if (viewId == R.id.btn_sendOnceOnline) {
       TdApi.MessageSendOptions sendOptions = Td.newSendOptions(new TdApi.MessageSchedulingStateSendWhenOnline());
-      if (!sendShowingVoice(sendButton, sendOptions)) {
-        send(sendOptions, true);
-      }
+      send(sendOptions, true);
     } else if (viewId == R.id.btn_sendScheduled) {
       tdlib.ui().pickSchedulingState(this, sendOptions -> {
-        if (!sendShowingVoice(sendButton, sendOptions)) {
-          send(sendOptions, true);
-        }
+        send(sendOptions, true);
       }, getChatId(), false, false, null, null);
     } else if (viewId == R.id.btn_sendNoMarkdown) {
       if (isEditingMessage()) {
@@ -451,9 +447,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       showCallbackToast(text);
     } else if (viewId == R.id.btn_sendNoSound) {
       pickDateOrProceed(Td.newSendOptions(true), (modifiedSendOptions, disableMarkdown) -> {
-        if (!sendShowingVoice(sendButton, modifiedSendOptions)) {
-          send(modifiedSendOptions, true);
-        }
+        send(modifiedSendOptions, true);
       });
     } else if (viewId == R.id.btn_debugLtrEmoji) {
       pickDateOrProceed(Td.newSendOptions(), (sendOptions, disableMarkdown) -> send(new TdApi.InputMessageText(new TdApi.FormattedText(Text.bidiGenerateTestMessage(), new TdApi.TextEntity[0]), null, false), false, sendOptions, null));
@@ -722,8 +716,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
         public boolean onTouchEvent (MotionEvent event) {
           boolean r = super.onTouchEvent(event);
           inputViewDisabledClickHelper.onTouchEvent(this, event);
-          if (textFormattingLayout != null) {
-            textFormattingLayout.onInputViewTouchEvent(event);
+          if (emojiKeyboardFrameLayout != null) {
+            emojiKeyboardFrameLayout.contentView.textFormattingLayout.onInputViewTouchEvent(event);
           }
           return r;
         }
@@ -2046,73 +2040,71 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private void send (TdApi.MessageSendOptions sendOptions, boolean applyMarkdown) {
-    if (!sendShowingVoice(sendButton, sendOptions)) {
-      if (isEditingMessage()) {
-        saveMessage(applyMarkdown);
-      } else if (hasAttachedFiles()) {
-        if (isSendingText) {
-          return;
-        }
-
-        final TdApi.FormattedText caption = inputView != null ? inputView.getOutputText(applyMarkdown) : null;
-        final ArrayList<InlineResult<?>> selectedItems = attachedFiles.getCurrentItems();
-
-        final ArrayList<MediaBottomFilesController.MusicEntry> musicEntries = new ArrayList<>();
-        final ArrayList<String> files = new ArrayList<>();
-
-        for (InlineResult<?> result : selectedItems) {
-          switch (result.getType()) {
-            case InlineResult.TYPE_AUDIO: {
-              musicEntries.add((MediaBottomFilesController.MusicEntry) ((InlineResultCommon) result).getTag());
-              break;
-            }
-            case InlineResult.TYPE_DOCUMENT: {
-              files.add(result.getId());
-              break;
-            }
-          }
-        }
-
-        if (musicEntries.isEmpty() && files.isEmpty()) {
-          return;
-        }
-
-        final List<TdApi.Message> sentMessages = new ArrayList<>(selectedItems.size());
-        final TdApi.InputMessageReplyTo replyTo = getCurrentReplyId();
-        final ArrayList<TdApi.Function<?>> functions = new ArrayList<>();
-        final boolean[] isTimeout = new boolean[1];
-        final long chatId = getChatId();
-
-        setIsSendingText(true);
-        manager.setSentMessages(sentMessages);
-        Runnable clearInputRunnable = () -> {
-          if (getChatId() == chatId) {
-            clearInputAfterSend(true, true, replyTo, true);
-            UI.showToast(Lang.getString(R.string.SlowFileAccess), Toast.LENGTH_LONG);
-            isTimeout[0] = true;
-          }
-        };
-
-        UI.post(clearInputRunnable, MathUtils.clamp(50 * selectedItems.size(), 200, 500));
-
-        final List<TdApi.Function<?>> musicFunctions = getSendMusicFunctions(sendButton, musicEntries, true, !musicEntries.isEmpty(), caption, sendOptions);
-        sendFiles(sendButton, files, true, true, !musicEntries.isEmpty() && !files.isEmpty() ? null : caption, sendOptions, filesFunctions -> {
-          if (filesFunctions != null) {
-            functions.addAll(filesFunctions);
-          }
-          if (musicFunctions != null) {
-            functions.addAll(musicFunctions);
-          }
-          executeSendMessageFunctions(functions, sentMessages, sendOptions != null && sendOptions.schedulingState != null, success -> UI.post(() -> {
-            if (!isTimeout[0] && getChatId() == chatId) {
-              clearInputAfterSend(true, true, replyTo, true);
-            }
-            UI.cancel(clearInputRunnable);
-          }));
-        });
-      } else {
-        sendText(applyMarkdown, sendOptions);
+    if (isEditingMessage()) {
+      saveMessage(applyMarkdown);
+    } else if (hasAttachedFiles()) {
+      if (isSendingText) {
+        return;
       }
+
+      final TdApi.FormattedText caption = inputView != null ? inputView.getOutputText(applyMarkdown) : null;
+      final ArrayList<InlineResult<?>> selectedItems = attachedFiles.getCurrentItems();
+
+      final ArrayList<MediaBottomFilesController.MusicEntry> musicEntries = new ArrayList<>();
+      final ArrayList<String> files = new ArrayList<>();
+
+      for (InlineResult<?> result : selectedItems) {
+        switch (result.getType()) {
+          case InlineResult.TYPE_AUDIO: {
+            musicEntries.add((MediaBottomFilesController.MusicEntry) ((InlineResultCommon) result).getTag());
+            break;
+          }
+          case InlineResult.TYPE_DOCUMENT: {
+            files.add(result.getId());
+            break;
+          }
+        }
+      }
+
+      if (musicEntries.isEmpty() && files.isEmpty()) {
+        return;
+      }
+
+      final List<TdApi.Message> sentMessages = new ArrayList<>(selectedItems.size());
+      final TdApi.InputMessageReplyTo replyTo = getCurrentReplyId();
+      final ArrayList<TdApi.Function<?>> functions = new ArrayList<>();
+      final boolean[] isTimeout = new boolean[1];
+      final long chatId = getChatId();
+
+      setIsSendingText(true);
+      manager.setSentMessages(sentMessages);
+      Runnable clearInputRunnable = () -> {
+        if (getChatId() == chatId) {
+          clearInputAfterSend(true, true, replyTo, true);
+          UI.showToast(Lang.getString(R.string.SlowFileAccess), Toast.LENGTH_LONG);
+          isTimeout[0] = true;
+        }
+      };
+
+      UI.post(clearInputRunnable, MathUtils.clamp(50 * selectedItems.size(), 200, 500));
+
+      final List<TdApi.Function<?>> musicFunctions = getSendMusicFunctions(sendButton, musicEntries, true, !musicEntries.isEmpty(), caption, sendOptions);
+      sendFiles(sendButton, files, true, true, !musicEntries.isEmpty() && !files.isEmpty() ? null : caption, sendOptions, filesFunctions -> {
+        if (filesFunctions != null) {
+          functions.addAll(filesFunctions);
+        }
+        if (musicFunctions != null) {
+          functions.addAll(musicFunctions);
+        }
+        executeSendMessageFunctions(functions, sentMessages, sendOptions != null && sendOptions.schedulingState != null, success -> UI.post(() -> {
+          if (!isTimeout[0] && getChatId() == chatId) {
+            clearInputAfterSend(true, true, replyTo, true);
+          }
+          UI.cancel(clearInputRunnable);
+        }));
+      });
+    } else {
+      sendText(applyMarkdown, sendOptions);
     }
   }
 
@@ -2709,14 +2701,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
       return;
     }
 
-    if (item instanceof TGRecord) {
-      if (!hasSendMessagePermission(RightId.SEND_VOICE_NOTES)) {
-        return;
-      }
-      processRecord((TGRecord) item);
-      return;
-    }
-
     if (item instanceof TGBotStart) {
       TGBotStart start = (TGBotStart) item;
 
@@ -3032,6 +3016,13 @@ public class MessagesController extends ViewController<MessagesController.Argume
     return false;
   }
 
+  public boolean calculateScrollDyForCenterVideoMessage (final long chatId, final long messageId, MessagesManager.VideoScrollParameters out) {
+    if (getChatId() == chatId && chatId != 0) {
+      return manager.calculateScrollDyForCenterVideoMessage(chatId, messageId, out);
+    }
+    return false;
+  }
+
   @Override
   protected void onFocusStateChanged () {
     checkRoundVideo();
@@ -3066,6 +3057,16 @@ public class MessagesController extends ViewController<MessagesController.Argume
       }*/
       return;
     }
+
+    if (messagesView.isComputingLayout()) {
+      UI.post(() -> {
+        if (!isDestroyed()) {
+          checkRoundVideo(-1, -1, onScroll);
+        }
+      });
+      return;
+    }
+
     final RoundVideoController roundVideoController = context().getRoundVideoController();
     MessageViewGroup targetView = null;
     boolean targetChat = false;
@@ -3517,12 +3518,12 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
     manager.rebuildLayouts();
 
-    if (emojiLayout != null) {
+    if (emojiKeyboardFrameLayout != null) {
       emojiState = false;
       if (emojiShown) {
         closeEmojiKeyboard();
       }
-      emojiLayout.rebuildLayout();
+      emojiKeyboardFrameLayout.rebuildLayout();
     }
 
     if (keyboardLayout != null) {
@@ -3676,6 +3677,10 @@ public class MessagesController extends ViewController<MessagesController.Argume
           ids.append(R.id.btn_link);
           strings.append(R.string.TextFormatLink);
           icons.append(R.drawable.baseline_link_24);
+
+          ids.append(R.id.btn_quote);
+          strings.append(R.string.TextFormatQuote);
+          icons.append(R.drawable.baseline_format_quote_close_24);
 
           showOptions(null, ids.get(), strings.get(), null, icons.get(), (itemView, id1) -> inputView.setSpan(id1));
         } else {
@@ -3896,7 +3901,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   private static HashSet<String> shownTutorials;
 
   private void showMessageMenuTutorial () {
-    if (sendShown.getValue() && !areScheduledOnly() && !isInputLess() && canWriteMessages() && hasSendBasicMessagePermission() && !isEditingMessage() && !isSecretChat() && isFocused() && !isVoicePreviewShowing() && !sendButton.inInlineMode()) {
+    if (sendShown.getValue() && !areScheduledOnly() && !isInputLess() && canWriteMessages() && hasSendBasicMessagePermission() && !isEditingMessage() && !isSecretChat() && isFocused() && !sendButton.inInlineMode()) {
       long tutorialFlag;
       if (isSelfChat()) {
         tutorialFlag = Settings.TUTORIAL_SET_REMINDER;
@@ -4315,7 +4320,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
     // messagesView.clear();
 
-    closeVoicePreview(true);
     closeEmojiKeyboard();
     clearScheduledKeyboard();
 
@@ -6736,7 +6740,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private float getButtonsOffset () {
-    return getReplyOffset() + getAttachedFilesOffset() + getSearchControlsOffset();
+    return getReplyOffset() + getAttachedFilesOffset() + getSearchControlsOffset() + getKeyboardOffset();
   }
 
   private float getMentionButtonY () {
@@ -6790,10 +6794,11 @@ public class MessagesController extends ViewController<MessagesController.Argume
   private void updateReplyView () {
     float y = -getReplyOffset();
     float offset = -getAttachedFilesOffset();
-    messagesView.setTranslationY(y + offset);
-    bottomShadowView.setTranslationY(y + offset);
+    final float keyboardOffset = -getKeyboardOffset();
+    messagesView.setTranslationY(y + offset + keyboardOffset);
+    bottomShadowView.setTranslationY(y + offset + keyboardOffset);
     if (replyBarView != null) {
-      replyBarView.setTranslationY(y);
+      replyBarView.setTranslationY(y + keyboardOffset);
     }
     checkScrollButtonOffsets();
     onMessagesFrameChanged();
@@ -7431,7 +7436,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   private float prevButtonsY;
 
   private void updateButtonsY () {
-    float y = bottomWrap.getTop() + (inputView != null ? inputView.getBottom() : Screen.dp(49f)) - Screen.dp(49f);
+    float y = bottomWrap.getTop() + (inputView != null ? inputView.getBottom() : Screen.dp(49f)) - Screen.dp(49f) - getKeyboardOffset();
 
     sendButton.setTranslationY(y);
     emojiButton.setTranslationY(y);
@@ -8399,7 +8404,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
   @Override
   public int[] displayBaseViewWithAnchor (EmojiToneHelper context, View anchorView, View viewToDisplay, int viewWidth, int viewHeight, int horizontalMargin, int horizontalOffset, int verticalOffset) {
-    return EmojiToneHelper.defaultDisplay(context, anchorView, viewToDisplay, viewWidth, viewHeight, horizontalMargin, horizontalOffset, verticalOffset, contentView, bottomWrap, emojiLayout);
+    return EmojiToneHelper.defaultDisplay(context, anchorView, viewToDisplay, viewWidth, viewHeight, horizontalMargin, horizontalOffset, verticalOffset, contentView, bottomWrap, emojiKeyboardFrameLayout);
   }
 
   @Override
@@ -8563,8 +8568,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   public @Nullable
-  EmojiLayout getEmojiLayout () {
-    return emojiLayout;
+  KeyboardFrameLayout getEmojiKeyboardLayout () {
+    return emojiKeyboardFrameLayout;
   }
 
   @Override
@@ -8600,8 +8605,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
         }
       }
       boolean result = super.onKeyboardStateChanged(visible);
-      if (emojiShown && emojiLayout != null) {
-        emojiLayout.onKeyboardStateChanged(visible);
+      if (emojiShown && emojiKeyboardFrameLayout != null) {
+        emojiKeyboardFrameLayout.onKeyboardStateChanged(visible);
       }
       if (commandsShown && keyboardLayout != null) {
         keyboardLayout.onKeyboardStateChanged(visible);
@@ -8617,10 +8622,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
     BaseActivity context = context();
     if (context.getRecordAudioVideoController().isOpen()) {
       context.getRecordAudioVideoController().finishRecording(true);
-      return true;
-    }
-    if (isVoiceShowing) {
-      onDiscardVoiceRecord();
       return true;
     }
     if (hasEditedChanges()) {
@@ -8663,24 +8664,47 @@ public class MessagesController extends ViewController<MessagesController.Argume
     }
   }
 
+  private float getKeyboardOffset () {
+    return emojiKeyboardFrameLayout != null ? emojiKeyboardFrameLayout.getLayoutTranslationOffset() : 0f;
+  }
+
+  private void onKeyboardLayoutTranslation (float translationY) {
+    updateButtonsY();
+    updateReplyView();
+    if (bottomWrap != null) {
+      bottomWrap.setTranslationY(translationY);
+    }
+  }
+
   private void openEmojiKeyboard () {
     if (!emojiShown) {
-      if (emojiLayout == null) {
-        emojiLayout = new EmojiLayout(context());
+      if (emojiKeyboardFrameLayout == null) {
+        emojiKeyboardFrameLayout = new KeyboardFrameLayout(context());
+        emojiKeyboardFrameLayout.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        emojiKeyboardFrameLayout.setParentView(bottomWrap, contentView, contentView);
+        emojiKeyboardFrameLayout.setUpdateTranslationListener(this::onKeyboardLayoutTranslation);
+
+        textFormattingLayout = emojiKeyboardFrameLayout.contentView.textFormattingLayout;
+        textFormattingLayout.init(this, inputView, new TextFormattingLayout.Delegate() {
+          @Override
+          public void onWantsCloseTextFormattingKeyboard () {
+            closeTextFormattingKeyboard();
+          }
+
+          @Override
+          public void onWantsOpenTextFormattingKeyboard () {
+            openEmojiKeyboard();
+          }
+        });
+
+        emojiLayout = emojiKeyboardFrameLayout.contentView.emojiLayout;
         emojiLayout.initWithMediasEnabled(this, true, this, this, false);
         emojiLayout.setAllowPremiumFeatures(isSelfChat());
         emojiLayout.setAllowMedia(!hasAttachedFiles());
-        bottomWrap.addView(emojiLayout);
-        if (inputView != null) {
-          textFormattingLayout = new TextFormattingLayout(context(), this, inputView);
-          textFormattingLayout.setDelegate(this::closeTextFormattingKeyboard);
-          textFormattingLayout.setVisibility(View.GONE);
-          emojiLayout.addView(textFormattingLayout, FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
-        }
-        contentView.getViewTreeObserver().addOnPreDrawListener(emojiLayout);
-      } else {
-        emojiLayout.setVisibility(View.VISIBLE);    // todo: set invisible if message options is visible ?
+        emojiLayout.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
+        bottomWrap.addView(emojiKeyboardFrameLayout);
       }
+      emojiKeyboardFrameLayout.setVisible(true);
 
       // updateButtonsY();
 
@@ -8694,7 +8718,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       setEmojiShown(true, true);
       if (emojiState) {
         emojiButton.setImageResource(R.drawable.baseline_keyboard_24);
-        emojiLayout.hideKeyboard(inputView);
+        emojiKeyboardFrameLayout.hideKeyboard(inputView);
       } else {
         emojiButton.setImageResource(R.drawable.baseline_direction_arrow_down_24);
       }
@@ -8733,8 +8757,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
   private void forceCloseEmojiKeyboard () {
     if (emojiShown) {
-      if (emojiLayout != null) {
-        emojiLayout.setVisibility(View.GONE);
+      if (emojiKeyboardFrameLayout != null) {
+        emojiKeyboardFrameLayout.setVisible(false);
       }
       setEmojiShown(false, false);
       emojiButton.setImageResource(getTargetIcon(true));
@@ -8747,11 +8771,11 @@ public class MessagesController extends ViewController<MessagesController.Argume
 
   private void closeEmojiKeyboard (boolean byKeyboardOpen) {
     if (emojiShown) {
-      if (emojiLayout != null) {
-        emojiLayout.setVisibility(View.GONE);
+      if (emojiKeyboardFrameLayout != null) {
+        emojiKeyboardFrameLayout.setVisible(false);
       }
       if (emojiState && isFocused() && !byKeyboardOpen) {
-        emojiLayout.showKeyboard(inputView);
+        emojiKeyboardFrameLayout.showKeyboard(inputView);
       }
       setEmojiShown(false, true);
       emojiButton.setImageResource(getTargetIcon(true));
@@ -8884,6 +8908,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     if (!excludeTranslation) {
       bottom += getReplyOffset();
     }
+    bottom += getKeyboardOffset();
     return bottom;
   }
 
@@ -9392,7 +9417,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private void checkSendButton (boolean animated) {
-    setSendVisible(inputView.getText().length() > 0 || isEditingMessage() || hasAttachedFiles() || isVoiceShowing, animated && getParentOrSelf().isAttachedToNavigationController());
+    setSendVisible(inputView.getText().length() > 0 || isEditingMessage() || hasAttachedFiles(), animated && getParentOrSelf().isAttachedToNavigationController());
   }
 
   private void displaySendButton () {
@@ -9771,24 +9796,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
       return TD.toFunctions(chat.id, getMessageThreadId(), allowReply ? obtainReplyTo() : null, finalSendOptions, content, needGroupMedia);
     }
     return null;
-  }
-
-  public boolean sendRecord (View view, final TGRecord record, boolean allowReply, TdApi.MessageSendOptions initialSendOptions) {
-    if (showSlowModeRestriction(view, initialSendOptions) || showRestriction(view, RightId.SEND_VOICE_NOTES)) {
-      return false;
-    }
-    final long chatId = chat.id;
-    final TdApi.InputMessageReplyTo replyTo = allowReply ? obtainReplyTo() : null;
-    TdApi.MessageSendOptions finalSendOptions = Td.newSendOptions(initialSendOptions, obtainSilentMode());
-    if (record.getWaveform() == null) {
-      Background.instance().post(() -> {
-        byte[] waveform = N.getWaveform(record.getPath());
-        tdlib.sendMessage(chatId, getMessageThreadId(), replyTo, finalSendOptions, new TdApi.InputMessageVoiceNote(record.toInputFile(), record.getDuration(), waveform, null, null), null);
-      });
-    } else {
-      tdlib.sendMessage(chatId, getMessageThreadId(), replyTo, finalSendOptions, new TdApi.InputMessageVoiceNote(record.toInputFile(), record.getDuration(), record.getWaveform(), null, null), null);
-    }
-    return true;
   }
 
   public void forwardMessage (TdApi.Message message) { // TODO remove all related to Forward stuff to replace with ShareLayout
@@ -10878,100 +10885,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
     }*/
     context().getRecordAudioVideoController().leaveRaiseRecordMode();
     return true;
-  }
-
-  public boolean isVoicePreviewShowing () {
-    return isVoiceShowing;
-  }
-
-  private boolean isVoiceShowing, isVoiceReceived, ignoreVoice;
-  private VoiceInputView voiceInputView;
-
-  public void prepareVoicePreview (int seconds) {
-    if (voiceInputView == null) {
-      voiceInputView = new VoiceInputView(context());
-      voiceInputView.addThemeListeners(this);
-      voiceInputView.setCallback(this);
-      contentView.addView(voiceInputView);
-    } else {
-      voiceInputView.clearData();
-      voiceInputView.cancelCloseAnimation();
-      voiceInputView.setVisibility(View.VISIBLE);
-      voiceInputView.setAlpha(1f);
-    }
-
-    hideSoftwareKeyboard();
-    closeCommandsKeyboard(false);
-    closeEmojiKeyboard();
-
-    voiceInputView.setDuration(seconds);
-
-    isVoiceReceived = false;
-    isVoiceShowing = true;
-
-    checkSendButton(false);
-  }
-
-  private boolean sendShowingVoice (View view, TdApi.MessageSendOptions sendOptions) {
-    if (!isVoiceShowing) {
-      return false;
-    }
-    if (showSlowModeRestriction(view, sendOptions) || showRestriction(view, RightId.SEND_VOICE_NOTES)) {
-      return false;
-    }
-    TGRecord record = voiceInputView.getRecord();
-    if (record != null) {
-      voiceInputView.ignoreStop();
-      // Player.instance().destroy();
-      if (sendRecord(view, record, true, sendOptions)) {
-        closeVoicePreview(false);
-      }
-    }
-    return true;
-  }
-
-  public void forceCloseVoicePreview () {
-    closeVoicePreview(true);
-  }
-
-  private void closeVoicePreview (boolean force) {
-    if (!isVoiceShowing) {
-      return;
-    }
-    isVoiceShowing = false;
-    checkSendButton(!force);
-    if (force) {
-      voiceInputView.discardRecord();
-      voiceInputView.setAlpha(0f);
-      voiceInputView.setVisibility(View.GONE);
-    } else {
-      voiceInputView.animateClose();
-    }
-  }
-
-  @Override
-  public void onDiscardVoiceRecord () {
-    if (isVoiceShowing) {
-      if (!isVoiceReceived) {
-        ignoreVoice = true;
-      }
-      voiceInputView.ignoreStop();
-      // Player.instance().destroy();
-      voiceInputView.discardRecord();
-      closeVoicePreview(false);
-    }
-  }
-
-  public void processRecord (TGRecord record) {
-    if (ignoreVoice) {
-      Recorder.instance().delete(record);
-      ignoreVoice = false;
-    } else if (isVoiceShowing) {
-      isVoiceReceived = true;
-      voiceInputView.processRecord(record);
-    } else {
-      sendRecord(sendButton, record, true, Td.newSendOptions());
-    }
   }
 
   // Messages search
@@ -12188,14 +12101,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   private void setTextFormattingLayoutVisible (boolean visible) {
-    textFormattingVisible = visible;
-    if (emojiLayout != null && textFormattingLayout != null) {
-      textFormattingLayout.setVisibility(visible ? View.VISIBLE : View.GONE);
-      emojiLayout.optimizeForDisplayTextFormattingLayout(visible);
-      if (visible) {
-        textFormattingLayout.checkButtonsActive(false);
-      }
-    }
+    textFormattingVisible = emojiKeyboardFrameLayout != null && emojiKeyboardFrameLayout.contentView.setTextFormattingLayoutVisible(visible);
   }
 
   private void closeTextFormattingKeyboard () {

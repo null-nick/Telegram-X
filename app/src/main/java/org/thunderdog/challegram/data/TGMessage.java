@@ -1711,7 +1711,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     }
   }
 
-  private void drawBubble (Canvas c, Paint paint, boolean stroke, int padding) {
+  protected void drawBubble (Canvas c, Paint paint, boolean stroke, int padding) {
     if (paint.getAlpha() == 0) {
       return;
     }
@@ -2372,7 +2372,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
       RectF rectF = Paints.getRectF();
       rectF.set(lineLeft, lineTop, lineRight, lineBottom);
-      final int lineColor = APPLY_ACCENT_TO_FORWARDS && !isOutgoingBubble() && fAuthorNameAccentColor != null ? fAuthorNameAccentColor.getVerticalLineColor() : getVerticalLineColor();
+      final int lineColor = getForwardLineColor();
       c.drawRoundRect(rectF, lineWidth / 2f, lineWidth / 2f, Paints.fillingPaint(lineColor));
 
       if (mergeTop) {
@@ -2569,6 +2569,10 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
         manager.viewMessages(false);
       }
     }
+  }
+
+  public boolean isAttachedToView () {
+    return BitwiseUtils.hasFlag(flags, FLAG_ATTACHED);
   }
 
   protected void onMessageAttachStateChange (boolean isAttached) {
@@ -3528,7 +3532,11 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     }
   }
 
-  private int getForwardAuthorNameLeft () {
+  public int getForwardLineColor () {
+    return APPLY_ACCENT_TO_FORWARDS && !isOutgoingBubble() && fAuthorNameAccentColor != null ? fAuthorNameAccentColor.getVerticalLineColor() : getVerticalLineColor();
+  }
+
+  public int getForwardAuthorNameLeft () {
     return useBubbles() ? getInternalBubbleStartX() + Screen.dp(11f) : xfContentLeft;
   }
 

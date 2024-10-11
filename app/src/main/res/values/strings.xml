@@ -1030,6 +1030,10 @@
   <string name="HavingTroubleAccessing">Unable to access %1$s?</string>
   <string name="RestoreEmailTroubleText">If you can\'t restore access to your email, your remaining options are either to remember your password or to reset your account.</string>
   <string name="EnterCode">Enter code</string>
+  <string name="PasteUrlPlaceholder">Paste url…</string>
+  <string name="MultipleUrlPlaceholder">Multiple links selected</string>
+  <string name="PasteUrlNotValidHint">Invalid link</string>
+  <string name="PasteUrlEmptyHint">Clipboard is empty</string>
   <string name="PasswordRecovery">Password Recovery</string>
   <string name="LoginPasswordText">You have enabled Two-Step Verification, so your account is protected with an additional password.</string>
   <string name="EnterPassword">Enter Password</string>
@@ -2293,6 +2297,8 @@
   <string name="UseHqRoundVideos">Record HQ Round Videos</string>
   <string name="DiscardVideoMessageTitle">Discard Video Message</string>
   <string name="DiscardVideoMessageDescription">Are you sure you want to discard your video message?</string>
+  <string name="DiscardAudioMessageTitle">Discard Audio Message</string>
+  <string name="DiscardAudioMessageDescription">Are you sure you want to discard your audio message?</string>
   <string name="Discard">Discard</string>
   <string name="MediaFeatureUnavailable">Feature is not available for this type of media</string>
   <string name="XMadeGroupHistoryHidden">%1$s made group history hidden for new members</string>
@@ -2705,6 +2711,7 @@
   <string name="TextFormatItalic">Italic</string>
   <string name="TextFormatMonospace">Monospace</string>
   <string name="TextFormatSpoiler">Spoiler</string>
+  <string name="TextFormatQuote">Quote</string>
   <string name="TextFormatStrikethrough">Strikethrough</string>
   <string name="TextFormatUnderline">Underline</string>
   <string name="TextFormatLink">Create Link</string>
@@ -4107,6 +4114,9 @@
   <string name="SendReminder">Set a Reminder</string>
   <string name="SaveNoMarkdown">Save without markdown</string>
 
+  <string name="MediaOnceTurnOnSound">Please, turn on the sound first.</string>
+  <string name="MediaOnceWaitFilуDownload">Wait until the file is completely downloaded.</string>
+
   <string name="SendInXMinutes_one">Send in %1$s minute</string>
   <string name="SendInXMinutes_other">Send in %1$s minutes</string>
   <string name="SendInXHours_one">Send in %1$s hour</string>
@@ -5449,4 +5459,22 @@
   <string name="ReadDate_weekday">Read on %1$s at %2$s</string>
   <string name="ReadDate_date">Read %1$s at %2$s</string>
 
+  <string name="PlaybackSpeed">Speed</string>
+  <string name="PlaybackSpeed50">Very slow</string>
+  <string name="PlaybackSpeed70">Slow</string>
+  <string name="PlaybackSpeed100">Regular</string>
+  <string name="PlaybackSpeed120">Slightly faster</string>
+  <string name="PlaybackSpeed150">Faster</string>
+  <string name="PlaybackSpeed200">Doubled speed</string>
+
+  <string name="PlaybackSpeedHintAudio100">Audio will play at normal speed</string>
+  <string name="PlaybackSpeedHintAudio150">Audio will play at 1.5x speed</string>
+  <string name="PlaybackSpeedHintAudio200">Audio will play two times faster</string>
+  <string name="PlaybackSpeedHintVideo100">Video will play at normal speed</string>
+  <string name="PlaybackSpeedHintVideo150">Video will play at 1.5x speed</string>
+  <string name="PlaybackSpeedHintVideo200">Video will play two times faster</string>
+
+  <string name="PlaybackSpeedHintHold">Hold to access more options</string>
+  <string name="PlaybackSpeedHintSwipe">Hold and swipe horizontally for precise adjustment</string>
+  <string name="PlaybackSpeedHintTemplate">%1$s.\n%2$s.</string>
 </resources>
