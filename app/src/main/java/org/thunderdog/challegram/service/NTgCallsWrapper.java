@@ -1,5 +1,8 @@
 package org.thunderdog.challegram.service;
 
+import android.content.Context;
+import android.widget.Toast;
+
 import androidx.annotation.Nullable;
 
 import org.drinkless.tdlib.TdApi;
@@ -11,6 +14,7 @@ import org.pytgcalls.ntgcalls.media.MediaDescription;
 import org.pytgcalls.ntgcalls.media.MediaSource;
 import org.pytgcalls.ntgcalls.media.StreamMode;
 import org.pytgcalls.ntgcalls.p2p.RTCServer;
+import org.thunderdog.challegram.BaseApplication;
 import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.voip.NetworkStats;
 import org.thunderdog.challegram.voip.VoIPInstance;
@@ -95,7 +99,7 @@ public class NTgCallsWrapper implements CallInterface {
         }).collect(Collectors.toList());
       call.connectP2P(CALL_ID, rtcServers, List.of(state.protocol.libraryVersions), state.allowP2p);
     } catch (java.lang.Exception e) {
-      throw new RuntimeException(e);
+      Log.e(Log.TAG_VOIP, "Error creating tg calls", e);
     }
   }
 
@@ -177,9 +181,7 @@ public class NTgCallsWrapper implements CallInterface {
     }
   }
 
-  public void setSignalingDataCallback(byte[] o) {
-
-  }
+  public void setSignalingDataCallback(byte[] ignore) {}
 
   public void createCall() {
 
