@@ -37,6 +37,7 @@ val checkEmojiKeyboard by tasks.registering(CheckEmojiKeyboardTask::class) {
 }
 
 val isExperimentalBuild = extra["experimental"] as Boolean? ?: false
+val useNTgCalls = extra["use_ntgcalls"] as Boolean? ?: true
 val properties = extra["properties"] as Properties
 val projectName = extra["app_name"] as String
 val versions = extra["versions"] as Properties
@@ -83,6 +84,8 @@ android {
     buildConfigString("LANGUAGE_PACK", Telegram.LANGUAGE_PACK)
 
     buildConfigString("THEME_FILE_EXTENSION", App.THEME_EXTENSION)
+
+    buildConfigField("boolean", "USE_NTGCALLS", useNTgCalls.toString())
 
     // Library versions in BuildConfig.java
 
@@ -233,13 +236,15 @@ android {
 
   sourceSets.getByName("main") {
     java.srcDirs("./src/google/java") // TODO: Huawei & FOSS editions
-    java.srcDirs(
-      "./jni/third_party/webrtc/rtc_base/java/src",
-      "./jni/third_party/webrtc/modules/audio_device/android/java/src",
-      "./jni/third_party/webrtc/sdk/android/api",
-      "./jni/third_party/webrtc/sdk/android/src/java",
-      "../thirdparty/WebRTC/src/java"
-    )
+    if (!useNTgCalls) {
+      java.srcDirs(
+        "./jni/third_party/webrtc/rtc_base/java/src",
+        "./jni/third_party/webrtc/modules/audio_device/android/java/src",
+        "./jni/third_party/webrtc/sdk/android/api",
+        "./jni/third_party/webrtc/sdk/android/src/java",
+        "../thirdparty/WebRTC/src/java"
+      )
+    }
     Config.ANDROIDX_MEDIA_EXTENSIONS.forEach { extension ->
       java.srcDirs("../thirdparty/androidx-media/libraries/${extension}/src/main/java")
     }
@@ -303,6 +308,8 @@ android {
         ndk.abiFilters.addAll(variant.filters)
         externalNativeBuild.ndkBuild.abiFilters(*variant.filters)
         externalNativeBuild.cmake.abiFilters(*variant.filters)
+
+        externalNativeBuild.cmake.arguments.add("-DENABLE_TG_CALLS=" + (if (useNTgCalls) "no" else "yes"))
       }
     }
   }
@@ -444,6 +451,9 @@ dependencies {
   // TODO: upgrade to "com.googlecode.mp4parser:isoparser:1.1.22" or latest
   // mp4parser: https://github.com/sannies/mp4parser/releases
   implementation("com.googlecode.mp4parser:isoparser:1.0.6")
+
+  // NTgCalls: https://github.com/pytgcalls/ntgcalls/
+  implementation("io.github.pytgcalls:ntgcalls:1.3.0-beta2")
 }
 
 if (!isExperimentalBuild) {
