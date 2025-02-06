@@ -2823,9 +2823,6 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
 
   @CallSuper
   public boolean performLongPress (View view, float x, float y) {
-    if (isSponsoredMessage()) {
-      return false;
-    }
     boolean result = false;
     if (inlineKeyboard != null) {
       result = inlineKeyboard.performLongPress(view);
@@ -8012,13 +8009,25 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   // Other
 
   public static TdApi.Message toFakeMessage (MessagesManager manager, long inChatId, TdApi.SponsoredMessage sponsoredMessage) {
+    Tdlib tdlib = manager.controller().tdlib();
     TdApi.Message fakeMessage = new TdApi.Message();
     fakeMessage.chatId = inChatId;
     fakeMessage.id = sponsoredMessage.messageId;
     fakeMessage.canBeSaved = true;
     fakeMessage.content = sponsoredMessage.content;
     fakeMessage.authorSignature = Lang.getString(sponsoredMessage.isRecommended ? R.string.RecommendedSign : R.string.SponsoredSign);
-    fakeMessage.isChannelPost = manager.controller().tdlib().isChannel(inChatId);
+    fakeMessage.isChannelPost = tdlib.isChannel(inChatId);
+    TdApi.InlineKeyboardButtonType type;
+    if (tdlib.isTmeUrl(sponsoredMessage.sponsor.url)) {
+      type = new TdApi.InlineKeyboardButtonTypeCallback();
+    } else {
+      type = new TdApi.InlineKeyboardButtonTypeUrl();
+    }
+    fakeMessage.replyMarkup = new TdApi.ReplyMarkupInlineKeyboard(new TdApi.InlineKeyboardButton[][]{
+      new TdApi.InlineKeyboardButton[] {
+        new TdApi.InlineKeyboardButton(sponsoredMessage.buttonText, type)
+      }
+    });
     return fakeMessage;
   }
 
@@ -8337,6 +8346,8 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
         case TdApi.MessagePaidMedia.CONSTRUCTOR:
         case TdApi.MessageGiveawayPrizeStars.CONSTRUCTOR:
         case TdApi.MessageGift.CONSTRUCTOR:
+        case TdApi.MessageUpgradedGift.CONSTRUCTOR:
+        case TdApi.MessageRefundedUpgradedGift.CONSTRUCTOR:
           break;
 
         case TdApi.MessageUnsupported.CONSTRUCTOR:
@@ -8350,7 +8361,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
           break;
         }
         default: {
-          Td.assertMessageContent_91c1e338();
+          Td.assertMessageContent_640c68ad();
           throw Td.unsupported(msg.content);
         }
       }
@@ -9658,16 +9669,26 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   public void openSponsoredMessage () {
+    openSponsoredMessage(null);
+  }
+
+  public void openSponsoredMessage (@Nullable Runnable onFinishProgress) {
     if (!isSponsoredMessage()) {
       return;
     }
     final RunnableBool after = ok -> {
+      if (onFinishProgress != null) {
+        onFinishProgress.run();
+      }
       if (ok) {
         trackSponsoredMessageClicked();
       }
     };
     TdlibUi.UrlOpenParameters openParameters = openParameters()
       .requireOpenPrompt();
+    if (onFinishProgress != null) {
+      openParameters.openPromptCancellationCallback = onFinishProgress;
+    }
     tdlib.ui().openUrl(this, sponsoredMessage.sponsor.url, openParameters, after);
   }
 
