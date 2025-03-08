@@ -55,16 +55,7 @@ import androidx.core.app.NotificationManagerCompat;
 
 import org.drinkless.tdlib.TdApi;
 import io.github.pytgcalls.FrameCallback;
-import io.github.pytgcalls.NTgCalls;
 import io.github.pytgcalls.RemoteSourceChangeCallback;
-import io.github.pytgcalls.exceptions.ConnectionException;
-import io.github.pytgcalls.exceptions.ConnectionNotFoundException;
-import io.github.pytgcalls.media.AudioDescription;
-import io.github.pytgcalls.media.MediaDescription;
-import io.github.pytgcalls.media.MediaSource;
-import io.github.pytgcalls.media.StreamMode;
-import io.github.pytgcalls.media.VideoDescription;
-import io.github.pytgcalls.p2p.RTCServer;
 import org.pytgcalls.ntgcallsx.CallInterface;
 import org.pytgcalls.ntgcallsx.NTgCallsInterface;
 import org.pytgcalls.ntgcallsx.TgCallsInterface;
