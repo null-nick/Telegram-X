@@ -1924,6 +1924,20 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
 
     return generatedFilesListener;
   }
+
+  public boolean isBadInstantView (TdApi.WebPageInstantView instantView) {
+    return instantView == null || !instantView.isFull || instantView.pageBlocks == null || instantView.pageBlocks.length == 0 || !TD.hasInstantView(instantView.version);
+  }
+
+  public void fetchInstantView (String url, ResultHandler<TdApi.WebPageInstantView> callback) {
+    send(new TdApi.GetWebPageInstantView(url, true), (instantView, error) -> {
+      if (error != null || isBadInstantView(instantView)) {
+        send(new TdApi.GetWebPageInstantView(url, false), callback);
+      } else {
+        callback.onResult(instantView, null);
+      }
+    });
+  }
   
   public interface MessagePropertyChecker {
     boolean checkProperty (TdApi.MessageProperties properties);
@@ -4678,7 +4692,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
   }
 
   public void resendMessages (long chatId, long[] messageIds) {
-    client().send(new TdApi.ResendMessages(chatId, messageIds, null), messageHandler());
+    client().send(new TdApi.ResendMessages(chatId, messageIds, null, 0), messageHandler());
   }
 
   private final HashMap<String, TdApi.MessageContent> pendingMessageTexts = new HashMap<>();
