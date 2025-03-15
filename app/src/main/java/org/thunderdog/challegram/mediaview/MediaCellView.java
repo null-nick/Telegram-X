@@ -1145,7 +1145,7 @@ public class MediaCellView extends ViewGroup implements
       Client.ResultHandler fileHandler = remoteFileObject -> {
         if (remoteFileObject.getConstructor() == TdApi.File.CONSTRUCTOR) {
           TdApi.File tdlibFile = (TdApi.File) remoteFileObject;
-          imageFile.tdlib().client().send(new TdApi.DownloadFile(tdlibFile.id, 32, 0, 0, true), result -> {
+          imageFile.tdlib().client().send(new TdApi.DownloadFile(tdlibFile.id, TdlibFilesManager.PRIORITY_IMAGE, 0, 0, true), result -> {
             if (result.getConstructor() == TdApi.File.CONSTRUCTOR) {
               TdApi.File downloadedFile = (TdApi.File) result;
               Td.copyTo(downloadedFile, tdlibFile);
@@ -1594,7 +1594,8 @@ public class MediaCellView extends ViewGroup implements
     if (canTouch(isDown)) {
       detector.onTouchEvent(ev);
     }
-    return interceptAnyEvents || super.onInterceptTouchEvent(ev);
+    boolean res = super.onInterceptTouchEvent(ev);
+    return res || interceptAnyEvents;
   }
 
   public boolean canZoom () {
