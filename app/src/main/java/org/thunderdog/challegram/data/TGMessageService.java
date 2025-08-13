@@ -384,6 +384,9 @@ public final class TGMessageService extends TGMessageServiceImpl {
                 R.string.ActionPinnedQuiz :
                 R.string.ActionPinnedPoll;
               break;
+            case TdApi.MessageChecklist.CONSTRUCTOR:
+              staticResId = R.string.ActionPinnedChecklist;
+              break;
             case TdApi.MessageLocation.CONSTRUCTOR:
               staticResId = ((TdApi.MessageLocation) message.content).livePeriod > 0 ?
                 R.string.ActionPinnedGeoLive :
@@ -481,10 +484,13 @@ public final class TGMessageService extends TGMessageServiceImpl {
             case TdApi.MessageGift.CONSTRUCTOR:
             case TdApi.MessageUpgradedGift.CONSTRUCTOR:
             case TdApi.MessageRefundedUpgradedGift.CONSTRUCTOR:
+            case TdApi.MessageChecklistTasksAdded.CONSTRUCTOR:
+            case TdApi.MessageChecklistTasksDone.CONSTRUCTOR:
+            case TdApi.MessageDirectMessagePriceChanged.CONSTRUCTOR:
               staticResId = R.string.ActionPinnedNoText;
               break;
             default:
-              Td.assertMessageContent_235cea4f();
+              Td.assertMessageContent_ef7732f4();
               throw Td.unsupported(message.content);
           }
           if (format == null) {
@@ -544,7 +550,12 @@ public final class TGMessageService extends TGMessageServiceImpl {
   public TGMessageService (MessagesManager context, TdApi.Message msg, TdApi.MessageSupergroupChatCreate supergroupCreate) {
     super(context, msg);
     setTextCreator(() -> {
-      if (msg.isChannelPost) {
+      TdApi.Supergroup supergroup = tdlib().chatToSupergroup(msg.chatId);
+      if (supergroup != null && supergroup.isDirectMessagesGroup) {
+        return getText(
+          R.string.direct_messages_enabled
+        );
+      } else if (msg.isChannelPost) {
         return getText(
           R.string.channel_create_somebody,
           new BoldArgument(supergroupCreate.title)
@@ -559,6 +570,29 @@ public final class TGMessageService extends TGMessageServiceImpl {
           R.string.group_created,
           new SenderArgument(sender),
           new BoldArgument(supergroupCreate.title)
+        );
+      }
+    });
+  }
+
+  public TGMessageService (MessagesManager context, TdApi.Message msg, TdApi.MessageDirectMessagePriceChanged directMessagePriceChanged) {
+    super(context, msg);
+    setTextCreator(() -> {
+      if (!directMessagePriceChanged.isEnabled) {
+        return getText(
+          R.string.channel_disable_dm,
+          new SenderArgument(sender)
+        );
+      } else if (directMessagePriceChanged.paidMessageStarCount == 0) {
+        return getText(
+          R.string.channel_enable_dm,
+          new SenderArgument(sender)
+        );
+      } else {
+        return getPlural(
+          R.string.channel_enable_dm_paid,
+          directMessagePriceChanged.paidMessageStarCount,
+          new SenderArgument(sender)
         );
       }
     });
@@ -1715,7 +1749,7 @@ public final class TGMessageService extends TGMessageServiceImpl {
         tdlib.ui().openMap(this, new MapController.Args(
             chatLocation.location.latitude,
             chatLocation.location.longitude
-          ).setChatId(msg.chatId, messagesController().getMessageThreadId())
+          ).setChatId(msg.chatId, messagesController().getMessageThreadId(), messagesController().getMessageTopicId())
             .setLocationOwnerChatId(msg.chatId)
             .setIsFaded(locationChanged.newLocation == null)
         )

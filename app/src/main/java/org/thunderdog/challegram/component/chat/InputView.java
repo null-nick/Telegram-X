@@ -1536,7 +1536,8 @@ public class InputView extends NoClipEditText implements InlineSearchContext.Cal
         Uri uri = inputContentInfo.getContentUri();
         long timestamp = System.currentTimeMillis();
         long messageThreadId = controller.getMessageThreadId();
-        TdApi.InputMessageReplyTo replyTo = controller.obtainReplyTo();
+        MessagesController.ReplyInfo replyInfo = controller.obtainReplyTo();
+        TdApi.InputMessageReplyTo replyTo = replyInfo != null ? replyInfo.toInputMessageReply() : null;
         boolean silent = controller.obtainSilentMode();
         boolean needMenu = controller.areScheduledOnly();
 
@@ -1587,13 +1588,13 @@ public class InputView extends NoClipEditText implements InlineSearchContext.Cal
               tdlib.ui().showScheduleOptions(controller, chatId, false,
                 (sendOptions, disableMarkdown) ->
                   tdlib.sendMessage(chatId, messageThreadId, replyTo,
-                    Td.newSendOptions(sendOptions, silent),
+                    Td.newSendOptions(sendOptions, controller.getDirectMessagesChatTopicId(replyInfo), silent),
                     content,
                     null
                   ),
                 null, null);
             } else {
-              tdlib.sendMessage(chatId, messageThreadId, replyTo, Td.newSendOptions(silent), content);
+              tdlib.sendMessage(chatId, messageThreadId, replyTo, Td.newSendOptions(controller.getDirectMessagesChatTopicId(replyInfo), silent), content);
             }
           });
         });

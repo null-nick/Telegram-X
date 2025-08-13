@@ -152,7 +152,7 @@ public class TD {
       case RightId.SEND_VOICE_NOTES:
       case RightId.SEND_VIDEO_NOTES:
       case RightId.SEND_OTHER_MESSAGES:
-      case RightId.SEND_POLLS:
+      case RightId.SEND_POLLS_OR_CHECKLISTS:
       case RightId.EMBED_LINKS:
       case RightId.CHANGE_CHAT_INFO:
       case RightId.EDIT_MESSAGES:
@@ -242,7 +242,7 @@ public class TD {
         return permissions.canSendVideoNotes;
       case RightId.SEND_VOICE_NOTES:
         return permissions.canSendVoiceNotes;
-      case RightId.SEND_POLLS:
+      case RightId.SEND_POLLS_OR_CHECKLISTS:
         return permissions.canSendPolls;
       case RightId.SEND_OTHER_MESSAGES:
         return permissions.canSendOtherMessages;
@@ -5362,10 +5362,14 @@ public class TD {
       case TdApi.MessagePaidMedia.CONSTRUCTOR:
         return true;
       default:
-        Td.assertMessageContent_235cea4f();
+        Td.assertMessageContent_ef7732f4();
         break;
     }
     return false;
+  }
+
+  public static boolean canAccessMembers (TdApi.Supergroup supergroup) {
+    return supergroup != null && !supergroup.isDirectMessagesGroup;
   }
 
   public static boolean hasCustomEmoji (TdApi.FormattedText text) {
@@ -5844,6 +5848,7 @@ public class TD {
       case TdApi.InputMessageGame.CONSTRUCTOR:
       case TdApi.InputMessageInvoice.CONSTRUCTOR:
       case TdApi.InputMessagePoll.CONSTRUCTOR:
+      case TdApi.InputMessageChecklist.CONSTRUCTOR:
       case TdApi.InputMessageStory.CONSTRUCTOR:
       case TdApi.InputMessageVenue.CONSTRUCTOR:
       case TdApi.InputMessageForwarded.CONSTRUCTOR:
@@ -5851,7 +5856,7 @@ public class TD {
       case TdApi.InputMessagePaidMedia.CONSTRUCTOR:
         return null;
       default:
-        Td.assertInputMessageContent_6d335c();
+        Td.assertInputMessageContent_65313187();
         throw Td.unsupported(content);
     }
   }
@@ -5880,6 +5885,7 @@ public class TD {
       case TdApi.InputMessageGame.CONSTRUCTOR:
       case TdApi.InputMessageInvoice.CONSTRUCTOR:
       case TdApi.InputMessagePoll.CONSTRUCTOR:
+      case TdApi.InputMessageChecklist.CONSTRUCTOR:
       case TdApi.InputMessageStory.CONSTRUCTOR:
       case TdApi.InputMessageVenue.CONSTRUCTOR:
       case TdApi.InputMessageForwarded.CONSTRUCTOR:
@@ -5887,7 +5893,7 @@ public class TD {
       case TdApi.InputMessagePaidMedia.CONSTRUCTOR:
         return null;
       default:
-        Td.assertInputMessageContent_6d335c();
+        Td.assertInputMessageContent_65313187();
         throw Td.unsupported(content);
     }
   }
@@ -5924,6 +5930,7 @@ public class TD {
       case TdApi.InputMessageGame.CONSTRUCTOR:
       case TdApi.InputMessageInvoice.CONSTRUCTOR:
       case TdApi.InputMessagePoll.CONSTRUCTOR:
+      case TdApi.InputMessageChecklist.CONSTRUCTOR:
       case TdApi.InputMessageStory.CONSTRUCTOR:
       case TdApi.InputMessageVenue.CONSTRUCTOR:
       case TdApi.InputMessageForwarded.CONSTRUCTOR:
@@ -5931,7 +5938,7 @@ public class TD {
       case TdApi.InputMessagePaidMedia.CONSTRUCTOR:
         return;
       default:
-        Td.assertInputMessageContent_6d335c();
+        Td.assertInputMessageContent_65313187();
         throw Td.unsupported(content);
     }
   }
@@ -5959,6 +5966,7 @@ public class TD {
       case TdApi.InputMessageGame.CONSTRUCTOR:
       case TdApi.InputMessageInvoice.CONSTRUCTOR:
       case TdApi.InputMessagePoll.CONSTRUCTOR:
+      case TdApi.InputMessageChecklist.CONSTRUCTOR:
       case TdApi.InputMessageStory.CONSTRUCTOR:
       case TdApi.InputMessageVenue.CONSTRUCTOR:
       case TdApi.InputMessageForwarded.CONSTRUCTOR:
@@ -5966,7 +5974,7 @@ public class TD {
       case TdApi.InputMessagePaidMedia.CONSTRUCTOR:
         return null;
       default:
-        Td.assertInputMessageContent_6d335c();
+        Td.assertInputMessageContent_65313187();
         throw Td.unsupported(content);
     }
   }
