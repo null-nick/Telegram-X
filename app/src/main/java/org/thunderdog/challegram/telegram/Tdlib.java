@@ -6967,7 +6967,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
   }
 
   public boolean allowQrLoginCamera () {
-    return (options.qrLoginCamera && Config.QR_AVAILABLE) || BuildConfig.DEBUG;
+    return (options.qrLoginCamera && Config.QR_AVAILABLE);
   }
 
   public long callPacketTimeoutMs () {
