@@ -3979,7 +3979,6 @@ public class MediaViewController extends ViewController<MediaViewController.Args
     thumbsLayoutManager = new LinearLayoutManager(context(), LinearLayoutManager.HORIZONTAL, Lang.rtl());
 
     thumbsRecyclerView = new ThumbRecyclerView(context());
-    Views.setPaddingBottom(thumbsRecyclerView, controlsMargin);
     thumbsRecyclerView.addOnScrollListener(new RecyclerView.OnScrollListener() {
       private boolean thumbsScrolling;
 
@@ -4017,6 +4016,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
 
     thumbsRecyclerView.setAlpha(0f);
     thumbsRecyclerView.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM));
+    Views.setBottomMargin(thumbsRecyclerView, controlsMargin);
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && !Config.DISABLE_VIEWER_ELEVATION) {
       thumbsRecyclerView.setElevation(Screen.dp(3f));
     }
@@ -5300,9 +5300,8 @@ public class MediaViewController extends ViewController<MediaViewController.Args
   private void setControlsMargin (int margin) {
     if (this.controlsMargin != margin) {
       this.controlsMargin = margin;
-      Views.setPaddingBottom(thumbsRecyclerView, margin);
-      Views.setLayoutHeight(editWrap, margin + Screen.dp(56f));
-      Views.setPaddingBottom(editWrap, margin);
+      Views.setBottomMargin(thumbsRecyclerView, margin);
+      Views.setBottomMargin(editWrap, margin);
       Views.setBottomMargin(bottomWrap, getBottomWrapMargin());
     }
   }
@@ -5323,7 +5322,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
   }
 
   @Override
-  public void dispatchInnerMargins (int left, int top, int right, int bottom) {
+  public boolean dispatchSystemInsets (View parentView, ViewGroup.MarginLayoutParams originalParams, int left, int top, int right, int bottom) {
     boolean changed = this.bottomInnerMargin != bottom;
     this.bottomInnerMargin = bottom;
     if (APPLY_ALL_INSETS || (mode == MODE_GALLERY && isFromCamera)) {
@@ -5346,6 +5345,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
       }
       mediaView.layoutCells();
     }
+    return super.dispatchSystemInsets(parentView, originalParams, left, top, right, bottom);
   }
 
   @Override
@@ -8764,8 +8764,8 @@ public class MediaViewController extends ViewController<MediaViewController.Args
     mediaView.setOffsets(0, 0, 0, 0, 0); // Screen.dp(56f)
     editWrap = new FrameLayoutFix(context);
     editWrap.setBackgroundColor(Theme.getColor(ColorId.transparentEditor));
-    editWrap.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, controlsMargin + Screen.dp(56f), Gravity.BOTTOM));
-    Views.setPaddingBottom(editWrap, controlsMargin);
+    editWrap.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(56f), Gravity.BOTTOM));
+    Views.setBottomMargin(editWrap, controlsMargin);
 
     backButton = new EditButton(context);
     backButton.setId(R.id.btn_back);
