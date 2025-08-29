@@ -109,7 +109,7 @@ import me.vkryl.core.ColorUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
 
-public class CallController extends ViewController<CallController.Arguments> implements TdlibCache.UserDataChangeListener, TdlibCache.CallStateChangeListener, View.OnClickListener, FactorAnimator.Target, Runnable, CallControlsLayout.CallControlCallback, ActivityResultHandler {
+public class CallController extends ViewController<CallController.Arguments> implements TdlibCache.UserDataChangeListener, TdlibCache.CallStateChangeListener, View.OnClickListener, FactorAnimator.Target, Runnable, CallControlsLayout.CallControlCallback, Screen.StatusBarHeightChangeListener, ActivityResultHandler {
   private static final boolean DEBUG_FADE_BRANDING = true;
   private static final int SCREEN_CAPTURE_REQUEST_CODE = 1001;
 
@@ -302,7 +302,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
   private TextView emojiViewSmall, emojiViewBig, emojiViewHint;
   private CallControlsLayout callControlsLayout;
 
-  private LinearLayout buttonWrap;
+  private FrameLayoutFix buttonWrap;
   private ButtonView muteButtonView, speakerButtonView, videoButtonView, flipCameraButtonView;
   private LinearLayout videoButtonContainer, flipCameraButtonContainer, messageButtonContainer, otherOptionsContainer, speakerButtonContainer;
 
@@ -344,6 +344,26 @@ public class CallController extends ViewController<CallController.Arguments> imp
       }
       updateCallStrength();
     }
+  }
+
+  @Override
+  public boolean supportsBottomInset () {
+    return true;
+  }
+
+  @Override
+  protected void onBottomInsetChanged (int extraBottomInset, int extraBottomInsetWithoutIme, boolean isImeInset) {
+    super.onBottomInsetChanged(extraBottomInset, extraBottomInsetWithoutIme, isImeInset);
+    Views.setPaddingBottom(buttonWrap, extraBottomInset);
+    Views.setPaddingBottom(callControlsLayout, extraBottomInset);
+  }
+
+  @Override
+  public void onStatusBarHeightChanged (int newHeight) {
+    int startMargin = Math.max(Screen.dp(18f) + newHeight, Screen.dp(42f));
+    Views.setTopMargin(brandWrap, startMargin);
+    Views.setTopMargin(nameView, startMargin + Screen.dp(34f));
+    Views.setTopMargin(stateView, startMargin + Screen.dp(94f));
   }
 
   @Override
@@ -478,7 +498,9 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
     // Top-left corner
 
-    params.topMargin = Screen.dp(76f);
+    int startMargin = Math.max(Screen.dp(18f) + Screen.getStatusBarHeight(), Screen.dp(42f));
+
+    params.topMargin = startMargin + Screen.dp(34f);
     params.leftMargin = params.rightMargin = Screen.dp(18f);
 
     nameView = new EmojiTextView(context) {
@@ -514,7 +536,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
     emojiStatusHelper = new EmojiStatusHelper(tdlib, nameView, null);
 
     params = FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-    params.topMargin = Screen.dp(136f);
+    params.topMargin = startMargin + Screen.dp(94f);
     params.leftMargin = params.rightMargin = Screen.dp(18f);
 
     stateView = new TextView(context);
@@ -530,8 +552,9 @@ public class CallController extends ViewController<CallController.Arguments> imp
     stateView.setLayoutParams(params);
     contentView.addView(stateView);
 
+    Screen.addStatusBarHeightListener(this);
     params = FrameLayoutFix.newParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT);
-    params.topMargin = Screen.dp(42f);
+    params.topMargin = startMargin;
     params.leftMargin = params.rightMargin = Screen.dp(18f);
     brandWrap = new LinearLayout(context);
     if (DEBUG_FADE_BRANDING) {
@@ -679,7 +702,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
     // Call settings buttons
 
-    LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(Screen.dp(72f), Screen.dp(72f));
+    FrameLayoutFix.LayoutParams buttonParams = FrameLayoutFix.newParams(Screen.dp(72f), Screen.dp(72f), Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
 
     ButtonView otherOptions = new ButtonView(context);
     otherOptions.setId(R.id.btn_other_options);
@@ -747,7 +770,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
     speakerButtonContainer = wrapButton.apply(speakerButtonView);
 
-    buttonWrap = new LinearLayout(context);
+    buttonWrap = new FrameLayoutFix(context);
     LayoutTransition layoutTransition = new LayoutTransition();
     layoutTransition.enableTransitionType(LayoutTransition.APPEARING);
     layoutTransition.enableTransitionType(LayoutTransition.DISAPPEARING);
@@ -755,7 +778,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
     layoutTransition.setDuration(LayoutTransition.DISAPPEARING, 300);
     buttonWrap.setLayoutTransition(layoutTransition);
 
-    buttonWrap.setGravity(Gravity.CENTER);
+    Views.setPaddingBottom(buttonWrap, extraBottomInset);
     buttonWrap.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(76f), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
     buttonWrap.addView(otherOptionsContainer);
     buttonWrap.addView(videoButtonContainer);
@@ -771,6 +794,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
     // Answer controls
 
     callControlsLayout = new CallControlsLayout(context, this);
+    Views.setPaddingBottom(callControlsLayout, extraBottomInset);
     callControlsLayout.setCallback(this);
     callControlsLayout.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
     contentView.addView(callControlsLayout);
@@ -1638,6 +1662,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
   @Override
   public void destroy () {
     super.destroy();
+    Screen.removeStatusBarHeightListener(this);
     tdlib.cache().unsubscribeFromCallUpdates(call.id, this);
     tdlib.cache().removeUserDataListener(call.userId, this);
     avatarView.performDestroy();
