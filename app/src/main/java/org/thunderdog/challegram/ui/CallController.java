@@ -109,7 +109,7 @@ import me.vkryl.core.ColorUtils;
 import me.vkryl.core.MathUtils;
 import me.vkryl.core.StringUtils;
 
-public class CallController extends ViewController<CallController.Arguments> implements TdlibCache.UserDataChangeListener, TdlibCache.CallStateChangeListener, View.OnClickListener, FactorAnimator.Target, Runnable, CallControlsLayout.CallControlCallback, Screen.StatusBarHeightChangeListener, ActivityResultHandler {
+public class CallController extends ViewController<CallController.Arguments> implements TdlibCache.UserDataChangeListener, TdlibCache.CallStateChangeListener, View.OnClickListener, FactorAnimator.Target, Runnable, CallControlsLayout.CallControlCallback, ActivityResultHandler, Screen.StatusBarHeightChangeListener {
   private static final boolean DEBUG_FADE_BRANDING = true;
   private static final int SCREEN_CAPTURE_REQUEST_CODE = 1001;
 
@@ -302,7 +302,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
   private TextView emojiViewSmall, emojiViewBig, emojiViewHint;
   private CallControlsLayout callControlsLayout;
 
-  private FrameLayoutFix buttonWrap;
+  private LinearLayout buttonWrap;
   private ButtonView muteButtonView, speakerButtonView, videoButtonView, flipCameraButtonView;
   private LinearLayout videoButtonContainer, flipCameraButtonContainer, messageButtonContainer, otherOptionsContainer, speakerButtonContainer;
 
@@ -702,7 +702,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
     // Call settings buttons
 
-    FrameLayoutFix.LayoutParams buttonParams = FrameLayoutFix.newParams(Screen.dp(72f), Screen.dp(72f), Gravity.CENTER_HORIZONTAL | Gravity.BOTTOM);
+    LinearLayout.LayoutParams buttonParams = new LinearLayout.LayoutParams(Screen.dp(72f), Screen.dp(72f));
 
     ButtonView otherOptions = new ButtonView(context);
     otherOptions.setId(R.id.btn_other_options);
@@ -770,7 +770,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
 
     speakerButtonContainer = wrapButton.apply(speakerButtonView);
 
-    buttonWrap = new FrameLayoutFix(context);
+    buttonWrap = new LinearLayout(context);
     LayoutTransition layoutTransition = new LayoutTransition();
     layoutTransition.enableTransitionType(LayoutTransition.APPEARING);
     layoutTransition.enableTransitionType(LayoutTransition.DISAPPEARING);
@@ -778,7 +778,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
     layoutTransition.setDuration(LayoutTransition.DISAPPEARING, 300);
     buttonWrap.setLayoutTransition(layoutTransition);
 
-    Views.setPaddingBottom(buttonWrap, extraBottomInset);
+    buttonWrap.setGravity(Gravity.CENTER);
     buttonWrap.setLayoutParams(FrameLayoutFix.newParams(ViewGroup.LayoutParams.MATCH_PARENT, Screen.dp(76f), Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL));
     buttonWrap.addView(otherOptionsContainer);
     buttonWrap.addView(videoButtonContainer);
@@ -786,6 +786,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
     buttonWrap.addView(speakerButtonContainer);
     buttonWrap.addView(messageButtonContainer);
     buttonWrap.addView(wrapButton.apply(muteButtonView));
+    Views.setPaddingBottom(buttonWrap, extraBottomInset);
     Drawable drawable = ScrimUtil.makeCubicGradientScrimDrawable(0xff000000, 2, Gravity.BOTTOM, false);
     drawable.setAlpha((int) (255f * .3f));
     ViewUtils.setBackground(buttonWrap, drawable);
