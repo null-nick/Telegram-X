@@ -461,7 +461,7 @@ dependencies {
 
   // NTgCalls: https://github.com/pytgcalls/ntgcalls/
   if (useNTgCalls) {
-    implementation("io.github.pytgcalls:ntgcalls:2.0.6")
+    implementation("io.github.pytgcalls:ntgcalls:1.3.0")
   }
 }
 
