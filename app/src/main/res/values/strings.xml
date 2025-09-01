@@ -438,7 +438,7 @@
   <string name="ChatContentVoiceChatFinished">Ended the video chat (%1$s)</string>
   <string name="ChatContentVoiceChatFinished_outgoing">Ended the video chat (%1$s)</string>
   <string name="ChatContentVoiceChatFinishedNoTime">Ended the video chat</string>
-  <string name="ChatContentVoiceChatFinishedNoTime_outgoing">Ended the video chat®</string>
+  <string name="ChatContentVoiceChatFinishedNoTime_outgoing">Ended the video chat</string>
   <string name="ChatContentVoiceChatInviteYou">Invited you to the video chat</string>
   <string name="ChatContentVoiceChatInvite">Invited %1$s to the video chat</string>
   <string name="ChatContentVoiceChatInvite_outgoing">Invited %1$s to the video chat</string>
@@ -1489,6 +1489,7 @@
   <string name="StorageUsage">Storage Usage</string>
   <string name="ReduceMotion">Reduce Motion</string>
   <string name="RightSwipeEdgeAnimation">Match Predictive Gesture</string>
+  <string name="RightSwipeEdgeAnimationInfo">When enabled, animation will follow the finger direction when swiping from the right edge of the screen.</string>
   <string name="StorageUsageHint">Manage disk space</string>
   <string name="MobileUsage">Mobile Data Usage</string>
   <string name="WiFiUsage">Wi-Fi Data Usage</string>
@@ -2418,6 +2419,7 @@
   <string name="PinnedMessageChanged">Pinned message changed</string>
   <string name="EditMarkdown">Edit Markdown</string>
   <string name="ForceBuiltinDecoding">Force built-in media decoding</string>
+  <string name="DisableHlsVideo">Disable HLS video playback</string>
   <string name="CompressAudio">Compress audio in videos</string>
   <string name="EditMarkdownHint2">Edit text in messages using shortcuts: `**`**bold**`**`, `__`__italic__`__`, `~~`~~strikethrough~~`~~`, ````monospace````, `||`||spoiler||`||`, `[`text`](`url`)`</string>
   <string name="MessageNotFound">Message not found</string>
@@ -5292,7 +5294,7 @@
   <string name="Experiment_PeerIdsInfo">Show API identifiers of users and chats in their profiles</string>
 
   <string name="Experiment_NoEdgeToEdge">Disable Edge to Edge</string>
-  <string name="Experiment_NoEdgeToEdgeInfo">Edge to Edge support on Android 11–14 is not tested, issues are expected. Use this settings to compare behavior without edge-to-edge mode.</string>
+  <string name="Experiment_NoEdgeToEdgeInfo">Edge to Edge support on Android 11–14 is not tested, issues are expected. Use these settings to compare behavior without edge-to-edge mode.</string>
 
   <string name="PeerId">Peer ID</string>
   <string name="UserId">User ID</string>

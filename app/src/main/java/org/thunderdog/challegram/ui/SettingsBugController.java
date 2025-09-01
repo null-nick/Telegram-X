@@ -497,6 +497,8 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           view.getToggler().setRadioEnabled(Settings.instance().forceTdlibRestart(), isUpdate);
         } else if (itemId == R.id.btn_switchRtl) {
           view.getToggler().setRadioEnabled(Lang.rtl(), isUpdate);
+        } else if (itemId == R.id.btn_toggleNewSetting) {
+          handleSettingClick(view, adapter);
         } else if (itemId == R.id.btn_experiment) {
           view.getToggler().setRadioEnabled(Settings.instance().isExperimentEnabled(item.getLongValue()), isUpdate);
         } else if (itemId == R.id.btn_secret_pushToken) {
@@ -747,6 +749,15 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         break;
       }
       case Section.EXPERIMENTS: {
+
+        if (Config.EDGE_TO_EDGE_AVAILABLE && (testerLevel >= Tdlib.TesterLevel.ADMIN || Settings.instance().getNewSetting(Settings.SETTING_FLAG_FORCE_DEFAULT_ANIMATION_FOR_RIGHT_SWIPE_EDGE))) {
+          if (!items.isEmpty()) {
+            items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+          }
+          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_toggleNewSetting, 0, R.string.RightSwipeEdgeAnimation).setLongId(Settings.SETTING_FLAG_FORCE_DEFAULT_ANIMATION_FOR_RIGHT_SWIPE_EDGE).setBoolValue(true));
+          items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
+          items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.RightSwipeEdgeAnimationInfo));
+        }
 
         if (Config.EDGE_TO_EDGE_CUSTOMIZABLE) {
           if (!items.isEmpty()) {
@@ -1172,6 +1183,8 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       navigateTo(c);
     } else if (viewId == R.id.btn_switchRtl) {
       Settings.instance().setNeedRtl(Lang.packId(), adapter.toggleView(v));
+    } else if (viewId == R.id.btn_toggleNewSetting) {
+      handleSettingClick(v, adapter);
     } else if (viewId == R.id.btn_experiment) {
       ListItem item = (ListItem) v.getTag();
       if (Settings.instance().setExperimentEnabled(item.getLongValue(), adapter.toggleView(v))) {
