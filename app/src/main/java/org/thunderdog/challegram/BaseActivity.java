@@ -2753,6 +2753,7 @@ public abstract class BaseActivity extends FragmentActivity implements View.OnTo
     if (grantResults.length == 0) {
       return;
     }
+    boolean fallback = false;
     switch (requestCode) {
       case REQUEST_CUSTOM_NEW:
       case REQUEST_PERMISSION_CALL: {
@@ -2819,20 +2820,25 @@ public abstract class BaseActivity extends FragmentActivity implements View.OnTo
           }
         }
         // else act with other cases
+        fallback = true;
+        break;
       }
 
       default: {
-        View currentPopup = getCurrentPopupWindow();
-        if (currentPopup != null && currentPopup instanceof ActivityListener) {
-          ((ActivityListener) currentPopup).onActivityPermissionResult(requestCode, grantResults[0] == PackageManager.PERMISSION_GRANTED);
-        } else {
-          ViewController<?> controller = navigation.getCurrentStackItem();
-          if (controller != null) {
-            controller.onRequestPermissionResult(requestCode, grantResults[0] == PackageManager.PERMISSION_GRANTED);
-          }
-        }
-
+        fallback = true;
         break;
+      }
+    }
+
+    if (fallback) {
+      View currentPopup = getCurrentPopupWindow();
+      if (currentPopup != null && currentPopup instanceof ActivityListener) {
+        ((ActivityListener) currentPopup).onActivityPermissionResult(requestCode, grantResults[0] == PackageManager.PERMISSION_GRANTED);
+      } else {
+        ViewController<?> controller = navigation.getCurrentStackItem();
+        if (controller != null) {
+          controller.onRequestPermissionResult(requestCode, grantResults[0] == PackageManager.PERMISSION_GRANTED);
+        }
       }
     }
   }

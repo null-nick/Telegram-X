@@ -8661,6 +8661,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
 
   // Updates: SECURITY
 
+  @SuppressWarnings("deprecation")
   private void updateServiceNotification (TdApi.UpdateServiceNotification update) {
     final TdApi.FormattedText text = Td.textOrCaption(update.content);
     CharSequence msg = TD.toDisplayCharSequence(text);
