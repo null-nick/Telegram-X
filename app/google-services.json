@@ -2,7 +2,7 @@
   "project_info": {
     "project_number": "553883306672",
     "project_id": "tgx-alpha",
-    "storage_bucket": "tgx-alpha.appspot.com"
+    "storage_bucket": "tgx-alpha.firebasestorage.app"
   },
   "client": [
     {
