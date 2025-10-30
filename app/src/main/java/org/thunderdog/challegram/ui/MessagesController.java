@@ -7556,6 +7556,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       commandsMessageId = messageId;
       commandsKeyboard = keyboard;
       keyboardLayout.setKeyboard(keyboard);
+      Views.setLayoutHeight(keyboardWrapper, keyboardLayout.getSize() + extraBottomInsetWithoutIme);
     }
 
     if (byUserEvent) {
@@ -10551,9 +10552,13 @@ public class MessagesController extends ViewController<MessagesController.Argume
     if (isEditingMessage()) {
       topicId = editContext.getExistingMessage().topicId;
     } else {
-      topicId = getMessageTopicId();
+      topicId = getMessageTopicId(reply);
       if (topicId == null && reply != null) {
-        topicId = reply.message.message.topicId != null ? reply.message.message.topicId : new TdApi.MessageTopicThread(reply.message.message.id);
+        topicId = reply.message.message.topicId != null ?
+          reply.message.message.topicId :
+          tdlib.hasMessageThreads(reply.message.message.chatId) ?
+          new TdApi.MessageTopicThread(reply.message.message.id) :
+          null;
       }
     }
     if (set) {
