@@ -18,6 +18,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 
 import org.drinkless.tdlib.TdApi;
+import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.data.TD;
 
 import java.lang.annotation.Retention;
@@ -35,7 +36,7 @@ import me.vkryl.core.reference.ReferenceList;
 import tgx.td.ChatPosition;
 import tgx.td.Td;
 
-public class TdlibChatList implements Comparator<TdlibChatList.Entry>, Destroyable {
+public final class TdlibChatList implements Comparator<TdlibChatList.Entry>, Destroyable {
   public static class Entry implements Comparable<Entry> {
     public final TdApi.Chat chat;
     public final TdApi.ChatList chatList;
@@ -84,9 +85,24 @@ public class TdlibChatList implements Comparator<TdlibChatList.Entry>, Destroyab
 
   private @State int state = State.END_NOT_REACHED;
 
+  private final RuntimeException origin;
+
   TdlibChatList (Tdlib tdlib, TdApi.ChatList chatList) {
     this.tdlib = tdlib;
     this.chatList = chatList;
+    this.origin = Log.generateException();
+  }
+
+  public RuntimeException origin () {
+    return origin;
+  }
+
+  public TdlibChatListSlice slice (Filter<TdApi.Chat> filter) {
+    return slice(filter, false, null);
+  }
+
+  public TdlibChatListSlice slice (Filter<TdApi.Chat> filter, boolean keepPositions, TdlibChatListSlice.Modifier modifier) {
+    return new TdlibChatListSlice(tdlib, this, filter, keepPositions, modifier);
   }
 
   // Listeners API
@@ -402,6 +418,15 @@ public class TdlibChatList implements Comparator<TdlibChatList.Entry>, Destroyab
     }
   }
 
+  void clear () {
+    tdlib.ensureTdlibThread();
+    while (!list.isEmpty()) {
+      int index = list.size() - 1;
+      Entry entry = list.get(index);
+      removeChatFromList(index, new Tdlib.ChatChange(new TdApi.ChatPosition(entry.effectivePosition.list, 0, false, entry.effectivePosition.source), Tdlib.ChatChange.ORDER));
+    }
+  }
+
   @Override
   public void performDestroy () {
     synchronized (subscribedListeners) {
@@ -419,7 +444,8 @@ public class TdlibChatList implements Comparator<TdlibChatList.Entry>, Destroyab
   @NonNull
   public String toString () {
     return chatList +
-      " (list: " + list +
+      "(tdlib: " + tdlib +
+      ", list: " + list +
       ", state: " + state +
       ')';
   }
