@@ -956,7 +956,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
   }
 
   private long getPauseTimeout () {
-    if (Settings.instance().forceTdlibRestart())
+    if (Config.TEST_TDLIB_RESTARTS || Settings.instance().forceTdlibRestart())
       return TimeUnit.SECONDS.toMillis(1);
     if (!context().hasUi())
       return TimeUnit.SECONDS.toMillis(5); // No UI (running in the background), no limits
@@ -7112,6 +7112,9 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
   private void resetChatsData () {
     knownChatIds.clear();
     chats.clear();
+    for (TdlibChatList chatList : chatLists.values()) {
+      chatList.performDestroy();
+    }
     chatLists.clear();
     forumTopicInfos.clear();
   }
@@ -9074,7 +9077,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
           onError.runWithData(new ApplicationVerificationException("RECAPTCHA_FAILED_TASK_EXCEPTION_" + ApplicationVerificationException.formatReCaptchaMessage(taskError), taskError))
         );
     };
-    RecaptchaProviderRegistry.INSTANCE.execute(recaptchaKeyId, actor, clientError ->
+    RecaptchaProviderRegistry.execute(recaptchaKeyId, actor, clientError ->
       onError.runWithData(new ApplicationVerificationException("RECAPTCHA_FAILED_GETCLIENT_EXCEPTION_" + ApplicationVerificationException.formatReCaptchaMessage(clientError), clientError))
     );
   }

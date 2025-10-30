@@ -61,7 +61,6 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.activity.BackEventCompat;
-import androidx.activity.ComponentActivity;
 import androidx.activity.OnBackPressedCallback;
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
@@ -164,7 +163,6 @@ import me.vkryl.core.lambda.RunnableData;
 import me.vkryl.core.reference.ReferenceList;
 import me.vkryl.core.reference.ReferenceUtils;
 import nl.dionsegijn.konfetti.xml.KonfettiView;
-import tgx.app.RecaptchaContext;
 import tgx.app.RecaptchaProviderRegistry;
 
 @SuppressWarnings("deprecation")
@@ -183,7 +181,6 @@ public abstract class BaseActivity extends FragmentActivity implements View.OnTo
   protected @Nullable DrawerController drawer;
   protected OverlayView overlayView;
   protected Invalidator invalidator;
-  protected RecaptchaContext recaptcha;
 
   private final ReferenceList<ActivityListener> activityListeners = new ReferenceList<>();
 
@@ -357,15 +354,7 @@ public abstract class BaseActivity extends FragmentActivity implements View.OnTo
       }
       onTdlibChanged();
       runEmulatorChecks();
-      if (tdlib.isUnauthorized()) {
-        // Pre-initialize recaptcha to possibly save some initialization time.
-        recaptcha.initialize();
-      }
     }
-  }
-
-  public final RecaptchaContext recaptche () {
-    return recaptcha;
   }
 
   private boolean ranEmulatorChecks, emulatorChecksFinished;
@@ -480,8 +469,7 @@ public abstract class BaseActivity extends FragmentActivity implements View.OnTo
     AppState.initApplication();
     AppState.ensureReady();
 
-    recaptcha = new RecaptchaContext(getApplication());
-    RecaptchaProviderRegistry.INSTANCE.addProvider(recaptcha);
+    RecaptchaProviderRegistry.setApplication(this.getApplication());
 
     appUpdater = new AppUpdater(this);
     roundVideoController = new RoundVideoController(this);
