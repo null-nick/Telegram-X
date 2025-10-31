@@ -863,7 +863,12 @@ public class Settings {
     try {
       pmcVersion = Math.max(0, pmc.tryGetInt(KEY_VERSION));
     } catch (FileNotFoundException e) {
-      migratePrefsToPmc();
+      if (isFreshAppInstallation()) {
+        pmc.putInt(KEY_VERSION, pmcVersion);
+        pmcVersion = VERSION;
+      } else {
+        migratePrefsToPmc();
+      }
     }
     if (pmcVersion > VERSION) {
       Log.e("Downgrading database version: %d -> %d", pmcVersion, VERSION);
@@ -2296,6 +2301,10 @@ public class Settings {
       return true;
     }
     return false;
+  }
+
+  private boolean isFreshAppInstallation () {
+    return !TdlibManager.getAccountConfigFile().exists() && pmc.getLong(KEY_APP_INSTALLATION_ID, 0) == 0;
   }
 
   private void migratePrefsToPmc () {
