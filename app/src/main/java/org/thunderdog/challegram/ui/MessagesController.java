@@ -613,10 +613,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       searchControlsLayout.setTranslationY((Screen.dp(49f) + extraBottomInset) * (1f - searchControlsFactor));
     }
     updateSearchControlsInset();
-    if (keyboardWrapper != null && keyboardLayout != null) {
-      Views.applyBottomInset(keyboardWrapper, extraBottomInsetWithoutIme);
-      Views.setLayoutHeight(keyboardWrapper, keyboardLayout.getSize() + extraBottomInsetWithoutIme);
-    }
+    updateCommandKeyboardHeight();
   }
 
   private void updateSearchControlsInset () {
@@ -6449,6 +6446,9 @@ public class MessagesController extends ViewController<MessagesController.Argume
       if (inTopicId == null && inChatId == message.message.chatId) {
         inTopicId = message.message.topicId;
       }
+      if (inTopicId != null && inTopicId.getConstructor() == TdApi.MessageTopicSavedMessages.CONSTRUCTOR) {
+        inTopicId = null;
+      }
       return new ReplyInfo(tdlib, message, quote, checklistTaskId, inChatId, inTopicId);
     }
 
@@ -7534,6 +7534,13 @@ public class MessagesController extends ViewController<MessagesController.Argume
     openCommandsKeyboard(commandsMessageId, commandsKeyboard, true, byUserEvent);
   }
 
+  private void updateCommandKeyboardHeight () {
+    if (keyboardWrapper != null && keyboardLayout != null) {
+      Views.setLayoutHeight(keyboardWrapper, Math.min(Keyboard.getSize(), keyboardLayout.getSize()) + extraBottomInsetWithoutIme);
+      Views.applyBottomInset(keyboardWrapper, extraBottomInsetWithoutIme);
+    }
+  }
+
   private void openCommandsKeyboard (long messageId, TdApi.ReplyMarkupShowKeyboard keyboard, boolean force, boolean byUserEvent) {
     if (keyboardLayout == null) {
       keyboardWrapper = new ScrollView(context());
@@ -7544,7 +7551,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       keyboardLayout.setCallback(this);
 
       keyboardWrapper.addView(keyboardLayout);
-      keyboardWrapper.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, keyboardLayout.getSize() + extraBottomInsetWithoutIme));
+      keyboardWrapper.setLayoutParams(new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, Math.min(Keyboard.getSize(), keyboardLayout.getSize()) + extraBottomInsetWithoutIme));
       Views.applyBottomInset(keyboardWrapper, extraBottomInsetWithoutIme);
 
       bottomWrap.addView(keyboardWrapper);
@@ -7556,7 +7563,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       commandsMessageId = messageId;
       commandsKeyboard = keyboard;
       keyboardLayout.setKeyboard(keyboard);
-      Views.setLayoutHeight(keyboardWrapper, keyboardLayout.getSize() + extraBottomInsetWithoutIme);
+      updateCommandKeyboardHeight();
     }
 
     if (byUserEvent) {
