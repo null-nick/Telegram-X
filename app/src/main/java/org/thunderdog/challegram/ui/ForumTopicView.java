@@ -473,4 +473,8 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
       canvas.drawText(afterMatch, x, y, paint);
     }
   }
+
+  public void setMessageSearchResult (Tdlib tdlib, TdApi.ForumTopic topic, TdApi.Message foundMessage, String highlightQuery) {
+
+  }
 }

@@ -5691,5 +5691,10 @@
 
   <string name="RestrictedContent">Restricted Content</string>
   <string name="SensitiveContent">Sensitive Content</string>
+  <string name="FilterByTopic">Filter Topic By</string>
 
+  <!-- Strings required by ForumTopicsController -->
+  <string name="NoMessagesFound">No messages found</string>
+  <string name="ChangeTopicIcon">Change Topic Icon</string>
+  <string name="ResetTopicIcon">Reset Topic Icon</string>
 </resources>

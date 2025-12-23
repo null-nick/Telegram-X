@@ -1438,5 +1438,23 @@
 
   <item type="id" name="menu_clear_recent_calls" />
   <item type="id" name="btn_clear_recent_calls" />
+    <item name="btn_filterTopic" type="id" />
 
-</resources>
+    <!-- Added for ForumTopicsController -->
+    <item type="id" name="btn_searchModeToggle" />
+    <item type="id" name="btn_editTopicIcon" />
+    <item type="id" name="btn_resetIcon" />
+    <item type="id" name="btn_stickerIcon0" />
+    <item type="id" name="btn_stickerIcon1" />
+    <item type="id" name="btn_stickerIcon2" />
+    <item type="id" name="btn_stickerIcon3" />
+    <item type="id" name="btn_stickerIcon4" />
+    <item type="id" name="btn_stickerIcon5" />
+    <item type="id" name="btn_stickerIcon6" />
+    <item type="id" name="btn_stickerIcon7" />
+    <item type="id" name="btn_stickerIcon8" />
+    <item type="id" name="btn_stickerIcon9" />
+    <item type="id" name="btn_stickerIcon10" />
+    <item type="id" name="btn_stickerIcon11" />
+
+  </resources>
