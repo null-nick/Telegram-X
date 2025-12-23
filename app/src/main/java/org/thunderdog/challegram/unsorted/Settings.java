@@ -31,8 +31,6 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.UiThread;
 
-import com.otaliastudios.transcoder.strategy.DefaultVideoStrategy;
-
 import org.drinkless.tdlib.Client;
 import org.drinkless.tdlib.TdApi;
 import org.drinkmore.Tracer;
@@ -435,6 +433,7 @@ public class Settings {
   public static final long EXPERIMENT_FLAG_ALLOW_EXPERIMENTS = 1;
   public static final long EXPERIMENT_FLAG_SHOW_PEER_IDS = 1 << 2;
   public static final long EXPERIMENT_FLAG_NO_EDGE_TO_EDGE = 1 << 3;
+  public static final long EXPERIMENT_FLAG_FORCE_ALTERNATIVE_PUSH_SERVICE = 1 << 4;
 
   public static final long REMOVED_EXPERIMENT_FLAG_ENABLE_FOLDERS = 1 << 1;
   public static final long EXPERIMENT_FLAG_SEND_HQ_PHOTO = 1 << 3;
@@ -3244,6 +3243,8 @@ public class Settings {
   }
 
   public static class VideoLimit {
+    public static final int BITRATE_UNKNOWN = -1;
+
     public final @NonNull VideoSize size;
     public final int fps;
     public final long bitrate;
@@ -3253,7 +3254,7 @@ public class Settings {
     }
 
     public VideoLimit (VideoSize size, int fps) {
-      this(size, fps, DefaultVideoStrategy.BITRATE_UNKNOWN);
+      this(size, fps, BITRATE_UNKNOWN);
     }
 
     public VideoLimit (@NonNull VideoSize size, int fps, long bitrate) {
@@ -3270,7 +3271,7 @@ public class Settings {
       return
         size.isDefault() &&
           fps == DEFAULT_FRAME_RATE &&
-          bitrate == DefaultVideoStrategy.BITRATE_UNKNOWN;
+          bitrate == BITRATE_UNKNOWN;
     }
 
     @Override
@@ -3306,11 +3307,11 @@ public class Settings {
       if (data != null && data.length > 0) {
         this.size = new VideoSize(data[0], data.length > 1 ? data[1] : data[0]);
         this.fps = data.length > 2 ? data[2] : DEFAULT_FRAME_RATE;
-        this.bitrate = data.length > 3 ? (long) BitUnit.KBIT.toBits(data[3]) : DefaultVideoStrategy.BITRATE_UNKNOWN;
+        this.bitrate = data.length > 3 ? (long) BitUnit.KBIT.toBits(data[3]) : BITRATE_UNKNOWN;
       } else {
         this.size = new VideoSize(DEFAULT_VIDEO_LIMIT);
         this.fps = DEFAULT_FRAME_RATE;
-        this.bitrate = DefaultVideoStrategy.BITRATE_UNKNOWN;
+        this.bitrate = BITRATE_UNKNOWN;
       }
     }
 

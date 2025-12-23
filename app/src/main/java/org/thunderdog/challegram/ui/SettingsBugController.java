@@ -81,6 +81,7 @@ import me.vkryl.core.StringUtils;
 import me.vkryl.core.collection.IntList;
 import me.vkryl.core.lambda.RunnableBool;
 import me.vkryl.core.unit.ByteUnit;
+import tgx.extension.TelegramXExtension;
 import tgx.td.ChatPosition;
 import tgx.td.Td;
 
@@ -498,7 +499,7 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         } else if (itemId == R.id.btn_switchRtl) {
           view.getToggler().setRadioEnabled(Lang.rtl(), isUpdate);
         } else if (itemId == R.id.btn_toggleNewSetting) {
-          handleSettingClick(view, adapter);
+          updateSettingView(view, item, isUpdate);
         } else if (itemId == R.id.btn_experiment) {
           view.getToggler().setRadioEnabled(Settings.instance().isExperimentEnabled(item.getLongValue()), isUpdate);
         } else if (itemId == R.id.btn_secret_pushToken) {
@@ -520,7 +521,7 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
               break;
           }
         } else if (itemId == R.id.btn_secret_pushConfig) {
-          String configuration = TdlibNotificationUtils.getTokenRetriever().getConfiguration();
+          String configuration = TdlibNotificationUtils.getDeviceTokenRetriever().getConfiguration();
           view.setData(!StringUtils.isEmpty(configuration) ? configuration : "Unavailable");
         } else if (itemId == R.id.btn_secret_appFingerprint) {
           view.setData(U.getApkFingerprint("SHA1"));
@@ -775,6 +776,14 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
         items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_resolutionOption, 0, R.string.Experiment_ResolutionOption));
         items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getMarkdownStringSecure(this, R.string.Experiment_ResolutionInfo)));
+        if (TelegramXExtension.INSTANCE.isNotEmpty()) {
+          if (!items.isEmpty()) {
+            items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+          }
+          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_experiment, 0, R.string.Experiment_ForceAltPushService).setLongValue(Settings.EXPERIMENT_FLAG_FORCE_ALTERNATIVE_PUSH_SERVICE));
+          items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
+          items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.Experiment_ForceAltPushServiceInfo));
+        }
 
         if (items.isEmpty()) {
           items.add(new ListItem(ListItem.TYPE_EMPTY, 0, 0, R.string.ExperimentalSettingsUnavailable));
@@ -1195,7 +1204,7 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         UI.copyText(toHumanRepresentation(tdlib.context().getToken()), R.string.CopiedText);
       }
     } else if (viewId == R.id.btn_secret_pushConfig) {
-      String configuration = TdlibNotificationUtils.getTokenRetriever().getConfiguration();
+      String configuration = TdlibNotificationUtils.getDeviceTokenRetriever().getConfiguration();
       if (!StringUtils.isEmpty(configuration)) {
         UI.copyText(configuration, R.string.CopiedText);
       }

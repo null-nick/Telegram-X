@@ -14,26 +14,57 @@
  */
 package org.thunderdog.challegram
 
+import android.content.Context
 import androidx.multidex.MultiDexApplication
 import androidx.work.Configuration
 import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.MainScope
+import org.thunderdog.challegram.push.FirebaseDeviceTokenRetriever
 import org.thunderdog.challegram.service.PushHandler
+import org.thunderdog.challegram.telegram.TdlibNotificationUtils
 import org.thunderdog.challegram.tool.UI
-import tgx.bridge.PushReceiverBridge
+import org.thunderdog.challegram.unsorted.Settings
+import tgx.bridge.DeviceTokenRetriever
+import tgx.bridge.DeviceTokenRetrieverFactory
+import tgx.bridge.PushManagerBridge
 import tgx.extension.TelegramXExtension
 
 class BaseApplication : MultiDexApplication(), Configuration.Provider {
+  companion object {
+    lateinit var scope: CoroutineScope
+  }
+
   override fun onCreate() {
     super.onCreate()
+    scope = MainScope()
 
-    PushReceiverBridge.registerReceiver(PushHandler())
+    PushManagerBridge.initialize(
+      scope,
+
+      PushHandler(),
+      object : DeviceTokenRetrieverFactory {
+        override fun onCreateNewTokenRetriever(context: Context): DeviceTokenRetriever {
+          val defaultTokenRetriever = FirebaseDeviceTokenRetriever()
+          val tokenRetriever = TelegramXExtension.createNewTokenRetriever(context)
+          return tokenRetriever?.takeIf {
+            !BuildConfig.EXPERIMENTAL && (
+              Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_FORCE_ALTERNATIVE_PUSH_SERVICE) ||
+              !defaultTokenRetriever.isAvailable(applicationContext)
+            )
+          } ?: defaultTokenRetriever
+        }
+      }
+    )
+
     UI.initApp(applicationContext)
 
-    val googlePlayServicesAvailable = U.isGooglePlayServicesAvailable(applicationContext)
-
-    TelegramXExtension.configure(this, googlePlayServicesAvailable)
-    if (TelegramXExtension.shouldDisableFirebaseMessaging(googlePlayServicesAvailable)) {
-      FirebaseMessaging.getInstance().isAutoInitEnabled = false
+    if (!BuildConfig.EXPERIMENTAL) {
+      val deviceTokenRetriever = TdlibNotificationUtils.getDeviceTokenRetriever()
+      TelegramXExtension.configure(this, deviceTokenRetriever)
+      if (deviceTokenRetriever !is FirebaseDeviceTokenRetriever) {
+        FirebaseMessaging.getInstance().isAutoInitEnabled = false
+      }
     }
   }
 

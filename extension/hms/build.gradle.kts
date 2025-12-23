@@ -1,10 +1,11 @@
 plugins {
-  id("com.android.library")
-  id("module-plugin")
+  id(libs.plugins.android.library.get().pluginId)
+  alias(libs.plugins.kotlin.android)
+  id("tgx-module")
 }
 
 dependencies {
-  implementation("com.huawei.hms:push:${LibraryVersions.HUAWEI_SERVICES}")
+  implementation(libs.huawei.hms)
   implementation(project(":tdlib"))
   api(project(":extension:bridge"))
 }
@@ -12,5 +13,3 @@ dependencies {
 android {
   namespace = "tgx.extension"
 }
-
-apply(plugin = "com.huawei.agconnect")
