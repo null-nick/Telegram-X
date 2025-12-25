@@ -751,14 +751,14 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       }
       case Section.EXPERIMENTS: {
 
-        if (Config.EDGE_TO_EDGE_AVAILABLE && (testerLevel >= Tdlib.TesterLevel.TESTER || Settings.instance().getNewSetting(Settings.SETTING_FLAG_FORCE_DEFAULT_ANIMATION_FOR_RIGHT_SWIPE_EDGE))) {
+        /*if (Config.EDGE_TO_EDGE_AVAILABLE && (testerLevel >= Tdlib.TesterLevel.TESTER || Settings.instance().getNewSetting(Settings.SETTING_FLAG_FORCE_DEFAULT_ANIMATION_FOR_RIGHT_SWIPE_EDGE))) {
           if (!items.isEmpty()) {
             items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
-          }
+          }*/
           items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_toggleNewSetting, 0, R.string.RightSwipeEdgeAnimation).setLongId(Settings.SETTING_FLAG_FORCE_DEFAULT_ANIMATION_FOR_RIGHT_SWIPE_EDGE).setBoolValue(true));
           items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
           items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.RightSwipeEdgeAnimationInfo));
-        }
+        //}
 
         if (Config.EDGE_TO_EDGE_CUSTOMIZABLE) {
           if (!items.isEmpty()) {
