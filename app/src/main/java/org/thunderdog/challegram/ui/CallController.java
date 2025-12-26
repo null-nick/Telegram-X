@@ -1034,7 +1034,7 @@ public class CallController extends ViewController<CallController.Arguments> imp
           callSettings = new CallSettings(tdlib, call.id);
         }
         if (callSettings.isSpeakerModeEnabled()) {
-          callSettings.setSpeakerMode(CallSettings.SPEAKER_MODE_NONE);
+          callSettings.setSpeakerMode(CallSettings.SPEAKER_MODE_EARPIECE);
         } else {
           callSettings.toggleSpeakerMode(this);
         }
