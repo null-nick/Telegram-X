@@ -28,6 +28,7 @@ public class CallSettings {
   public static final int SPEAKER_MODE_SPEAKER_DEFAULT = 1;
   public static final int SPEAKER_MODE_BLUETOOTH = 2;
   public static final int SPEAKER_MODE_SPEAKER = 3;
+  public static final int SPEAKER_MODE_NONE = -1;
 
   private final Tdlib tdlib;
   private final int callId;
