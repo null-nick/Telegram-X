@@ -3113,6 +3113,17 @@
   <string name="DeleteAccountHelpHint">Tell us about any issues; after you delete the account, we won\'t be able to restore any data you lose in the process.</string>
 
   <string name="PushServices">Push Services</string>
+  <string name="UnifiedPushEnableTitle">UnifiedPush notifications</string>
+  <string name="UnifiedPushEnableDesc">Use a distributor app instead of Google Play services for push delivery.</string>
+  <string name="UnifiedPushDistributor">Notification distributor</string>
+  <string name="UnifiedPushNoDistributor">Install a UnifiedPush distributor app to receive notifications.</string>
+  <string name="UnifiedPushPickDistributor">Choose a distributor</string>
+  <string name="UnifiedPushCurrent">Distributor: %1$s</string>
+  <string name="UnifiedPushDisabled">UnifiedPush is off</string>
+  <string name="UnifiedPushNotSelected">No distributor selected</string>
+  <string name="UnifiedPushUnavailablePlay">UnifiedPush isn\'t available on this build when Google Play services are active.</string>
+  <string name="UnifiedPushDistributorMissing">Notifications won\'t arrive until you install or select a UnifiedPush distributor.</string>
+  <string name="UnifiedPushActive">Receiving notifications via %1$s</string>
 
   <string name="TdlibLogs">TDLib Logs</string>
   <string name="TdlibLogsWarning">**Warning:** TDLib Logs may contain **private data**.\n\nDo not share them with anyone, unless you know what you are doing.</string>

@@ -661,6 +661,9 @@ dependencies {
   // subsampling-scale-image-view: https://github.com/davemorrissey/subsampling-scale-image-view
   implementation(libs.subsamplingScaleImageView)
 
+  // UnifiedPush connector
+  implementation(libs.unifiedpush.connector)
+
   // mp4parser: https://github.com/sannies/mp4parser/releases
   implementation(libs.mp4parser.isoparser)
 

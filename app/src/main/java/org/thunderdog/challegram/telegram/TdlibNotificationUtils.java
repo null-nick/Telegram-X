@@ -264,6 +264,10 @@ public class TdlibNotificationUtils {
     return deviceTokenRetriever;
   }
 
+  public static synchronized void invalidateDeviceTokenRetriever () {
+    deviceTokenRetriever = null;
+  }
+
   @DeviceTokenType
   public static int getDeviceTokenType (TdApi.DeviceToken deviceToken) {
     return switch (deviceToken.getConstructor()) {

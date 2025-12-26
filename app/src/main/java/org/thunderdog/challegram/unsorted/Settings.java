@@ -209,6 +209,7 @@ public class Settings {
   private static final String KEY_OTHER = "settings_other";
   private static final String KEY_OTHER_NEW = "settings_other2";
   private static final String KEY_EXPERIMENTS = "settings_experiments";
+  private static final String KEY_ENABLE_UNIFIED_PUSH = "enable_unified_push";
   private static final @Deprecated String KEY_MARKDOWN_MODE = "settings_markdown";
   private static final String KEY_MAP_PROVIDER_TYPE = "settings_map_provider";
   private static final String KEY_MAP_PROVIDER_TYPE_CLOUD = "settings_map_provider_cloud";
@@ -6290,6 +6291,14 @@ public class Settings {
 
   public boolean forceTdlibRestart () {
     return checkUtilityFeature(UTILITY_FEATURE_INSTANT_TDLIB_RESTART);
+  }
+
+  public boolean isUnifiedPushEnabled () {
+    return pmc.getBoolean(KEY_ENABLE_UNIFIED_PUSH, false);
+  }
+
+  public void setUnifiedPushEnabled (boolean enabled) {
+    pmc.edit().putBoolean(KEY_ENABLE_UNIFIED_PUSH, enabled).apply();
   }
 
   /*public boolean needEncryptedPush () {

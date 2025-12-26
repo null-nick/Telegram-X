@@ -1,6 +1,5 @@
 package tgx.bridge
 
-import android.app.Service
 import android.content.Context
 import kotlinx.coroutines.CoroutineScope
 import org.drinkless.tdlib.TdApi.DeviceToken
@@ -10,8 +9,8 @@ interface DeviceTokenRetrieverFactory {
 }
 
 interface PushManager {
-  fun onNewToken (service: Service, token: DeviceToken)
-  fun onMessageReceived (service: Service, message: Map<String, Any>, sentTime: Long, ttl: Int)
+  fun onNewToken (context: Context, token: DeviceToken)
+  fun onMessageReceived (context: Context, message: Map<String, Any>, sentTime: Long, ttl: Int)
 
   fun log(format: String, vararg args: Any)
   fun error(message: String, error: Throwable?)
@@ -31,11 +30,11 @@ object PushManagerBridge {
   @JvmStatic fun onCreateNewTokenRetriever(context: Context): DeviceTokenRetriever =
     deviceTokenRetrieverFactory.onCreateNewTokenRetriever(context)
 
-  @JvmStatic fun onNewToken (service: Service, token: DeviceToken) =
-    manager.onNewToken(service, token)
+  @JvmStatic fun onNewToken (context: Context, token: DeviceToken) =
+    manager.onNewToken(context, token)
 
-  @JvmStatic fun onMessageReceived (service: Service, payload: Map<String, Any>, sentTime: Long, ttl: Int) =
-    manager.onMessageReceived(service, payload, sentTime, ttl)
+  @JvmStatic fun onMessageReceived (context: Context, payload: Map<String, Any>, sentTime: Long, ttl: Int) =
+    manager.onMessageReceived(context, payload, sentTime, ttl)
 
   @JvmStatic fun log(format: String, vararg args: Any) =
     manager.log(format, *args)

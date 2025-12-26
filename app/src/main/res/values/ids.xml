@@ -152,6 +152,11 @@
   <item type="id" name="controller_bug_killer" />
   <item type="id" name="controller_logs" />
 
+  <item type="id" name="btn_unifiedPushToggle" />
+  <item type="id" name="btn_unifiedPushDistributor" />
+  <item type="id" name="btn_unifiedPushDistributorInfo" />
+  <item type="id" name="sep_unifiedPushDistributor" />
+
   <item type="id" name="controller_2faSettings" />
   <item type="id" name="controller_intro" />
   <item type="id" name="controller_notificationSettings" />
@@ -1457,4 +1462,4 @@
     <item type="id" name="btn_stickerIcon10" />
     <item type="id" name="btn_stickerIcon11" />
 
-  </resources>
+</resources>

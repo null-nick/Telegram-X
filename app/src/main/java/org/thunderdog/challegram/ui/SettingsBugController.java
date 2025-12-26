@@ -15,6 +15,7 @@
 package org.thunderdog.challegram.ui;
 
 import android.annotation.SuppressLint;
+import android.app.AlertDialog;
 import android.content.Context;
 import android.os.Bundle;
 import android.os.SystemClock;
@@ -51,6 +52,7 @@ import org.thunderdog.challegram.telegram.TdlibNotificationUtils;
 import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.PorterDuffColorId;
+import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.Intents;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.tool.Strings;
@@ -61,6 +63,7 @@ import org.thunderdog.challegram.unsorted.Test;
 import org.thunderdog.challegram.util.AppUpdater;
 import org.thunderdog.challegram.util.Crash;
 import org.thunderdog.challegram.util.StringList;
+import org.thunderdog.challegram.push.UnifiedPushHelper;
 import org.thunderdog.challegram.v.CustomRecyclerView;
 import org.thunderdog.challegram.voip.VoIP;
 import org.thunderdog.challegram.voip.VoIPController;
@@ -502,6 +505,11 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           updateSettingView(view, item, isUpdate);
         } else if (itemId == R.id.btn_experiment) {
           view.getToggler().setRadioEnabled(Settings.instance().isExperimentEnabled(item.getLongValue()), isUpdate);
+        } else if (itemId == R.id.btn_unifiedPushToggle) {
+          UnifiedPushHelper.UnifiedPushState state = getUnifiedPushState();
+          boolean enabled = Settings.instance().isUnifiedPushEnabled() && state.getStatus() != UnifiedPushHelper.Status.UNSUPPORTED;
+          view.getToggler().setRadioEnabled(enabled, isUpdate);
+          view.setEnabled(state.getStatus() != UnifiedPushHelper.Status.UNSUPPORTED);
         } else if (itemId == R.id.btn_secret_pushToken) {
           switch (tdlib.context().getTokenState()) {
             case TdlibManager.TokenState.ERROR:
@@ -527,6 +535,10 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           view.setData(U.getApkFingerprint("SHA1"));
         } else if (itemId == R.id.btn_secret_pushStats) {
           view.setData(Settings.instance().getPushMessageStats());
+        } else if (itemId == R.id.btn_unifiedPushDistributor) {
+          view.setData(getUnifiedPushDistributorLabel(getUnifiedPushState()));
+        } else if (itemId == R.id.btn_unifiedPushDistributorInfo) {
+          view.setData(getUnifiedPushDistributorInfo(getUnifiedPushState()));
         } else if (itemId == R.id.btn_secret_pushDate) {
           long time = Settings.instance().getLastReceivedPushMessageReceivedTime();
           if (time != 0) {
@@ -783,6 +795,24 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_experiment, 0, R.string.Experiment_ForceAltPushService).setLongValue(Settings.EXPERIMENT_FLAG_FORCE_ALTERNATIVE_PUSH_SERVICE));
           items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
           items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.Experiment_ForceAltPushServiceInfo));
+        }
+
+        UnifiedPushHelper.UnifiedPushState unifiedPushState = getUnifiedPushState();
+        if (unifiedPushState.getStatus() == UnifiedPushHelper.Status.UNSUPPORTED) {
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.UnifiedPushUnavailablePlay));
+        } else {
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
+          items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_unifiedPushToggle, 0, R.string.UnifiedPushEnableTitle).setBoolValue(Settings.instance().isUnifiedPushEnabled()));
+          items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.UnifiedPushEnableDesc));
+          if (Settings.instance().isUnifiedPushEnabled()) {
+            items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL, R.id.sep_unifiedPushDistributor, 0, 0, false));
+            items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_unifiedPushDistributor, 0, R.string.UnifiedPushDistributor, false)
+              .setStringValue(getUnifiedPushDistributorLabel(unifiedPushState)));
+            items.add(new ListItem(ListItem.TYPE_DESCRIPTION_SMALL, R.id.btn_unifiedPushDistributorInfo, 0, getUnifiedPushDistributorInfo(unifiedPushState), false));
+          } else if (unifiedPushState.getStatus() == UnifiedPushHelper.Status.MISSING_DISTRIBUTOR) {
+            items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.UnifiedPushNoDistributor));
+          }
         }
 
         if (items.isEmpty()) {
@@ -1331,6 +1361,10 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
     } else if (viewId == R.id.btn_secret_dropHidden) {
       tdlib.notifications().onDropNotificationData(false);
       // case R.id.btn_ton:
+    } else if (viewId == R.id.btn_unifiedPushToggle) {
+      handleUnifiedPushToggle((SettingView) v);
+    } else if (viewId == R.id.btn_unifiedPushDistributor) {
+      showUnifiedPushDistributorDialog();
     } else if (viewId == R.id.btn_tdlib) {
       openTdlibLogs(testerLevel, crash);
     } else if (viewId == R.id.btn_pushService) {
@@ -1630,6 +1664,111 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       }
       return true;
     });
+  }
+
+  private UnifiedPushHelper.UnifiedPushState getUnifiedPushState () {
+    return UnifiedPushHelper.INSTANCE.state(context());
+  }
+
+  private String getUnifiedPushDistributorLabel (UnifiedPushHelper.UnifiedPushState state) {
+    return switch (state.getStatus()) {
+      case READY -> Lang.getString(R.string.UnifiedPushCurrent, state.getDistributorName() != null ? state.getDistributorName() : Lang.getString(R.string.UnifiedPushNotSelected));
+      case MISSING_DISTRIBUTOR -> Lang.getString(R.string.UnifiedPushPickDistributor);
+      case OFF -> Lang.getString(R.string.UnifiedPushDisabled);
+      case UNSUPPORTED -> Lang.getString(R.string.UnifiedPushUnavailablePlay);
+    };
+  }
+
+  private String getUnifiedPushDistributorInfo (UnifiedPushHelper.UnifiedPushState state) {
+    return switch (state.getStatus()) {
+      case READY -> Lang.getString(R.string.UnifiedPushActive, state.getDistributorName() != null ? state.getDistributorName() : Lang.getString(R.string.UnifiedPushNotSelected));
+      case MISSING_DISTRIBUTOR -> Lang.getString(R.string.UnifiedPushDistributorMissing);
+      case OFF -> Lang.getString(R.string.UnifiedPushDisabled);
+      case UNSUPPORTED -> Lang.getString(R.string.UnifiedPushUnavailablePlay);
+    };
+  }
+
+  private void refreshUnifiedPushRows () {
+    UnifiedPushHelper.UnifiedPushState state = getUnifiedPushState();
+    int idx = adapter.indexOfViewById(R.id.btn_unifiedPushDistributor);
+    if (idx != -1) {
+      ListItem item = adapter.getItem(idx);
+      if (item != null) {
+        item.setStringValue(getUnifiedPushDistributorLabel(state));
+        adapter.notifyItemChanged(idx);
+      }
+    }
+    int infoIdx = adapter.indexOfViewById(R.id.btn_unifiedPushDistributorInfo);
+    if (infoIdx != -1) {
+      ListItem item = adapter.getItem(infoIdx);
+      if (item != null) {
+        item.setStringValue(getUnifiedPushDistributorInfo(state));
+        adapter.notifyItemChanged(infoIdx);
+      }
+    }
+    adapter.updateValuedSettingById(R.id.btn_unifiedPushToggle);
+  }
+
+  private void handleUnifiedPushToggle (SettingView view) {
+    UnifiedPushHelper.UnifiedPushState state = getUnifiedPushState();
+    if (state.getStatus() == UnifiedPushHelper.Status.UNSUPPORTED) {
+      UI.showToast(Lang.getString(R.string.UnifiedPushUnavailablePlay), Toast.LENGTH_SHORT);
+      view.getToggler().setRadioEnabled(false, true);
+      return;
+    }
+    boolean enable = !Settings.instance().isUnifiedPushEnabled();
+    if (enable && UnifiedPushHelper.INSTANCE.availableDistributors(context()).isEmpty()) {
+      UI.showToast(Lang.getString(R.string.UnifiedPushNoDistributor), Toast.LENGTH_SHORT);
+      view.getToggler().setRadioEnabled(false, true);
+      Settings.instance().setUnifiedPushEnabled(false);
+      refreshUnifiedPushRows();
+      return;
+    }
+    Settings.instance().setUnifiedPushEnabled(enable);
+    view.getToggler().setRadioEnabled(enable, true);
+    TdlibNotificationUtils.invalidateDeviceTokenRetriever();
+    if (enable) {
+      UnifiedPushHelper.INSTANCE.requestRegistration(context(), null);
+    } else {
+      UnifiedPushHelper.INSTANCE.unregister(context());
+      adapter.removeItemById(R.id.sep_unifiedPushDistributor);
+      adapter.removeItemById(R.id.btn_unifiedPushDistributor);
+      adapter.removeItemById(R.id.btn_unifiedPushDistributorInfo);
+    }
+    refreshUnifiedPushRows();
+    adapter.notifyDataSetChanged();
+  }
+
+  private void showUnifiedPushDistributorDialog () {
+    UnifiedPushHelper.UnifiedPushState state = getUnifiedPushState();
+    if (state.getStatus() == UnifiedPushHelper.Status.UNSUPPORTED) {
+      UI.showToast(Lang.getString(R.string.UnifiedPushUnavailablePlay), Toast.LENGTH_SHORT);
+      return;
+    }
+    List<String> distributorPackages = UnifiedPushHelper.INSTANCE.availableDistributors(context());
+    if (distributorPackages.isEmpty()) {
+      UI.showToast(Lang.getString(R.string.UnifiedPushNoDistributor), Toast.LENGTH_SHORT);
+      return;
+    }
+    ArrayList<String> readableNames = new ArrayList<>();
+    for (String pkg : distributorPackages) {
+      String label = UnifiedPushHelper.INSTANCE.resolveDistributorName(context(), pkg);
+      readableNames.add(label != null ? label : pkg);
+    }
+    final String[] items = readableNames.toArray(new String[0]);
+    AlertDialog.Builder builder = new AlertDialog.Builder(context(), Theme.dialogTheme());
+    builder.setTitle(R.string.UnifiedPushPickDistributor);
+    builder.setSingleChoiceItems(items, -1, (dialog, which) -> {
+      String distributor = distributorPackages.get(which);
+      UnifiedPushHelper.INSTANCE.selectDistributor(context(), distributor);
+      Settings.instance().setUnifiedPushEnabled(true);
+      TdlibNotificationUtils.invalidateDeviceTokenRetriever();
+      refreshUnifiedPushRows();
+      adapter.notifyDataSetChanged();
+      dialog.dismiss();
+    });
+    builder.setNegativeButton(R.string.Cancel, null);
+    showAlert(builder);
   }
 
   @Override

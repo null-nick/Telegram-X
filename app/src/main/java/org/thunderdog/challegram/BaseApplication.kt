@@ -21,6 +21,8 @@ import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
 import org.thunderdog.challegram.push.FirebaseDeviceTokenRetriever
+import org.thunderdog.challegram.push.UnifiedPushDeviceTokenRetriever
+import org.thunderdog.challegram.push.UnifiedPushHelper
 import org.thunderdog.challegram.service.PushHandler
 import org.thunderdog.challegram.telegram.TdlibNotificationUtils
 import org.thunderdog.challegram.tool.UI
@@ -46,13 +48,27 @@ class BaseApplication : MultiDexApplication(), Configuration.Provider {
       object : DeviceTokenRetrieverFactory {
         override fun onCreateNewTokenRetriever(context: Context): DeviceTokenRetriever {
           val defaultTokenRetriever = FirebaseDeviceTokenRetriever()
-          val tokenRetriever = TelegramXExtension.createNewTokenRetriever(context)
-          return tokenRetriever?.takeIf {
-            !BuildConfig.EXPERIMENTAL && (
-              Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_FORCE_ALTERNATIVE_PUSH_SERVICE) ||
+          val extensionTokenRetriever = TelegramXExtension.createNewTokenRetriever(context)
+          val unifiedPushTokenRetriever = UnifiedPushDeviceTokenRetriever()
+
+          val unifiedEnabled = Settings.instance().isUnifiedPushEnabled()
+          val preferAlternative = unifiedEnabled || !BuildConfig.EXPERIMENTAL && (
+            Settings.instance().isExperimentEnabled(Settings.EXPERIMENT_FLAG_FORCE_ALTERNATIVE_PUSH_SERVICE) ||
               !defaultTokenRetriever.isAvailable(applicationContext)
             )
-          } ?: defaultTokenRetriever
+
+          if (preferAlternative) {
+            val availableExtension = extensionTokenRetriever?.takeIf { it.isAvailable(applicationContext) }
+            if (availableExtension != null) {
+              return availableExtension
+            }
+            if (unifiedEnabled && unifiedPushTokenRetriever.isAvailable(applicationContext)) {
+              return unifiedPushTokenRetriever
+            } else if (unifiedEnabled && !UnifiedPushHelper.isSupported(applicationContext)) {
+              PushManagerBridge.log("UnifiedPush disabled: using Firebase because Google Play services are available")
+            }
+          }
+          return defaultTokenRetriever
         }
       }
     )
