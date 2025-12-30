@@ -212,8 +212,8 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
     if (topic.isPinned) {
       this.titleText = "\uD83D\uDCCC " + titleText; // Pin emoji
     }
-    // Check if muted
-    boolean isMuted = topic.notificationSettings != null && topic.notificationSettings.muteFor > 0;
+    // Check if muted (respects useDefaultMuteFor and parent chat settings)
+    boolean isMuted = tdlib.forumTopicNeedsMuteIcon(topic.info.chatId, topic);
     if (isMuted) {
       this.titleText = "\uD83D\uDD07 " + titleText; // Muted speaker emoji
     }
@@ -266,8 +266,8 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
       this.isMessageUnread = false;
     }
 
-    // Check muted state
-    this.isMuted = topic.notificationSettings != null && topic.notificationSettings.muteFor > 0;
+    // Check muted state (respects useDefaultMuteFor and parent chat settings)
+    this.isMuted = tdlib.forumTopicNeedsMuteIcon(topic.info.chatId, topic);
 
     // Unread counter - pass muted state for proper badge coloring
     if (topic.unreadCount > 0) {
@@ -280,10 +280,11 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
     }
 
     // Reactions counter - show if there are unread reactions
+    // Using same pattern as TGChat: baseline_favorite_14 icon at 16f size
     if (topic.unreadReactionCount > 0) {
       if (reactionsCounter == null) {
         reactionsCounter = new Counter.Builder()
-          .drawable(R.drawable.baseline_favorite_14, 14f, 0f, Gravity.CENTER)
+          .drawable(R.drawable.baseline_favorite_14, 16f, 0f, Gravity.CENTER)
           .callback(this)
           .build();
       }
