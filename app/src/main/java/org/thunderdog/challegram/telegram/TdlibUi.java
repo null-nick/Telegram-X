@@ -2424,6 +2424,24 @@ public class TdlibUi extends Handler {
     openChatProfile(context, chatId, messageThread, new TdApi.GetChat(chatId), openParameters);
   }
 
+  public void openStory (final TdlibDelegate context, final long storySenderChatId, final int storyId) {
+    openStory(context, storySenderChatId, storyId, null);
+  }
+
+  public void openStory (final TdlibDelegate context, final long storySenderChatId, final int storyId, @Nullable TdApi.Story preloadedStory) {
+    openStory(context, storySenderChatId, storyId, preloadedStory, null, 0);
+  }
+
+  public void openStory (final TdlibDelegate context, final long storySenderChatId, final int storyId,
+                         @Nullable TdApi.Story preloadedStory, @Nullable java.util.List<TdApi.ChatActiveStories> allStories, int initialUserIndex) {
+    if (context.context() == null) {
+      return;
+    }
+    org.thunderdog.challegram.ui.StoryViewController storyController = new org.thunderdog.challegram.ui.StoryViewController(context.context(), tdlib);
+    storyController.setArguments(new org.thunderdog.challegram.ui.StoryViewController.Args(storySenderChatId, storyId, preloadedStory, allStories, initialUserIndex));
+    storyController.open();
+  }
+
   public void openPublicChat (final TdlibDelegate context, final @NonNull String username, final @Nullable UrlOpenParameters openParameters) {
     openChat(context, 0, new TdApi.SearchPublicChat(username), new ChatOpenParameters().urlOpenParameters(openParameters).keepStack().openProfileInCaseOfPrivateChat());
   }
