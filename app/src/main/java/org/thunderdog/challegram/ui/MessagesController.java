@@ -2823,8 +2823,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
     // This happens when opening a message via link in a forum
     if (forumTopic == null && messageTopicId != null &&
         messageTopicId.getConstructor() == TdApi.MessageTopicForum.CONSTRUCTOR) {
-      long forumTopicId = ((TdApi.MessageTopicForum) messageTopicId).messageThreadId;
-      tdlib.client().send(new TdApi.GetForumTopic(chat.id, (int) forumTopicId), result -> {
+      int forumTopicId = ((TdApi.MessageTopicForum) messageTopicId).forumTopicId;
+      tdlib.client().send(new TdApi.GetForumTopic(chat.id, forumTopicId), result -> {
         if (result.getConstructor() == TdApi.ForumTopic.CONSTRUCTOR) {
           runOnUiThreadOptional(() -> {
             forumTopic = (TdApi.ForumTopic) result;
