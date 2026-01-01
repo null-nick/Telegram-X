@@ -487,7 +487,9 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
         }
       }
 
-      if (context.archiveCollapsed && outRect.top == 0 && current.isArchive()) {
+      // When archive is collapsed, hide it with negative offset - but only if no story bar
+      // When story bar is present, archive sits below it and doesn't need collapse offset
+      if (context.archiveCollapsed && outRect.top == 0 && current.isArchive() && !context.adapter.hasStoryBar()) {
         outRect.top = -ChatView.getViewHeight(current.getListMode());
         if (context.liveLocationHelper != null && context.liveLocationHelper.isVisible()) {
           outRect.top -= Screen.dp(1f);
@@ -644,10 +646,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
 
     // Add story bar for main chat list (only if stories are not hidden)
     if (isBaseController() && filter == null && chatList().getConstructor() == TdApi.ChatListMain.CONSTRUCTOR && !Settings.instance().hideStories()) {
-      // Enable story bar in adapter - it will create the view as a list item
-      adapter.setShowStoryBar(true);
-
-      // Load active stories and check if user can post stories
+      // Load active stories and check if user can post stories - story bar will be added when content is available
       loadActiveStories();
       checkCanPostStory();
     }
@@ -695,22 +694,24 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
         chatsView.addOnScrollListener(new RecyclerView.OnScrollListener() {
           @Override
           public void onScrollStateChanged (@NonNull RecyclerView recyclerView, int newState) {
+            int archivePosition = adapter.getArchiveItemPosition();
+            int firstChatPosition = archivePosition != -1 ? archivePosition + 1 : adapter.getFirstChatItemPosition();
             if (hideArchive && archiveCollapsed && chatScrollState == RecyclerView.SCROLL_STATE_IDLE && newState != RecyclerView.SCROLL_STATE_IDLE) {
               LinearLayoutManager manager = (LinearLayoutManager) recyclerView.getLayoutManager();
               int firstVisiblePosition = manager.findFirstVisibleItemPosition();
-              if (firstVisiblePosition == 1) {
-                View view = manager.findViewByPosition(1);
+              if (firstVisiblePosition == firstChatPosition) {
+                View view = manager.findViewByPosition(firstChatPosition);
                 if (view != null && manager.getDecoratedTop(view) == 0) {
                   setArchiveCollapsed(false);
                 }
               }
             }
             chatScrollState = newState;
-            if (hideArchive) {
+            if (hideArchive && archivePosition != -1) {
               if (newState == RecyclerView.SCROLL_STATE_IDLE) {
                 LinearLayoutManager manager = (LinearLayoutManager) recyclerView.getLayoutManager();
                 int firstVisiblePosition = manager.findFirstVisibleItemPosition();
-                if (firstVisiblePosition == 0) {
+                if (firstVisiblePosition == archivePosition) {
                   setArchiveCollapsed(false);
                   View view = manager.findViewByPosition(firstVisiblePosition);
                   int top = view != null ? -manager.getDecoratedTop(view) : 0;
@@ -720,7 +721,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
                   } else {
                     onScrollToTopRequested();
                   }
-                } else if (firstVisiblePosition == 1) {
+                } else if (firstVisiblePosition == firstChatPosition) {
                   View view = manager.findViewByPosition(firstVisiblePosition);
                   setArchiveCollapsed(view == null || manager.getDecoratedTop(view) < 0);
                 } else {
@@ -732,7 +733,8 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
 
           @Override
           public void onScrolled (@NonNull RecyclerView recyclerView, int dx, int dy) {
-            if (hideArchive && !archiveCollapsed && chatScrollState == RecyclerView.SCROLL_STATE_SETTLING && dy > 0 && ((LinearLayoutManager) recyclerView.getLayoutManager()).findFirstVisibleItemPosition() > 0) {
+            int archivePosition = adapter.getArchiveItemPosition();
+            if (hideArchive && !archiveCollapsed && chatScrollState == RecyclerView.SCROLL_STATE_SETTLING && dy > 0 && archivePosition != -1 && ((LinearLayoutManager) recyclerView.getLayoutManager()).findFirstVisibleItemPosition() > archivePosition) {
               setArchiveCollapsed(true);
             }
           }
@@ -995,13 +997,14 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
   }
 
   public int getLiveLocationPosition () {
+    int offset = adapter.hasStoryBar() ? 1 : 0;
     if (adapter.hasSuggestedChats()) {
-      return 0;
+      return offset;
     }
     if (adapter.hasChats()) {
       return adapter.getFirstChatItemPosition() + (adapter.hasArchive() ? 1 : 0);
     }
-    return 0;
+    return offset;
   }
 
   @Override
@@ -3247,7 +3250,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
   private @Nullable SortedList.ListListener<TdApi.ChatActiveStories> storyListListener;
 
   private void loadActiveStories () {
-    if (adapter == null || !adapter.hasStoryBar()) {
+    if (adapter == null) {
       return;
     }
     // Get the main story list and subscribe to updates
@@ -3261,7 +3264,17 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
     storyList.initializeList(null, storyListListener, stories -> {
       runOnUiThreadOptional(() -> {
         if (adapter != null) {
-          adapter.setActiveStories(stories);
+          // Add story bar if we have stories and it's not shown yet
+          if (stories != null && !stories.isEmpty() && !adapter.hasStoryBar()) {
+            adapter.setShowStoryBar(true);
+            // Scroll to top to show story bar on initial load
+            if (chatsView != null) {
+              chatsView.scrollToPosition(0);
+            }
+          }
+          if (adapter.hasStoryBar()) {
+            adapter.setActiveStories(stories);
+          }
         }
       });
     }, 20, null);
@@ -3278,7 +3291,7 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
   }
 
   private void checkCanPostStory () {
-    if (adapter == null || !adapter.hasStoryBar()) {
+    if (adapter == null) {
       return;
     }
     long myUserId = tdlib.myUserId();
@@ -3294,7 +3307,17 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
       runOnUiThreadOptional(() -> {
         if (adapter != null) {
           boolean canPost = result.getConstructor() == TdApi.CanPostStoryResultOk.CONSTRUCTOR;
-          adapter.setCanPostStory(canPost);
+          // Add story bar if user can post and it's not shown yet
+          if (canPost && !adapter.hasStoryBar()) {
+            adapter.setShowStoryBar(true);
+            // Scroll to top to show story bar on initial load
+            if (chatsView != null) {
+              chatsView.scrollToPosition(0);
+            }
+          }
+          if (adapter.hasStoryBar()) {
+            adapter.setCanPostStory(canPost);
+          }
         }
       });
     });

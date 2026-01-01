@@ -413,3 +413,30 @@ Fixed payment card input fields lacking proper validation and formatting.
     - Expiry: `TYPE_CLASS_PHONE` + custom filter (digits/slash) + formatting TextWatcher
     - CVC: `TYPE_CLASS_NUMBER` + max length 4
     - Card holder: `TYPE_CLASS_TEXT | TYPE_TEXT_FLAG_CAP_CHARACTERS`
+
+### Paid Reaction Crash Fix
+Fixed crash when opening reactions selector with paid (star) reactions.
+
+**Root Cause:** `TGReaction.newCenterAnimationSicker()` and `newStaticIconSicker()` didn't handle paid reactions - they fell through to code that accessed null `customReaction` field.
+
+**Files Modified:**
+- `app/src/main/java/org/thunderdog/challegram/data/TGReaction.java`:
+  - Added `isPaid` check to `newStaticIconSicker()` - returns cached or new paid star sticker
+  - Added `isPaid` check to `newCenterAnimationSicker()` - returns cached or new paid star sticker
+
+### Archive Pin/Unpin Overlap with Stories Fix
+Fixed archive row scroll handling using hardcoded positions that didn't account for story bar.
+
+**Root Cause:** The archive collapse/expand scroll listener used hardcoded positions (0, 1) assuming archive was always at position 0. With story bar at position 0, archive is at position 1, causing incorrect scroll behavior and visual overlap.
+
+**Files Modified:**
+- `app/src/main/java/org/thunderdog/challegram/ui/ChatsController.java`:
+  - Updated `onScrollStateChanged` to use dynamic `archivePosition` from `adapter.getArchiveItemPosition()`
+  - Updated `onScrolled` to check against dynamic archive position instead of hardcoded 0
+  - Updated `getLiveLocationPosition()` to account for story bar offset
+  - Fixed ItemDecoration to not apply negative collapse offset when story bar is present
+  - Changed story bar loading to only add to adapter when content is available
+  - Added `scrollToPosition(0)` when story bar is first added to ensure visibility on app start
+- `app/src/main/java/org/thunderdog/challegram/widget/StoryBarView.java`:
+  - Changed initial visibility from GONE to VISIBLE (adapter now controls presence)
+  - Removed GONE state from updateVisibility() - adapter handles add/remove
