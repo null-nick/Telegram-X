@@ -440,3 +440,63 @@ Fixed archive row scroll handling using hardcoded positions that didn't account 
 - `app/src/main/java/org/thunderdog/challegram/widget/StoryBarView.java`:
   - Changed initial visibility from GONE to VISIBLE (adapter now controls presence)
   - Removed GONE state from updateVisibility() - adapter handles add/remove
+
+### Paid Reaction Empty Icon Fix
+Fixed paid/star reactions showing as empty (no icon visible) on channels.
+
+**Root Cause:** `StickerSmallView.setSticker()` didn't handle stickers with `isDefaultPremiumStar()` flag. When a paid reaction sticker was set, `getImage()` and `getPreviewAnimation()` returned null (no actual sticker file), so nothing was drawn.
+
+**Files Modified:**
+- `app/src/main/java/org/thunderdog/challegram/component/sticker/StickerSmallView.java`:
+  - Added check for `sticker.isDefaultPremiumStar()` in `setSticker()`
+  - When true, sets `premiumStarDrawable` from `R.drawable.baseline_premium_star_28`
+  - Clears `premiumStarDrawable` for normal stickers to avoid stale state
+- `app/src/main/java/org/thunderdog/challegram/data/TD.java`:
+  - Added error translation for "BALANCE_TOO_LOW" and "not enough stars" → `PaidReactionInsufficientStars`
+- `app/src/main/res/values/strings.xml`:
+  - Added `PaidReactionInsufficientStars` string with user-friendly message
+
+### ForumTopicView Custom Emoji Crash Fix
+Fixed crash when opening forum topics with custom emoji in message preview.
+
+**Root Cause:** `ForumTopicView.buildTextLayouts()` was passing `FormattedText` (which may contain custom emoji) to `Text.Builder` without a `TextMediaListener`. When `Text.newOrExistingMedia()` is called without a listener, it throws `IllegalStateException`.
+
+**Solution:** Implemented proper custom emoji support in ForumTopicView:
+- Made ForumTopicView implement `Text.TextMediaListener`
+- Added `textMediaReceiver` (ComplexReceiver) for loading custom emoji
+- Pass `this` as textMediaListener when building Text with FormattedText
+- Call `requestTextMedia()` after building displayPreview
+- Pass textMediaReceiver to `displayPreview.draw()` for rendering custom emoji
+
+**Files Modified:**
+- `app/src/main/java/org/thunderdog/challegram/ui/ForumTopicView.java`:
+  - Implemented `Text.TextMediaListener` interface
+  - Added `textMediaReceiver` field initialized in constructor
+  - Added `onInvalidateTextMedia()` callback for view invalidation
+  - Added `requestTextMedia()` helper method
+  - Updated `buildTextLayouts()` to pass `this` as listener
+  - Updated `displayPreview.draw()` to pass textMediaReceiver
+  - Updated attach/detach/destroy to handle textMediaReceiver lifecycle
+
+### Forum Preview Swipe-Up Fix
+Fixed long-pressing forum chat in chat list and swiping up opening old chat interface instead of ForumTopicsController.
+
+**Root Cause:** `BaseView.openChatPreviewAsync()` always created `MessagesController` for preview, even for forums.
+
+**Solution:** Added check for forum chats - skip preview and fall through to normal long-press menu behavior.
+
+**Files Modified:**
+- `app/src/main/java/org/thunderdog/challegram/widget/BaseView.java`:
+  - Added `tdlib.isForum(chat.id)` check in `onLongPressRequestedAt()`
+  - Forums now skip preview mode
+
+### Star Reaction Icon Size Fix
+Fixed star icon in reaction bubbles being too large (overflowing its border).
+
+**Root Cause:** `Drawables.draw()` ignores `setBounds()` and draws at the drawable's intrinsic size. The star was drawn at 24dp regardless of the reaction bubble bounds.
+
+**Files Modified:**
+- `app/src/main/java/org/thunderdog/challegram/data/TGReactions.java`:
+  - Changed `drawReceiver()` to use `drawable.draw(canvas)` directly instead of `Drawables.draw()`
+  - Now properly respects the bounds set with `setBounds(l, t, r, b)`
+  - Star icon scales to fit the reaction bubble correctly
