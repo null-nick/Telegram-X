@@ -256,6 +256,14 @@
   <item type="id" name="input_caption" />
   <item type="id" name="btn_storyCamera" />
   <item type="id" name="btn_storyGallery" />
+  <item type="id" name="btn_storiesSettings" />
+  <item type="id" name="btn_showAddStoryBorder" />
+  <item type="id" name="btn_storyRingColors" />
+  <item type="id" name="btn_storyColor" />
+  <item type="id" name="btn_addStoryColor" />
+  <item type="id" name="btn_resetStoryColors" />
+  <item type="id" name="preview" />
+  <item type="id" name="data_color" />
 
   <item type="id" name="controller_code" />
   <item type="id" name="controller_name" />
