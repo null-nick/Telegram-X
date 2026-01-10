@@ -2052,9 +2052,16 @@
   <string name="BigReactionsInfo">Big reactions are interactive buttons under messages presenting each reaction</string>
   <string name="ReactionAvatarsInfo">When limited, avatars display only in scenarios when you are likely to recognise the user.</string>
   <string name="BigReactions">Big Reactions</string>
+  <string name="BigReactionsDMs">Direct Messages</string>
   <string name="BigReactionsChats">Chats</string>
   <string name="BigReactionsChannels">Channels</string>
   <string name="BigReactionsNone">None</string>
+  <string name="ShowCameraWhileTyping">Camera button</string>
+  <string name="ShowAttachWhileTyping">Attach button</string>
+  <string name="ShowVoiceWhileTyping">Voice button</string>
+  <string name="InputWhileTyping">Show while typing</string>
+  <string name="InputWhileTypingInfo">Select which buttons remain visible when you\'re typing a message. Sending media will use your text as caption.</string>
+  <string name="Input">Input</string>
   <string name="ChannelReactionsAnonymous">Reactions in channels are anonymous</string>
 
   <string name="UserRestrictions">User Permissions</string>
@@ -2393,6 +2400,7 @@
   <string name="ViewAsChat">View as chat</string>
   <string name="ViewAsTopics">View as topics</string>
   <string name="ViewAsTabs">View as tabs</string>
+  <string name="ViewForum">View forum</string>
   <string name="FilterByTopic">Filter by topic</string>
   <string name="SearchForMessages">Search for messages</string>
   <string name="NoMessagesFound">No messages found</string>

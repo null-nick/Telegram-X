@@ -52,12 +52,16 @@ import org.thunderdog.challegram.tool.Icons;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
 import org.thunderdog.challegram.util.text.Counter;
+import org.thunderdog.challegram.util.text.Highlight;
+import org.thunderdog.challegram.util.text.Text;
+import org.thunderdog.challegram.util.text.TextColorSets;
+import org.thunderdog.challegram.util.text.TextMedia;
 import org.thunderdog.challegram.widget.BaseView;
 
 import me.vkryl.core.StringUtils;
 import tgx.td.Td;
 
-public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watcher, TdlibStatusManager.HelperTarget {
+public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watcher, TdlibStatusManager.HelperTarget, Text.TextMediaListener {
   private static TextPaint titlePaint;
   private static TextPaint senderPaint;
   private static TextPaint previewPaint;
@@ -68,8 +72,12 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
   private TdApi.ForumTopic topic;
 
   private String titleText;
+  private Text displayTitle;
   private String senderText;
+  private Text displaySender;
   private String previewText;
+  private TdApi.FormattedText previewFormattedText;
+  private Text displayPreview;
   private String timeText;
   private Counter unreadCounter;
   private Counter reactionsCounter;
@@ -90,6 +98,9 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
   private GifFile gifFile;
   private final ComplexReceiver iconReceiver;
 
+  // Text media (custom emoji in preview)
+  private final ComplexReceiver textMediaReceiver;
+
   // Typing status
   private TdlibStatusManager.Helper statusHelper;
   private boolean isAttached;
@@ -105,6 +116,7 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
     RippleSupport.setTransparentSelector(this);
     initPaints();
     iconReceiver = new ComplexReceiver(this, Config.MAX_ANIMATED_EMOJI_REFRESH_RATE);
+    textMediaReceiver = new ComplexReceiver(this, Config.MAX_ANIMATED_EMOJI_REFRESH_RATE);
   }
 
   private static void initPaints () {
@@ -139,6 +151,7 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
 
   public void attach () {
     iconReceiver.attach();
+    textMediaReceiver.attach();
     isAttached = true;
     if (statusHelper != null && topic != null) {
       statusHelper.attachToChat(topic.info.chatId, new TdApi.MessageTopicForum(topic.info.forumTopicId));
@@ -147,6 +160,7 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
 
   public void detach () {
     iconReceiver.detach();
+    textMediaReceiver.detach();
     isAttached = false;
     if (statusHelper != null) {
       statusHelper.detachFromAnyChat();
@@ -155,6 +169,7 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
 
   public void destroy () {
     iconReceiver.performDestroy();
+    textMediaReceiver.performDestroy();
     if (customEmojiId != 0 && customEmoji == null && tdlib != null) {
       tdlib.emoji().forgetWatcher(customEmojiId, this);
     }
@@ -204,19 +219,8 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
       statusHelper.attachToChat(topic.info.chatId, new TdApi.MessageTopicForum(topic.info.forumTopicId));
     }
 
-    // Build title
+    // Build title (no emoji prefixes - icons are drawn separately)
     this.titleText = topic.info.name;
-    if (topic.info.isClosed) {
-      this.titleText = "\uD83D\uDD12 " + titleText; // Lock emoji
-    }
-    if (topic.isPinned) {
-      this.titleText = "\uD83D\uDCCC " + titleText; // Pin emoji
-    }
-    // Check if muted (respects useDefaultMuteFor and parent chat settings)
-    boolean isMuted = tdlib.forumTopicNeedsMuteIcon(topic.info.chatId, topic);
-    if (isMuted) {
-      this.titleText = "\uD83D\uDD07 " + titleText; // Muted speaker emoji
-    }
 
     // Check if we should show draft (draft exists with text input)
     boolean hasDraft = topic.draftMessage != null &&
@@ -231,6 +235,8 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
         inputText.text.text : "";
       this.senderText = Lang.getString(R.string.Draft);
       this.previewText = draftText;
+      // Get FormattedText from draft for custom emoji rendering
+      this.previewFormattedText = inputText.text;
       this.timeText = Lang.timeOrDateShort(topic.draftMessage.date, java.util.concurrent.TimeUnit.SECONDS);
       this.isOutgoing = false;
       this.isSending = false;
@@ -240,6 +246,8 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
       this.showingDraft = false;
       ContentPreview preview = ContentPreview.getChatListPreview(tdlib, topic.info.chatId, topic.lastMessage, true);
       String messageText = preview != null ? preview.buildText(false) : "";
+      // Get FormattedText for proper custom emoji rendering
+      this.previewFormattedText = preview != null ? preview.buildFormattedText(false) : null;
 
       // Sender name on separate line (like 3-line chat list mode)
       if (topic.lastMessage.isOutgoing) {
@@ -254,12 +262,16 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
       // Calculate message status for outgoing messages
       this.isOutgoing = topic.lastMessage.isOutgoing;
       this.isSending = tdlib.messageSending(topic.lastMessage);
-      // Message is unread if message ID > last read outbox message ID
-      this.isMessageUnread = topic.lastMessage.id > topic.lastReadOutboxMessageId;
+      // Message is unread if message ID > relevant last read message ID
+      // For outgoing: compare with lastReadOutboxMessageId (whether recipient read it)
+      // For incoming: compare with lastReadInboxMessageId (whether we read it)
+      long relevantReadId = this.isOutgoing ? topic.lastReadOutboxMessageId : topic.lastReadInboxMessageId;
+      this.isMessageUnread = topic.lastMessage.id > relevantReadId;
     } else {
       this.showingDraft = false;
       this.senderText = "";
       this.previewText = "";
+      this.previewFormattedText = null;
       this.timeText = "";
       this.isOutgoing = false;
       this.isSending = false;
@@ -296,7 +308,115 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
     // Load topic icon
     loadTopicIcon();
 
+    // Build text layouts
+    buildTextLayouts();
+
     invalidate();
+  }
+
+  private int lastMeasuredWidth;
+
+  @Override
+  protected void onMeasure (int widthMeasureSpec, int heightMeasureSpec) {
+    super.onMeasure(widthMeasureSpec, heightMeasureSpec);
+    int width = getMeasuredWidth();
+    if (lastMeasuredWidth != width) {
+      lastMeasuredWidth = width;
+      buildTextLayouts();
+    }
+  }
+
+  private void buildTextLayouts () {
+    int width = getMeasuredWidth();
+    if (width <= 0 || topic == null) {
+      displayTitle = null;
+      displaySender = null;
+      displayPreview = null;
+      return;
+    }
+
+    int textLeft = Screen.dp(PADDING_LEFT);
+    int textRight = width - Screen.dp(PADDING_RIGHT);
+
+    // Calculate reserved right width to prevent text overlap with time/status/counters
+    int reservedRightWidth = Screen.dp(12f); // Base padding
+    if (!StringUtils.isEmpty(timeText)) {
+      reservedRightWidth += (int) timePaint.measureText(timeText);
+    }
+    if (isOutgoing) {
+      reservedRightWidth += Screen.dp(22f); // Status icon width
+    }
+    if (unreadCounter != null) {
+      reservedRightWidth += (int) unreadCounter.getWidth() + Screen.dp(4f);
+    }
+    if (reactionsCounter != null) {
+      reservedRightWidth += (int) reactionsCounter.getWidth() + Screen.dp(4f);
+    }
+    if (isMuted) {
+      reservedRightWidth += Screen.dp(18f); // Mute icon space
+    }
+
+    int availWidth = textRight - textLeft - reservedRightWidth;
+
+    // Build title Text with emoji support (4-parameter constructor for String)
+    if (!StringUtils.isEmpty(titleText)) {
+      Highlight highlight = !StringUtils.isEmpty(highlightQuery) ? Highlight.valueOf(titleText, highlightQuery) : null;
+      displayTitle = new Text.Builder(
+        titleText,
+        availWidth,
+        Paints.robotoStyleProvider(16f),
+        TextColorSets.Regular.NORMAL
+      ).singleLine()
+       .highlight(highlight)
+       .allBold()
+       .ignoreNewLines()
+       .build();
+    } else {
+      displayTitle = null;
+    }
+
+    // Build sender Text with emoji support (4-parameter constructor for String)
+    if (!StringUtils.isEmpty(senderText)) {
+      displaySender = new Text.Builder(
+        senderText,
+        availWidth,
+        Paints.robotoStyleProvider(15f),
+        showingDraft ? TextColorSets.Regular.NEGATIVE : TextColorSets.Regular.NORMAL
+      ).singleLine()
+       .ignoreNewLines()
+       .build();
+    } else {
+      displaySender = null;
+    }
+
+    // Build preview Text with custom emoji support
+    if (previewFormattedText != null && !StringUtils.isEmpty(previewFormattedText.text)) {
+      displayPreview = new Text.Builder(
+        tdlib,
+        previewFormattedText,
+        null, // urlOpenParameters
+        availWidth,
+        Paints.robotoStyleProvider(15f),
+        TextColorSets.Regular.LIGHT,
+        this // textMediaListener for custom emoji loading
+      ).singleLine()
+       .ignoreNewLines()
+       .build();
+    } else if (!StringUtils.isEmpty(previewText)) {
+      displayPreview = new Text.Builder(
+        previewText,
+        availWidth,
+        Paints.robotoStyleProvider(15f),
+        TextColorSets.Regular.LIGHT
+      ).singleLine()
+       .ignoreNewLines()
+       .build();
+    } else {
+      displayPreview = null;
+    }
+
+    // Request text media for custom emoji
+    requestTextMedia();
   }
 
   /**
@@ -459,23 +579,50 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
       }
     }
 
-    // Draw title with optional highlighting
-    int titleRight = (int) (textRight - timeWidth - statusIconWidth - Screen.dp(8f));
-    if (!StringUtils.isEmpty(titleText)) {
-      String ellipsizedTitle = TextUtils.ellipsize(titleText, titlePaint, titleRight - textLeft, TextUtils.TruncateAt.END).toString();
-      float titleY = Screen.dp(28f);
+    // Calculate right offset for icons that appear after title
+    float rightOffset = timeWidth + statusIconWidth + Screen.dp(8f);
+    if (isMuted) {
+      rightOffset += Screen.dp(18f); // Space for mute icon
+    }
 
-      if (!StringUtils.isEmpty(highlightQuery)) {
-        // Draw title with highlight
-        drawHighlightedText(canvas, ellipsizedTitle, textLeft, titleY, titlePaint, highlightQuery);
-      } else {
-        canvas.drawText(ellipsizedTitle, textLeft, titleY, titlePaint);
+    // Draw title with emoji support
+    int titleRight = (int) (textRight - rightOffset);
+    if (displayTitle != null) {
+      int titleY = Screen.dp(12f);
+      displayTitle.draw(canvas, textLeft, titleY);
+
+      // Draw mute icon right after title text
+      if (isMuted && displayTitle.getWidth() > 0) {
+        int muteIconX = textLeft + displayTitle.getWidth() + Screen.dp(4f);
+        int muteIconY = titleY - Screen.dp(1f);
+        Drawable muteIcon = Drawables.get(getResources(), R.drawable.deproko_baseline_notifications_off_24);
+        if (muteIcon != null) {
+          int muteIconSize = Screen.dp(14f);
+          muteIcon.setBounds(muteIconX, muteIconY, muteIconX + muteIconSize, muteIconY + muteIconSize);
+          muteIcon.setColorFilter(Theme.getColor(ColorId.iconLight), android.graphics.PorterDuff.Mode.SRC_IN);
+          muteIcon.draw(canvas);
+        }
       }
     }
 
     // Draw counters on the right side
     int previewRight = textRight;
     float counterCenterY = height / 2 + Screen.dp(12f);
+
+    // Draw lock icon if topic is closed and has no unread messages
+    boolean showLockIcon = topic.info.isClosed && (unreadCounter == null || topic.unreadCount == 0);
+    if (showLockIcon) {
+      int lockIconSize = Screen.dp(18f);
+      int lockIconX = textRight - lockIconSize;
+      int lockIconY = (int) counterCenterY - lockIconSize / 2;
+      Drawable lockIcon = Drawables.get(getResources(), R.drawable.deproko_baseline_lock_24);
+      if (lockIcon != null) {
+        lockIcon.setBounds(lockIconX, lockIconY, lockIconX + lockIconSize, lockIconY + lockIconSize);
+        lockIcon.setColorFilter(Theme.getColor(ColorId.iconLight), android.graphics.PorterDuff.Mode.SRC_IN);
+        lockIcon.draw(canvas);
+      }
+      previewRight -= (int) (lockIconSize + Screen.dp(4f));
+    }
 
     // Draw unread counter (rightmost)
     if (unreadCounter != null) {
@@ -511,25 +658,18 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
         canvas.drawText(ellipsizedTyping, textLeft + iconWidth, senderY, senderPaint);
       }
     } else {
-      // Row 2: Draw sender name (white/accent color)
-      if (!StringUtils.isEmpty(senderText)) {
-        if (showingDraft) {
-          // Draw "Draft" in red
-          int savedColor = senderPaint.getColor();
-          senderPaint.setColor(Theme.textRedColor());
-          String ellipsizedSender = TextUtils.ellipsize(senderText, senderPaint, previewRight - textLeft, TextUtils.TruncateAt.END).toString();
-          canvas.drawText(ellipsizedSender, textLeft, senderY, senderPaint);
-          senderPaint.setColor(savedColor);
-        } else {
-          String ellipsizedSender = TextUtils.ellipsize(senderText, senderPaint, previewRight - textLeft, TextUtils.TruncateAt.END).toString();
-          canvas.drawText(ellipsizedSender, textLeft, senderY, senderPaint);
-        }
+      // Row 2: Draw sender name with emoji support
+      if (displaySender != null) {
+        // Convert baseline to top position (senderY is baseline at 46dp, top is ~34dp)
+        int senderTop = (int) senderY - Screen.dp(12f);
+        displaySender.draw(canvas, textLeft, senderTop);
       }
 
-      // Row 3: Draw message preview (gray/light color)
-      if (!StringUtils.isEmpty(previewText)) {
-        String ellipsizedPreview = TextUtils.ellipsize(previewText, previewPaint, previewRight - textLeft, TextUtils.TruncateAt.END).toString();
-        canvas.drawText(ellipsizedPreview, textLeft, previewY, previewPaint);
+      // Row 3: Draw message preview with custom emoji support
+      if (displayPreview != null) {
+        // Convert baseline to top position (previewY is baseline at 64dp, top is ~52dp)
+        int previewTop = (int) previewY - Screen.dp(12f);
+        displayPreview.draw(canvas, textLeft, previewTop, null, 1f, textMediaReceiver);
       }
     }
 
@@ -671,6 +811,23 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
     if (matchEnd < text.length()) {
       String afterMatch = text.substring(matchEnd);
       canvas.drawText(afterMatch, x, y, paint);
+    }
+  }
+
+  // Text.TextMediaListener implementation
+  @Override
+  public void onInvalidateTextMedia (Text text, @Nullable TextMedia specificMedia) {
+    if (text == displayPreview) {
+      invalidate();
+    }
+  }
+
+  private void requestTextMedia () {
+    if (displayPreview != null && displayPreview.hasMedia()) {
+      textMediaReceiver.clear();
+      displayPreview.requestMedia(textMediaReceiver);
+    } else {
+      textMediaReceiver.clear();
     }
   }
 }
