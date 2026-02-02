@@ -103,7 +103,7 @@ transcoder = "ba8f098c94"
 sunrise-sunset-calculator = "1.2"
 subsampling-scale-image-view = "3.10.0"
 mp4parser-isoparser = "1.0.6" # TODO: Upgrade to 1.1.22
-ntgcalls = "1.3.0"
+pytgcalls-ntgcalls = "2.0.9"
 unifiedpush_connector = "2.3.1"
 
 [libraries]
@@ -236,10 +236,9 @@ sunriseSunsetCalculator = { module = "com.luckycatlabs:SunriseSunsetCalculator",
 subsamplingScaleImageView = { module = "com.davemorrissey.labs:subsampling-scale-image-view-androidx", version.ref = "subsampling-scale-image-view" }
 mp4parser-isoparser = { module = "com.googlecode.mp4parser:isoparser", version.ref = "mp4parser-isoparser" }
 unifiedpush-connector = { module = "com.github.UnifiedPush:android-connector", version.ref = "unifiedpush_connector" }
+pytgcalls-ntgcalls = { module = "io.github.pytgcalls:ntgcalls", version.ref = "pytgcalls-ntgcalls" }
 
 checkerframework = { module = "org.checkerframework:checker-qual", version.ref = "checkerframework" }
-
-ntgcalls = { module = "io.github.pytgcalls:ntgcalls", version.ref = "ntgcalls" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "android-gradle-plugin" }

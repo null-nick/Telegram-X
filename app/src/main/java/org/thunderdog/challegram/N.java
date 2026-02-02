@@ -143,7 +143,6 @@ public final class N {
   private static native String[] getTgCallsVersions ();
 
   public static String[] getTgCallsLibVersions () {
-    android.util.Log.d("tgx", "getTgCallsLibVersions" + BuildConfig.USE_NTGCALLS);
     if (BuildConfig.USE_NTGCALLS) {
       return NTgCalls.getProtocol().libraryVersions.toArray(new String[0]);
     } else {

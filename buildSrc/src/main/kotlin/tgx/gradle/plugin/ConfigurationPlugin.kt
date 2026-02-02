@@ -44,7 +44,6 @@ open class ConfigurationPlugin : Plugin<Project> {
     val sampleProperties = loadProperties("local.properties.sample")
     val keystoreFilePath = properties.getProperty("keystore.file", "")
     val disableSigning = properties.getProperty("app.disable_signing", "false") == "true"
-    val useNTgCalls = properties.getProperty("app.ntgcalls", "false") == "true"
     val keystore = if (keystoreFilePath.isNotEmpty() && !disableSigning) {
       Keystore(keystoreFilePath)
     } else {
@@ -69,6 +68,7 @@ open class ConfigurationPlugin : Plugin<Project> {
     val isExperimentalBuild = isExampleBuild || keystore == null || properties.getProperty("app.experimental", "false") == "true"
     val doNotObfuscate = isExampleBuild || properties.getProperty("app.dontobfuscate", "false") == "true"
     val forceOptimize = properties.getProperty("app.forceoptimize") == "true"
+    val useNTgCalls = properties.getProperty("app.ntgcalls", "false") == "true"
     val appExtension = getOrSample("tgx.extension")
     if (appExtension != "none" && appExtension != "hms") {
       error("Unknown tgx.extension: $appExtension")
