@@ -4142,9 +4142,9 @@ public class TdlibUi extends Handler {
       case TdApi.InternalLinkTypeAttachmentMenuBot.CONSTRUCTOR:
       case TdApi.InternalLinkTypeWebApp.CONSTRUCTOR:
       case TdApi.InternalLinkTypeMainWebApp.CONSTRUCTOR:
-      case TdApi.InternalLinkTypePremiumFeatures.CONSTRUCTOR:
+      case TdApi.InternalLinkTypePremiumFeaturesPage.CONSTRUCTOR:
       case TdApi.InternalLinkTypeRestorePurchases.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeMyToncoins.CONSTRUCTOR: {
+      {
         showLinkTooltip(tdlib, R.drawable.baseline_warning_24, Lang.getString(R.string.InternalUrlUnsupported), openParameters);
         break;
       }
@@ -4155,17 +4155,10 @@ public class TdlibUi extends Handler {
         break;
       }
 
-      case TdApi.InternalLinkTypeBuyStars.CONSTRUCTOR: {
-        TdApi.InternalLinkTypeBuyStars buyStars = (TdApi.InternalLinkTypeBuyStars) linkType;
+      case TdApi.InternalLinkTypeStarPurchase.CONSTRUCTOR: {
+        TdApi.InternalLinkTypeStarPurchase buyStars = (TdApi.InternalLinkTypeStarPurchase) linkType;
         SettingsStarsController starsController = new SettingsStarsController(context.context(), tdlib);
         starsController.setArguments(new SettingsStarsController.Args(buyStars.starCount, buyStars.purpose));
-        context.context().navigation().navigateTo(starsController);
-        break;
-      }
-
-      case TdApi.InternalLinkTypeMyStars.CONSTRUCTOR: {
-        SettingsStarsController starsController = new SettingsStarsController(context.context(), tdlib);
-        starsController.setArguments(new SettingsStarsController.Args());
         context.context().navigation().navigateTo(starsController);
         break;
       }
@@ -4303,12 +4296,10 @@ public class TdlibUi extends Handler {
       case TdApi.InternalLinkTypeNewPrivateChat.CONSTRUCTOR:
       case TdApi.InternalLinkTypeNewStory.CONSTRUCTOR:
       case TdApi.InternalLinkTypeOauth.CONSTRUCTOR:
-      case TdApi.InternalLinkTypePremiumFeaturesPage.CONSTRUCTOR:
       case TdApi.InternalLinkTypePremiumGiftPurchase.CONSTRUCTOR:
       case TdApi.InternalLinkTypeRequestManagedBot.CONSTRUCTOR:
       case TdApi.InternalLinkTypeSavedMessages.CONSTRUCTOR:
       case TdApi.InternalLinkTypeSearch.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeStarPurchase.CONSTRUCTOR:
       default: {
         Td.assertInternalLinkType_d8de28b2();
         throw Td.unsupported(linkType);
