@@ -3487,7 +3487,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
               showConfirm(Lang.getMarkdownString(this, R.string.UpgradeChatPrompt), Lang.getString(R.string.Proceed), () ->
                 tdlib.upgradeToSupergroup(chat.id, (oldChatId, newChatId, error) -> {
                   if (newChatId != 0) {
-                    tdlib.client().send(new TdApi.ToggleSupergroupIsAllHistoryAvailable(ChatId.toSupergroupId(newChatId), visible), tdlib.okHandler());
+                    tdlib.send(new TdApi.ToggleSupergroupIsAllHistoryAvailable(ChatId.toSupergroupId(newChatId), visible), tdlib.typedOkHandler());
                   }
                 })
               );
@@ -3495,7 +3495,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
               if (supergroupFull != null && supergroupFull.linkedChatId != 0) {
                 tdlib.client().send(new TdApi.SetChatDiscussionGroup(0, chat.id), ignored -> tdlib.client().send(new TdApi.ToggleSupergroupIsAllHistoryAvailable(supergroup.id, visible), tdlib.okHandler()));
               } else {
-                tdlib.client().send(new TdApi.ToggleSupergroupIsAllHistoryAvailable(supergroup.id, visible), tdlib.okHandler());
+                tdlib.send(new TdApi.ToggleSupergroupIsAllHistoryAvailable(supergroup.id, visible), tdlib.typedOkHandler());
               }
               baseAdapter.updateValuedSettingById(R.id.btn_prehistoryMode);
             }
@@ -4608,7 +4608,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
 
   @Override
   public void onSenderConfirm (ContactsController context, TdApi.MessageSender senderId, int option) {
-    tdlib.client().send(new TdApi.SetChatMemberStatus(chat.id, senderId, new TdApi.ChatMemberStatusMember()), tdlib.okHandler());
+    tdlib.send(new TdApi.SetChatMemberStatus(chat.id, senderId, new TdApi.ChatMemberStatusMember()), tdlib.typedOkHandler());
   }
 
   private void addMember (View view) {
@@ -4729,7 +4729,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
   private void addMember (final int mode, final ContactsController context, final View view,
                           final TdApi.ChatMember member, final int forwardLimit,
                           final boolean needConfirm) {
-    final Tdlib.ChatMemberStatusChangeCallback callback = (success, error) -> tdlib.ui().post(() -> {
+    final Tdlib.ChatMemberStatusChangeCallback callback = (success, error, failedToAddMember) -> tdlib.ui().post(() -> {
       if (success) {
         context.navigateBack();
       } else {
@@ -4849,7 +4849,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
         if (isBasicGroup() || isChannel()) {
           showOptions(Lang.getStringBold(isBasicGroup() ? R.string.MemberCannotJoinGroup : R.string.MemberCannotJoinChannel, memberName), new int[] {R.id.btn_blockSender, R.id.btn_cancel}, new String[]{Lang.getString(R.string.BlockUser), Lang.getString(R.string.Cancel)}, new int[]{OptionColor.RED, OptionColor.NORMAL}, new int[]{R.drawable.baseline_remove_circle_24, R.drawable.baseline_cancel_24}, (itemView, id) -> {
             if (id == R.id.btn_blockSender) {
-              tdlib.setChatMemberStatus(chat.id, member.memberId, new TdApi.ChatMemberStatusBanned(), member.status, (success, error) -> {
+              tdlib.setChatMemberStatus(chat.id, member.memberId, new TdApi.ChatMemberStatusBanned(), member.status, (success, error, failedToAddMember) -> {
                 if (success) {
                   context.navigateBack();
                 } else
@@ -4912,7 +4912,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     switch (mode) {
       case Mode.CHANNEL:
       case Mode.SUPERGROUP: {
-        tdlib.client().send(new TdApi.AddChatMember(chat.id, tdlib.myUserId(), 0), tdlib.okHandler());
+        tdlib.send(new TdApi.AddChatMember(chat.id, tdlib.myUserId(), 0), tdlib.errorHandler());
         break;
       }
     }
@@ -4979,7 +4979,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
             new int[] {OptionColor.RED, OptionColor.NORMAL},
             new int[] {R.drawable.baseline_delete_forever_24, R.drawable.baseline_cancel_24}, (resultItemView, resultId) -> {
             if (resultId == R.id.btn_destroyChat) {
-              tdlib.client().send(new TdApi.DeleteChat(getChatId()), tdlib.okHandler());
+              tdlib.send(new TdApi.DeleteChat(getChatId()), tdlib.typedOkHandler());
               tdlib.ui().exitToChatScreen(this, getChatId());
             }
             return true;
@@ -6671,6 +6671,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     if (mode == Mode.GROUP || mode == Mode.EDIT_GROUP) {
       runOnUiThreadOptional(() -> {
         if (ProfileController.this.group != null && ProfileController.this.group.id == basicGroup.id) {
+          ProfileController.this.group = basicGroup;
           setHeaderText();
           if (migratedToSupergroup) {
             replaceWithSupergroup(basicGroup.upgradedToSupergroupId);

@@ -52,9 +52,10 @@ public interface ChatListener extends ForumTopicInfoListener {
   default void onChatViewAsTopics (long chatId, boolean viewAsTopics) { }
   default void onForumUnreadTopicCountChanged (long chatId, int unreadTopicCount) { }
   default void onChatPendingJoinRequestsChanged (long chatId, TdApi.ChatJoinRequestsInfo pendingJoinRequests) { }
-  default void onChatReplyMarkupChanged (long chatId, long replyMarkupMessageId) { }
+  default void onChatReplyMarkupChanged (long chatId, @Nullable TdApi.Message replyMarkupMessage) { }
   default void onChatDraftMessageChanged (long chatId, @Nullable TdApi.DraftMessage draftMessage) { }
-  default void onChatUnreadMentionCount(long chatId, int unreadMentionCount, boolean availabilityChanged) { }
+  default void onChatUnreadMentionCount (long chatId, int unreadMentionCount, boolean availabilityChanged) { }
+  default void onChatUnreadPollVoteCount (long chatId, int unreadMentionCount, boolean availabilityChanged) { }
   default void onChatUnreadReactionCount (long chatId, int unreadReactionCount, boolean availabilityChanged) { }
   default void onChatDefaultDisableNotifications (long chatId, boolean defaultDisableNotifications) { }
   default void onChatDefaultMessageSenderIdChanged (long chatId, TdApi.MessageSender senderId) { }
