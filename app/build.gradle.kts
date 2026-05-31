@@ -653,7 +653,7 @@ dependencies {
   // Play In-App Updates: https://developer.android.com/reference/com/google/android/play/core/release-notes-in_app_updates
   implementation(libs.google.play.app.update)
   // Google Play Billing: https://developer.android.com/google/play/billing/release-notes
-  implementation(libs.google.play.billing)
+  postLegacyImplementation(libs.google.play.billing)
   // The Checker Framework: https://checkerframework.org/CHANGELOG.md
   compileOnly(libs.annotations.checkerframework)
   // OkHttp: https://github.com/square/okhttp/blob/master/CHANGELOG.md

@@ -36,8 +36,6 @@ import org.thunderdog.challegram.BuildConfig;
 import org.thunderdog.challegram.N;
 import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
-import org.thunderdog.challegram.billing.BillingConfig;
-import org.thunderdog.challegram.billing.BillingManager;
 import org.thunderdog.challegram.component.attach.AvatarPickerManager;
 import org.thunderdog.challegram.component.attach.MediaLayout;
 import org.thunderdog.challegram.component.base.SettingView;

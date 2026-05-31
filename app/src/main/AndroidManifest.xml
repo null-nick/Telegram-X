@@ -3,7 +3,7 @@
   xmlns:tools="http://schemas.android.com/tools"
   android:installLocation="auto">
 
-  <uses-sdk tools:overrideLibrary="org.pytgcalls.ntgcalls, com.android.billingclient" />
+  <uses-sdk tools:overrideLibrary="org.pytgcalls.ntgcalls" />
 
   <uses-feature
     android:glEsVersion="0x00020000"
