@@ -206,7 +206,6 @@ google-firebase-messaging-latest = { module = "com.google.firebase:firebase-mess
 google-zxing-core = { module = "com.google.zxing:core", version.ref = "google-zxing" }
 google-play-app-update = { module = "com.google.android.play:app-update", version.ref = "google-play-app-update" }
 google-play-billing = { module = "com.android.billingclient:billing", version.ref = "google-play-billing" }
-google-play-billing-ktx = { module = "com.android.billingclient:billing-ktx", version.ref = "google-play-billing" }
 
 google-play-integrity-legacy = { module = "com.google.android.play:integrity", version.ref = "google-play-integrity-legacy" }
 google-play-integrity-lollipop = { module = "com.google.android.play:integrity", version.ref = "google-play-integrity-lollipop" }

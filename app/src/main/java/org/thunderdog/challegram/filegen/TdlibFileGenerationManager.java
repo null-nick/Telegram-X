@@ -1027,22 +1027,24 @@ public final class TdlibFileGenerationManager {
     final boolean applyLessCompression = U.isScreenshotFolder(originalPath);
     boolean isTransparent = info.getAllowTransparency() || (!applyLessCompression && isTransparent(originalPath, uri));
 
-    final int maxSize;
-
-    switch (Settings.instance().getResolutionOption()) {
-      case Settings.RESOLUTION_OPTION_LOW:
-        maxSize = info.getResolutionLimit() != 0 ? info.getResolutionLimit() : 800;
-        break;
-      /*case Settings.RESOLUTION_OPTION_MEDIUM:
-        maxSize = info.getResolutionLimit() != 0 ? info.getResolutionLimit() : 1280;
-        break;*/
-      case Settings.RESOLUTION_OPTION_HIGH:
-        maxSize = info.getResolutionLimit() != 0 ? info.getResolutionLimit() : 2560;
-        break;
-      default:
-        maxSize = info.getResolutionLimit() != 0 ? info.getResolutionLimit() : 1280;
-        break;
+    final int defaultSizeLimit;
+    if (Settings.instance().sendHqPhotos()) {
+      switch (Settings.instance().getResolutionOption()) {
+        case Settings.RESOLUTION_OPTION_LOW:
+          defaultSizeLimit = 800;
+          break;
+        case Settings.RESOLUTION_OPTION_HIGH:
+          defaultSizeLimit = 2560;
+          break;
+        case Settings.RESOLUTION_OPTION_MEDIUM:
+        default:
+          defaultSizeLimit = PhotoGenerationInfo.SIZE_LIMIT;
+          break;
+      }
+    } else {
+      defaultSizeLimit = PhotoGenerationInfo.SIZE_LIMIT;
     }
+    final int maxSize = info.getResolutionLimit() != 0 ? info.getResolutionLimit() : defaultSizeLimit;
 
     final boolean saveToGallery = Settings.instance().needSaveEditedMediaToGallery() && info.isEdited();
 

@@ -735,8 +735,10 @@ public class MediaItem implements MessageSourceProvider, InvalidateContentProvid
     return chatPhoto;
   }
 
+  public static final int MAX_DISPLAY_SIZE = 1280;
+
   public static int maxDisplaySize () {
-    return PhotoGenerationInfo.SIZE_LIMIT; // Math.min(1280, Screen.smallestSide());
+    return Math.min(MAX_DISPLAY_SIZE, Screen.widestSide());
   }
 
   public MediaItem (BaseActivity context, Tdlib tdlib, ImageGalleryFile imageFile) {

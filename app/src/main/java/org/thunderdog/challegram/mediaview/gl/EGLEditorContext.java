@@ -26,6 +26,7 @@ import org.thunderdog.challegram.Log;
 import org.thunderdog.challegram.N;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.core.BaseThread;
+import org.thunderdog.challegram.loader.ImageReader;
 import org.thunderdog.challegram.mediaview.data.FiltersState;
 import org.thunderdog.challegram.theme.Theme;
 import org.thunderdog.challegram.tool.UI;
@@ -1170,6 +1171,14 @@ public class EGLEditorContext {
   }
 
   private void loadTexture (Bitmap bitmap) {
+    int maxTextureSize = U.getMaxTextureSize();
+    if (maxTextureSize > 0 && Math.max(bitmap.getWidth(), bitmap.getHeight()) > maxTextureSize) {
+      Bitmap scaled = ImageReader.resizeBitmap(bitmap, maxTextureSize, maxTextureSize, false, true, false);
+      if (scaled != null && scaled != bitmap) {
+        bitmap = scaled;
+        currentBitmap = scaled;
+      }
+    }
     renderBufferWidth = bitmap.getWidth();
     renderBufferHeight = bitmap.getHeight();
 

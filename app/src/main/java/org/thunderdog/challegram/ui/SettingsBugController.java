@@ -503,7 +503,7 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           view.getToggler().setRadioEnabled(Lang.rtl(), isUpdate);
         } else if (itemId == R.id.btn_toggleNewSetting) {
           updateSettingView(view, item, isUpdate);
-        } else if (itemId == R.id.btn_experiment) {
+        } else if (itemId == R.id.btn_experiment || itemId == R.id.btn_sendHqPhoto) {
           view.getToggler().setRadioEnabled(Settings.instance().isExperimentEnabled(item.getLongValue()), isUpdate);
         } else if (itemId == R.id.btn_unifiedPushToggle) {
           UnifiedPushHelper.UnifiedPushState state = getUnifiedPushState();
@@ -785,8 +785,13 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
         items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.Experiment_PeerIdsInfo));
 
-        items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL));
-        items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_resolutionOption, 0, R.string.Experiment_ResolutionOption));
+        items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
+        items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_sendHqPhoto, 0, R.string.Experiment_SendHQPhoto).setLongValue(Settings.EXPERIMENT_FLAG_SEND_HQ_PHOTO));
+        if (Settings.instance().sendHqPhotos()) {
+          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL, R.id.sep_resolutionOption));
+          items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_resolutionOption, 0, R.string.Experiment_ResolutionOption));
+        }
+        items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
         items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getMarkdownStringSecure(this, R.string.Experiment_ResolutionInfo)));
         if (TelegramXExtension.INSTANCE.isNotEmpty()) {
           if (!items.isEmpty()) {
@@ -1224,6 +1229,10 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       Settings.instance().setNeedRtl(Lang.packId(), adapter.toggleView(v));
     } else if (viewId == R.id.btn_toggleNewSetting) {
       handleSettingClick(v, adapter);
+    } else if (viewId == R.id.btn_sendHqPhoto) {
+      if (Settings.instance().setExperimentEnabled(Settings.EXPERIMENT_FLAG_SEND_HQ_PHOTO, adapter.toggleView(v))) {
+        updateResolutionSelectorVisibility();
+      }
     } else if (viewId == R.id.btn_experiment) {
       ListItem item = (ListItem) v.getTag();
       if (Settings.instance().setExperimentEnabled(item.getLongValue(), adapter.toggleView(v))) {
@@ -1686,6 +1695,24 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       case OFF -> Lang.getString(R.string.UnifiedPushDisabled);
       case UNSUPPORTED -> Lang.getString(R.string.UnifiedPushUnavailablePlay);
     };
+  }
+
+  private void updateResolutionSelectorVisibility () {
+    int hqIndex = adapter.indexOfViewById(R.id.btn_sendHqPhoto);
+    if (hqIndex == -1) {
+      return;
+    }
+    if (Settings.instance().sendHqPhotos()) {
+      if (adapter.indexOfViewById(R.id.btn_resolutionOption) == -1) {
+        adapter.addItems(hqIndex + 1,
+          new ListItem(ListItem.TYPE_SEPARATOR_FULL, R.id.sep_resolutionOption),
+          new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_resolutionOption, 0, R.string.Experiment_ResolutionOption)
+        );
+      }
+    } else {
+      adapter.removeItemById(R.id.btn_resolutionOption);
+      adapter.removeItemById(R.id.sep_resolutionOption);
+    }
   }
 
   private void refreshUnifiedPushRows () {
