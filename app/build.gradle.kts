@@ -688,7 +688,7 @@ dependencies {
 
   // NTgCalls: https://github.com/pytgcalls/ntgcalls/
   if (config.useNTgCalls) {
-    latestImplementation(libs.pytgcalls.ntgcalls)
+    implementation(libs.pytgcalls.ntgcalls)
   }
   // Compiler warnings
   compileOnly(libs.annotations.errorprone)
