@@ -90,3 +90,6 @@
 -dontwarn org.openjsse.net.ssl.OpenJSSE
 
 -dontwarn com.google.firebase.analytics.connector.AnalyticsConnector
+
+-dontwarn org.jni_zero.JniZeroJni
+-keep class org.jni_zero.JniZeroJni { *; }
