@@ -148,6 +148,7 @@ public class TGCallService extends Service implements
     } else {
       initCall(tdlib, call);
     }
+    ensureForeground();
     updateCall(call);
     return START_NOT_STICKY;
   }
@@ -370,7 +371,76 @@ public class TGCallService extends Service implements
   }
 
   private boolean isDestroyed;
+  private boolean isForeground;
   private static int amChangeCounter;
+
+  private void ensureForeground () {
+    if (isForeground || call == null || user == null) {
+      return;
+    }
+    Notification placeholder = buildCallNotification(false);
+    if (placeholder == null) {
+      return;
+    }
+    U.startForeground(this, TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, placeholder, false);
+    isForeground = true;
+    ongoingCallNotification = placeholder;
+  }
+
+  private Notification buildCallNotification (boolean isOngoing) {
+    if (tdlib == null || user == null || callChannelId == null) {
+      return null;
+    }
+    Notification.Builder builder;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      NotificationManager m = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+      android.app.NotificationChannel channel = new android.app.NotificationChannel(callChannelId, Lang.getString(R.string.NotificationChannelOutgoingCall), NotificationManager.IMPORTANCE_LOW);
+      channel.enableVibration(false);
+      channel.enableLights(false);
+      channel.setSound(null, null);
+      try {
+        m.createNotificationChannel(channel);
+      } catch (Throwable t) {
+        Log.v("Unable to create notification channel for call", new TdlibNotificationChannelGroup.ChannelCreationFailureException(t));
+      }
+      builder = new Notification.Builder(this, callChannelId);
+    } else {
+      builder = new Notification.Builder(this);
+    }
+    builder
+      .setContentTitle(Lang.getString(isOngoing ? R.string.OutgoingCall : R.string.VoipConnecting))
+      .setContentText(TD.getUserName(user))
+      .setSmallIcon(CALL_ICON_RES)
+      .setContentIntent(PendingIntent.getActivity(UI.getContext(), 0, Intents.valueOfCall(), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(false)));
+    if (tdlib.context().isMultiUser()) {
+      String shortName = tdlib.accountShortName();
+      if (shortName != null) {
+        builder.setSubText(shortName);
+      }
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+      Intent endIntent = new Intent();
+      Intents.secureIntent(endIntent, false);
+      endIntent.setAction(Intents.ACTION_END_CALL);
+      builder.addAction(R.drawable.round_call_end_24_white, Lang.getString(R.string.VoipEndCall), PendingIntent.getBroadcast(this, 0, endIntent, Intents.mutabilityFlags(false)));
+      builder.setPriority(Notification.PRIORITY_MAX);
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+      builder.setShowWhen(false);
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      builder.setColor(tdlib.accountColor());
+    }
+    Bitmap bitmap = TdlibNotificationUtils.buildLargeIcon(tdlib, user.profilePhoto != null ? user.profilePhoto.small : null, tdlib.cache().userAccentColor(user), TD.getLetters(user), false, true);
+    if (bitmap != null) {
+      builder.setLargeIcon(bitmap);
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+      return builder.build();
+    } else {
+      return builder.getNotification();
+    }
+  }
 
   private void releaseAudioFocus () {
     if (cpuWakelock == null) {
@@ -665,6 +735,7 @@ public class TGCallService extends Service implements
         cleanupChannels((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE));
         U.stopForeground(this, true, TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION);
         ongoingCallNotification = null;
+        isForeground = false;
         showNotification();
         tgcalls.setScreenShareEnabled(lastScreenSharing);
       }
@@ -818,73 +889,28 @@ public class TGCallService extends Service implements
   private void showNotification () {
     boolean needNotification = call != null && (call.isOutgoing || call.state.getConstructor() == TdApi.CallStateExchangingKeys.CONSTRUCTOR || call.state.getConstructor() == TdApi.CallStateReady.CONSTRUCTOR) && !TD.isFinished(call);
 
-    if (needNotification == (ongoingCallNotification != null)) {
-      return;
-    }
-
     if (!needNotification) {
-      cleanupChannels((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE));
-      U.stopForeground(this, true, TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, TdlibNotificationManager.ID_INCOMING_CALL_NOTIFICATION);
-      incomingNotification = ongoingCallNotification = null;
+      if (ongoingCallNotification != null) {
+        cleanupChannels((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE));
+        U.stopForeground(this, true, TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, TdlibNotificationManager.ID_INCOMING_CALL_NOTIFICATION);
+        incomingNotification = ongoingCallNotification = null;
+        isForeground = false;
+      }
       return;
     }
 
-
-
-    Notification.Builder builder;
-
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-      NotificationManager m = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-      cleanupChannels(m);
-      // final String channelId = "call_" + call.id + "_" + System.currentTimeMillis();
-      android.app.NotificationChannel channel = new android.app.NotificationChannel(callChannelId, Lang.getString(R.string.NotificationChannelOutgoingCall), NotificationManager.IMPORTANCE_LOW);
-      channel.enableVibration(false);
-      channel.enableLights(false);
-      channel.setSound(null, null);
-      try {
-        m.createNotificationChannel(channel);
-      } catch (Throwable t) {
-        Log.v("Unable to create notification channel for call", new TdlibNotificationChannelGroup.ChannelCreationFailureException(t));
-      }
-      builder = new Notification.Builder(this, callChannelId);
+    Notification notification = buildCallNotification(true);
+    if (notification == null) {
+      return;
+    }
+    ongoingCallNotification = notification;
+    if (isForeground) {
+      NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+      nm.notify(TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, ongoingCallNotification);
     } else {
-      builder = new Notification.Builder(this);
+      U.startForeground(this, TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, ongoingCallNotification, lastScreenSharing);
+      isForeground = true;
     }
-
-    builder
-      .setContentTitle(Lang.getString(R.string.OutgoingCall))
-      .setContentText(TD.getUserName(user))
-      .setSmallIcon(CALL_ICON_RES)
-      .setContentIntent(PendingIntent.getActivity(UI.getContext(), 0, Intents.valueOfCall(), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(false)));
-    if (tdlib.context().isMultiUser()) {
-      String shortName = tdlib.accountShortName();
-      if (shortName != null) {
-        builder.setSubText(shortName);
-      }
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-      Intent endIntent = new Intent();
-      Intents.secureIntent(endIntent, false);
-      endIntent.setAction(Intents.ACTION_END_CALL);
-      builder.addAction(R.drawable.round_call_end_24_white, Lang.getString(R.string.VoipEndCall), PendingIntent.getBroadcast(this, 0, endIntent, Intents.mutabilityFlags(false)));
-      builder.setPriority(Notification.PRIORITY_MAX);
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
-      builder.setShowWhen(false);
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
-      builder.setColor(tdlib.accountColor());
-    }
-    Bitmap bitmap = TdlibNotificationUtils.buildLargeIcon(tdlib, user.profilePhoto != null ? user.profilePhoto.small : null, tdlib.cache().userAccentColor(user), TD.getLetters(user), false, true);
-    if (bitmap != null) {
-      builder.setLargeIcon(bitmap);
-    }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-      ongoingCallNotification = builder.build();
-    } else {
-      ongoingCallNotification = builder.getNotification();
-    }
-    U.startForeground(this, TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, ongoingCallNotification, lastScreenSharing);
   }
 
   // Sound
@@ -1083,6 +1109,7 @@ public class TGCallService extends Service implements
     cleanupChannels((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE));
     U.stopForeground(this, true, TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, TdlibNotificationManager.ID_INCOMING_CALL_NOTIFICATION);
     incomingNotification = ongoingCallNotification = null;
+    isForeground = false;
     if (ringtonePlayer != null) {
       ringtonePlayer.stop();
       ringtonePlayer.release();
@@ -1379,6 +1406,7 @@ public class TGCallService extends Service implements
         cleanupChannels((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE));
         U.stopForeground(this, true, TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, TdlibNotificationManager.ID_INCOMING_CALL_NOTIFICATION);
         incomingNotification = ongoingCallNotification = null;
+        isForeground = false;
         stopSelf();
       }
       return;

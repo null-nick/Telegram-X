@@ -484,7 +484,11 @@ public class U {
             knownType |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION;
           }
           knownType |= android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
-          service.startForeground(notificationId, notification, knownType);
+          try {
+            service.startForeground(notificationId, notification, knownType);
+          } catch (SecurityException e) {
+            Log.w(Log.TAG_VOIP, "startForeground failed (app in background?): %s", e.getMessage());
+          }
           return;
         }
         case TdlibNotificationManager.ID_MUSIC:
