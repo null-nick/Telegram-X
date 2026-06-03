@@ -445,7 +445,6 @@ public class TextController extends ViewController<TextController.Arguments> imp
   private void invalidateAll () {
     if (!isDestroyed()) {
       contentView.invalidateScrollbarFactor();
-      contentView.requestLayout();
       contentView.layoutSectionStuff();
     }
   }
@@ -477,6 +476,7 @@ public class TextController extends ViewController<TextController.Arguments> imp
         .setEntities(Text.makeEntities(line, Text.ENTITY_FLAGS_EXTERNAL, null, context.tdlib(), null), null)
         .addTextFlags(Text.FLAG_CUSTOM_LONG_PRESS | Text.FLAG_NO_TRIM | Text.FLAG_ARTICLE)
         .setViewProvider(holder);
+      this.wrapper.prepare(Screen.currentWidth());
     }
 
     public void attach (View view) {
@@ -507,8 +507,8 @@ public class TextController extends ViewController<TextController.Arguments> imp
     public int getHeight (int width) {
       if (width > 0)
         prepareText(width);
-      if (!prepared)
-        return Screen.dp(25f);
+      else if (!prepared)
+        prepareText(Screen.currentWidth()); // FIXME
       return wrapper.getHeight() + verticalPadding * 2;
     }
 
@@ -590,7 +590,6 @@ public class TextController extends ViewController<TextController.Arguments> imp
       if (added > 0) {
         updateSections();
         notifyItemRangeInserted(oldItemCount, added);
-        prepareTexts();
       }
     }
 
