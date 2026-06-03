@@ -259,9 +259,13 @@ android {
     if (sdkVariant.maxSdk != null) {
       variantBuilder.maxSdk = sdkVariant.maxSdk
     }
+    val enabledSdkFlavors = setOf("latest") // chore: set to null to enable all
+    val enabledAbiFlavors = setOf("arm64", "arm32") // chore: set to null to enable all
     variantBuilder.enable = sdkVariant.minSdk >= abiVariant.minSdk &&
       !(abiVariant.flavor == "universal" && sdkVariant.flavor == "legacy") &&
-      (variantBuilder.buildType != "debug" || sdkVariant.flavor == "legacy" || (abiVariant.flavor == "x86" || abiVariant.flavor == "x64" || abiVariant.flavor == "universal"))
+      (variantBuilder.buildType != "debug" || sdkVariant.flavor == "legacy" || (abiVariant.flavor == "x86" || abiVariant.flavor == "x64" || abiVariant.flavor == "universal")) &&
+      (enabledSdkFlavors == null || sdkVariant.flavor in enabledSdkFlavors) &&
+      (enabledAbiFlavors == null || abiVariant.flavor in enabledAbiFlavors)
   }
   productFlavors {
     Sdk.VARIANTS.forEach { (sdkIndex, variant) ->
@@ -612,7 +616,6 @@ dependencies {
     exclude(group = "com.google.firebase", module = "firebase-analytics")
     exclude(group = "com.google.firebase", module = "firebase-measurement-connector")
   }
-  // implementation("com.google.firebase:firebase-appcheck-safetynet:16.1.2")
   // Play Integrity: https://developer.android.com/google/play/integrity/reference/com/google/android/play/core/release-notes
   flavorImplementation(
     libs.google.play.integrity.legacy,

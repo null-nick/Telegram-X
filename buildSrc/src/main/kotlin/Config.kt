@@ -131,11 +131,11 @@ object Abi {
   const val X64 = 4
 
   val VARIANTS = mapOf(
-    // Pair(UNIVERSAL, AbiVariant("universal", displayName = "universal", filters = arrayOf("arm64-v8a", "armeabi-v7a"))),
+    Pair(UNIVERSAL, AbiVariant("universal", displayName = "universal", filters = arrayOf("arm64-v8a", "armeabi-v7a"))),
     Pair(ARMEABI_V7A, AbiVariant("arm32", "armeabi-v7a")),
     Pair(ARM64_V8A, AbiVariant("arm64", "arm64-v8a")),
-    // Pair(X86, AbiVariant("x86", "x86")),
-    // Pair(X64, AbiVariant("x64", "x86_64", displayName = "x64"))
+    Pair(X86, AbiVariant("x86", "x86")),
+    Pair(X64, AbiVariant("x64", "x86_64", displayName = "x64"))
   )
 }
 
@@ -152,16 +152,16 @@ object Sdk {
   const val LATEST = 2
 
   val VARIANTS = mapOf(
-    // Pair(LEGACY, SdkVariant(
-    //   flavor = "legacy",
-    //   minSdk = 16,
-    //   maxSdk = 20
-    // )),
-    // Pair(LOLLIPOP, SdkVariant(
-    //   flavor = "lollipop",
-    //   minSdk = 21,
-    //   maxSdk = 22
-    // )),
+    Pair(LEGACY, SdkVariant(
+      flavor = "legacy",
+      minSdk = 16,
+      maxSdk = 20
+    )),
+    Pair(LOLLIPOP, SdkVariant(
+      flavor = "lollipop",
+      minSdk = 21,
+      maxSdk = 22
+    )),
     Pair(LATEST, SdkVariant(
       flavor = "latest",
       minSdk = 23,
