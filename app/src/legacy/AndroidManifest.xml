@@ -23,6 +23,7 @@
     androidx.camera.*
     androidx.media3.transformer
     androidx.media3.effect
+    io.github.pytgcalls.ntgcalls
    -->
   <uses-sdk tools:overrideLibrary="
     com.otaliastudios.transcoder,
@@ -45,5 +46,6 @@
     androidx.camera.lifecycle,
     androidx.camera.video,
     androidx.camera.camera2,
-    androidx.camera.view" />
+    androidx.camera.view,
+    io.github.pytgcalls" />
 </manifest>
