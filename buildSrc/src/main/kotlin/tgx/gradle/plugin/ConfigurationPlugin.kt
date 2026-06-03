@@ -68,6 +68,7 @@ open class ConfigurationPlugin : Plugin<Project> {
     val isExperimentalBuild = isExampleBuild || keystore == null || properties.getProperty("app.experimental", "false") == "true"
     val doNotObfuscate = isExampleBuild || properties.getProperty("app.dontobfuscate", "false") == "true"
     val forceOptimize = properties.getProperty("app.forceoptimize") == "true"
+
     val useNTgCalls = properties.getProperty("app.ntgcalls", "false") == "true"
     val appExtension = getOrSample("tgx.extension")
     if (appExtension != "none" && appExtension != "hms") {
@@ -129,6 +130,7 @@ open class ConfigurationPlugin : Plugin<Project> {
       isHuaweiBuild,
       forceOptimize,
       doNotObfuscate,
+      useNTgCalls,
       compileSdkVersion,
       targetSdkVersion,
       buildToolsVersion,
@@ -152,8 +154,7 @@ open class ConfigurationPlugin : Plugin<Project> {
       outputFileNamePrefix,
       creationDateMillis,
 
-      keystore,
-      useNTgCalls
+      keystore
     )
     project.extra.set("config", config)
   }

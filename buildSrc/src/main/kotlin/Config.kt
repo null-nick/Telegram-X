@@ -64,6 +64,7 @@ data class ApplicationConfig(
   val isHuaweiBuild: Boolean,
   val forceOptimize: Boolean,
   val doNotObfuscate: Boolean,
+  val useNTgCalls: Boolean,
 
   val compileSdkVersion: Int,
   val targetSdkVersion: Int,
@@ -90,8 +91,7 @@ data class ApplicationConfig(
   val outputFileNamePrefix: String,
   val creationDateMillis: Long,
 
-  val keystore: Keystore?,
-  val useNTgCalls: Boolean
+  val keystore: Keystore?
 )
 
 class AbiVariant (val flavor: String, vararg val filters: String = arrayOf(), val displayName: String = filters[0]) {
