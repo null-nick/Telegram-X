@@ -4197,12 +4197,10 @@ public class TdlibUi extends Handler {
       case TdApi.InternalLinkTypeNewPrivateChat.CONSTRUCTOR:
       case TdApi.InternalLinkTypeNewStory.CONSTRUCTOR:
       case TdApi.InternalLinkTypeOauth.CONSTRUCTOR:
-      case TdApi.InternalLinkTypePremiumFeaturesPage.CONSTRUCTOR:
       case TdApi.InternalLinkTypePremiumGiftPurchase.CONSTRUCTOR:
       case TdApi.InternalLinkTypeRequestManagedBot.CONSTRUCTOR:
       case TdApi.InternalLinkTypeSavedMessages.CONSTRUCTOR:
       case TdApi.InternalLinkTypeSearch.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeStarPurchase.CONSTRUCTOR:
       case TdApi.InternalLinkTypeTextCompositionStyle.CONSTRUCTOR: {
         unsupported.run();
         break;
@@ -4322,19 +4320,6 @@ public class TdlibUi extends Handler {
         });
         return; // async
       }
-      case TdApi.InternalLinkTypeCallsPage.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeChatSelection.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeContactsPage.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeMyProfilePage.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeNewChannelChat.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeNewGroupChat.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeNewPrivateChat.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeNewStory.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeOauth.CONSTRUCTOR:
-      case TdApi.InternalLinkTypePremiumGiftPurchase.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeRequestManagedBot.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeSavedMessages.CONSTRUCTOR:
-      case TdApi.InternalLinkTypeSearch.CONSTRUCTOR:
       default: {
         Td.assertInternalLinkType_44babac4();
         throw Td.unsupported(linkType);
