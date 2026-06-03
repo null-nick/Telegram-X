@@ -742,6 +742,9 @@ public class TGCallService extends Service implements
 
   @Override
   public void onUiStateChanged (int newState) {
+    if (newState == UI.State.RESUMED) {
+      ensureForeground();
+    }
     updateCurrentState();
     boolean isPendingIncoming = call != null && !call.isOutgoing && call.state.getConstructor() == TdApi.CallStatePending.CONSTRUCTOR;
     if (isPendingIncoming) {
@@ -753,6 +756,7 @@ public class TGCallService extends Service implements
         cleanupChannels((NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE));
         U.stopForeground(this, true, TdlibNotificationManager.ID_INCOMING_CALL_NOTIFICATION);
         incomingNotification = null;
+        isForeground = false;
       }
     }
   }
@@ -1000,12 +1004,13 @@ public class TGCallService extends Service implements
     } else {
       incomingNotification = builder.getNotification();
     }
-    if (isForeground) {
+    if (isForeground && ongoingCallNotification != null) {
+      U.startForeground(this, TdlibNotificationManager.ID_INCOMING_CALL_NOTIFICATION, incomingNotification);
       NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
-      if (ongoingCallNotification != null) {
-        nm.cancel(TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION);
-        ongoingCallNotification = null;
-      }
+      nm.cancel(TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION);
+      ongoingCallNotification = null;
+    } else if (isForeground) {
+      NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
       nm.notify(TdlibNotificationManager.ID_INCOMING_CALL_NOTIFICATION, incomingNotification);
     } else {
       U.startForeground(this, TdlibNotificationManager.ID_INCOMING_CALL_NOTIFICATION, incomingNotification);
