@@ -1403,7 +1403,7 @@ public class TdlibUi extends Handler {
       return;
     }
     TdApi.User user = contact.userId != 0 ? tdlib.cache().user(contact.userId) : null;
-    if (user != null) {
+    if (user != null && false) {
       addContact(context, user, contact.phoneNumber);
     } else {
       PhoneController controller = new PhoneController(context.context(), context.tdlib());

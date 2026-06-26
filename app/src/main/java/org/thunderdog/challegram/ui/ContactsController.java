@@ -360,7 +360,7 @@ public class ContactsController extends TelegramViewController<ContactsControlle
 
   @Override
   public void onTextChanged (CharSequence s, int start, int before, int count) {
-    searchUser(s.toString());
+    searchForItems(s.toString());
   }
 
   @Override
@@ -813,7 +813,7 @@ public class ContactsController extends TelegramViewController<ContactsControlle
   private String lastQuery;
 
   @Override
-  public void searchUser (String q) {
+  public void searchForItems (String q) {
     if (lastQuery == null) {
       lastQuery = "";
     }
@@ -1204,6 +1204,7 @@ public class ContactsController extends TelegramViewController<ContactsControlle
     }
 
     @Override
+    @NonNull
     public String getSectionName (int section) {
       return sUsers == null ? letters[section] : sLetters[section];
     }
@@ -1230,7 +1231,7 @@ public class ContactsController extends TelegramViewController<ContactsControlle
     }
 
     @Override
-    public void updateView (SectionedRecyclerView.SectionViewHolder holder, int position) {
+    public void updateView (SectionedRecyclerView.SectionViewHolder holder, int position, boolean isUpdate) {
       TGUser user = sUsers == null ? users[position] : sUsers[position];
       ((UserView) holder.itemView).setUser(user);
       ((UserView) holder.itemView).setChecked(controller.canSelectContacts() && controller.isSelected(user), false);
