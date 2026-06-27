@@ -873,11 +873,36 @@ public class TGCallService extends Service implements
       return;
     }
 
-    Notification notification = buildCallNotification(true);
-    if (notification == null) {
+    if (tdlib == null || user == null || callChannelId == null) {
       return;
     }
-    ongoingCallNotification = notification;
+    Notification.Builder builder;
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+      NotificationManager m = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+      android.app.NotificationChannel channel = new android.app.NotificationChannel(callChannelId, Lang.getString(R.string.NotificationChannelOutgoingCall), NotificationManager.IMPORTANCE_LOW);
+      channel.enableVibration(false);
+      channel.enableLights(false);
+      channel.setSound(null, null);
+      try {
+        m.createNotificationChannel(channel);
+      } catch (Throwable t) {
+        Log.v("Unable to create notification channel for call", new TdlibNotificationChannelGroup.ChannelCreationFailureException(t));
+      }
+      builder = new Notification.Builder(this, callChannelId);
+    } else {
+      builder = new Notification.Builder(this);
+    }
+    builder.setSmallIcon(CALL_ICON_RES)
+      .setContentTitle(Lang.getString(R.string.OutgoingCall))
+      .setContentText(TD.getUserName(user))
+      .setContentIntent(PendingIntent.getActivity(UI.getContext(), 0, Intents.valueOfCall(), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(false)));
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN_MR1) {
+      builder.setShowWhen(false);
+    }
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+      builder.setColor(tdlib.accountColor());
+    }
+    ongoingCallNotification = Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN ? builder.build() : builder.getNotification();
     if (isForeground) {
       NotificationManager nm = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
       nm.notify(TdlibNotificationManager.ID_ONGOING_CALL_NOTIFICATION, ongoingCallNotification);

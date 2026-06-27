@@ -16,7 +16,6 @@ androidx-interpolator = "1.0.0"
 
 google-zxing = "3.5.4"
 google-play-app-update = "2.1.0"
-google-play-billing = "7.1.1"
 
 google-services-plugin = "4.5.0"
 
@@ -212,7 +211,6 @@ google-firebase-messaging-latest = { module = "com.google.firebase:firebase-mess
 
 google-zxing-core = { module = "com.google.zxing:core", version.ref = "google-zxing" }
 google-play-app-update = { module = "com.google.android.play:app-update", version.ref = "google-play-app-update" }
-google-play-billing = { module = "com.android.billingclient:billing", version.ref = "google-play-billing" }
 
 google-play-integrity-legacy = { module = "com.google.android.play:integrity", version.ref = "google-play-integrity-legacy" }
 google-play-integrity-lollipop = { module = "com.google.android.play:integrity", version.ref = "google-play-integrity-lollipop" }
