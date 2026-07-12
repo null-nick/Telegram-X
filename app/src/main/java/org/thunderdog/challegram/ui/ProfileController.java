@@ -3871,7 +3871,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
     }
 
     if (hasJoinByRequestChanges) {
-      changes.add(new TdApi.ToggleSupergroupJoinByRequest(ChatId.toSupergroupId(chat.id), toggleJoinByRequestItem.isSelected()));
+      changes.add(new TdApi.ToggleSupergroupJoinByRequest(ChatId.toSupergroupId(chat.id), toggleJoinByRequestItem.isSelected(), supergroupFull.guardBotUserId, false /*TODO*/));
     }
 
     if (hasAggressiveAntiSpamChanges) {

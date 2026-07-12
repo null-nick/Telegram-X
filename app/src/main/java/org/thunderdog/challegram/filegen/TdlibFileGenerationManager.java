@@ -1542,7 +1542,8 @@ public final class TdlibFileGenerationManager {
 
     switch (content.getConstructor()) {
       case TdApi.InputMessagePhoto.CONSTRUCTOR: {
-        TdApi.InputMessagePhoto photo = (TdApi.InputMessagePhoto) content;
+        TdApi.InputMessagePhoto inputMessagePhoto = (TdApi.InputMessagePhoto) content;
+        TdApi.InputPhoto photo = inputMessagePhoto.photo;
         if (photo.thumbnail == null && isSecret) {
           TdApi.InputFile thumbnail;
           if (Math.max(photo.width, photo.height) <= resolution) {
@@ -1569,7 +1570,8 @@ public final class TdlibFileGenerationManager {
         int width, height;
         switch (content.getConstructor()) {
           case TdApi.InputMessageAnimation.CONSTRUCTOR: {
-            TdApi.InputMessageAnimation animation = (TdApi.InputMessageAnimation) content;
+            TdApi.InputMessageAnimation inputMessageAnimation = (TdApi.InputMessageAnimation) content;
+            TdApi.InputAnimation animation = inputMessageAnimation.animation;
             sourceFile = animation.animation;
             currentThumbnail = animation.thumbnail;
             width = animation.width;
@@ -1577,7 +1579,8 @@ public final class TdlibFileGenerationManager {
             break;
           }
           case TdApi.InputMessageVideo.CONSTRUCTOR: {
-            TdApi.InputMessageVideo video = (TdApi.InputMessageVideo) content;
+            TdApi.InputMessageVideo inputMessageVideo = (TdApi.InputMessageVideo) content;
+            TdApi.InputVideo video = inputMessageVideo.video;
             sourceFile = video.video;
             currentThumbnail = video.thumbnail;
             width = video.width;
@@ -1598,11 +1601,11 @@ public final class TdlibFileGenerationManager {
             TdApi.InputThumbnail newThumbnail = newThumbnail(thumbnail, resolution, width, height);
             switch (content.getConstructor()) {
               case TdApi.InputMessageAnimation.CONSTRUCTOR: {
-                ((TdApi.InputMessageAnimation) content).thumbnail = newThumbnail;
+                ((TdApi.InputMessageAnimation) content).animation.thumbnail = newThumbnail;
                 break;
               }
               case TdApi.InputMessageVideo.CONSTRUCTOR: {
-                ((TdApi.InputMessageVideo) content).thumbnail = newThumbnail;
+                ((TdApi.InputMessageVideo) content).video.thumbnail = newThumbnail;
                 break;
               }
             }
@@ -1611,7 +1614,8 @@ public final class TdlibFileGenerationManager {
         break;
       }
       case TdApi.InputMessageDocument.CONSTRUCTOR: {
-        TdApi.InputMessageDocument document = (TdApi.InputMessageDocument) content;
+        TdApi.InputMessageDocument inputMessageDocument = (TdApi.InputMessageDocument) content;
+        TdApi.InputDocument document = inputMessageDocument.document;
         if (document.thumbnail == null) {
           TdApi.InputFileGenerated thumbnail = newThumbnailFile(document.document, file, (originalPath, originalConversion) -> {
             String mimeType = U.resolveMimeType(originalPath);
@@ -1683,7 +1687,8 @@ public final class TdlibFileGenerationManager {
         break;
       }
       case TdApi.InputMessageAudio.CONSTRUCTOR: {
-        TdApi.InputMessageAudio audio = (TdApi.InputMessageAudio) content;
+        TdApi.InputMessageAudio inputMessageAudio = (TdApi.InputMessageAudio) content;
+        TdApi.InputAudio audio = inputMessageAudio.audio;
         if (audio.albumCoverThumbnail == null) {
           TdApi.InputFileGenerated thumbnail = newThumbnailFile(audio.audio, file, (originalPath, originalConversion) -> ThumbGenerationInfo.makeConversion(ThumbGenerationInfo.TYPE_MUSIC, null, resolution));
           if (thumbnail != null) {
