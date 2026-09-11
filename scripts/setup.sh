@@ -10,6 +10,9 @@ else
   source "$(pwd)/scripts/setup-sdk.sh"
 fi
 
+# == Setup project-local Rust toolchain ==
+scripts/./setup-rust.sh
+
 if [[ -f local.properties ]]; then
   echo -e "${STYLE_INFO}local.properties already exists.${STYLE_END}"
 fi
@@ -21,4 +24,3 @@ if [[ ! -f local.properties ]]; then
 fi
 
 echo -e "${STYLE_INFO}Configure finished!${STYLE_END}"
-

@@ -268,6 +268,49 @@ val buildFfmpegTask = tasks.register("buildFfmpeg") {
   dependsOn(buildFfmpegTasks.values)
 }
 
+val buildTlottieTasks = Config.SUPPORTED_ABI.associateWith { abiFilter ->
+  val abiVariant = abiFilter.toAbiVariant()
+  tasks.register<BuildTlottieTask>(
+    "buildTlottie${abiVariant.uppercaseFirstChar()}"
+  ) {
+    group = "Setup"
+    description = "Builds tlottie for $abiVariant flavor"
+    inputDir.set(layout.projectDirectory.dir(
+      "jni/third_party/tlottie"
+    ))
+    inputSources.from(inputDir.asFileTree.matching {
+      exclude(
+        ".git",
+        ".github",
+        "benches",
+        "examples",
+        "target",
+        "tools",
+        "**/*.md"
+      )
+    })
+    abi.set(abiFilter)
+    rustVersion.set(config.build.rustVersion)
+    cargoHome.set(project.isolated.rootProject.projectDirectory.dir(
+      ".gradle/tgx-rust/cargo"
+    ))
+    rustupHome.set(project.isolated.rootProject.projectDirectory.dir(
+      ".gradle/tgx-rust/rustup"
+    ))
+    buildDir.set(layout.buildDirectory.dir(
+      "generated/tgx/tlottie-build/$abiFilter"
+    ))
+    outputDir.set(layout.buildDirectory.dir(
+      "generated/tgx/tlottie/$abiFilter"
+    ))
+  }
+}
+val buildTlottieTask = tasks.register("buildTlottie") {
+  group = "Setup"
+  description = "Builds tlottie for all flavors"
+  dependsOn(buildTlottieTasks.values)
+}
+
 val buildNativeTasks = mutableMapOf<String, TaskProvider<*>>()
 
 
@@ -551,6 +594,9 @@ android {
             ),
             "FFMPEG_DIR" to layout.buildDirectory.dir(
               "generated/tgx/ffmpeg/${variant.flavor}"
+            ),
+            "TLOTTIE_DIR" to layout.buildDirectory.dir(
+              "generated/tgx/tlottie"
             )
           ).map {
             "-D${it.key}=${it.value.get().asFile.absolutePath}"
@@ -661,18 +707,21 @@ android {
 
       abiVariant.filters.filter {
         sdkVariant.minSdk >= 21 || it == "armeabi-v7a" || it == "x86"
-      }.map {
-        Pair(sdkVariant.flavor, it.toAbiVariant())
-      }.forEach { key ->
+      }.forEach { abiFilter ->
+        val key = Pair(sdkVariant.flavor, abiFilter.toAbiVariant())
         val buildLibvpxTask = buildLibvpxTasks[key] ?: error("libvpx task not found for $key")
         val buildFfmpegTask = buildFfmpegTasks[key] ?: error("ffmpeg task not found for $key")
         nativeBuildTasks += buildLibvpxTask
         nativeBuildTasks += buildFfmpegTask
+        nativeBuildTasks += buildTlottieTasks[abiFilter]
+          ?: error("tlottie task not found for $abiFilter")
       }
 
-      val buildNativeTask = tasks.register<ValidateNativeBuildTask>("buildNativeDependencies${variant.name.uppercaseFirstChar()}") {
+      val taskName = "buildNativeDependencies${variant.name.uppercaseFirstChar()}"
+      val buildNativeTask = tasks.register<ValidateNativeBuildTask>(taskName) {
         group = "Setup"
-        description = "Builds native dependencies for ${sdkVariant.flavor}, $abiVariant flavor and validates output"
+        description = "Builds and validates native dependencies for " +
+          "${sdkVariant.flavor}, $abiVariant flavor"
         jetpackMediaDir.set(layout.buildDirectory.dir(
           "generated/tgx/androidx-media/${sdkVariant.jetpackMediaFlavor}"
         ))
@@ -687,6 +736,11 @@ android {
         ffmpegDirs.from(abiVariant.filters.map { abiFilter ->
           layout.buildDirectory.dir(
             "generated/tgx/ffmpeg/${sdkVariant.flavor}/$abiFilter"
+          )
+        })
+        tlottieDirs.from(abiVariant.filters.map { abiFilter ->
+          layout.buildDirectory.dir(
+            "generated/tgx/tlottie/$abiFilter"
           )
         })
         dependsOn(*nativeBuildTasks.toTypedArray())

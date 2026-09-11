@@ -60,7 +60,9 @@ sdk.dir=YOUR_ANDROID_SDK_FOLDER
 \# Telegram API credentials obtained at previous step
 telegram.api_id=YOUR_TELEGRAM_API_ID
 telegram.api_hash=YOUR_TELEGRAM_API_HASH</pre>
-5. Run `$ scripts/./setup.sh` — this will download required Android SDK packages and build native dependencies that aren't part of project's [CMakeLists.txt](/app/jni/CMakeLists.txt)
+5. Run `$ scripts/./setup.sh` — this downloads the required Android SDK packages,
+   installs the pinned Rust toolchain inside `.gradle/tgx-rust`, and builds native
+   dependencies that aren't part of the project's [CMakeLists.txt](/app/jni/CMakeLists.txt)
 6. Open and build project via [Android Studio](https://developer.android.com/studio) or by using one of `./gradlew assemble` commands in terminal
 
 After submitting a pull request and its initial review, special build including your contribution will be published in [@tgx_prs](https://t.me/tgx_prs) channel, where it can be tested by the community. In case any issues or bugs found, you may push more commits to an existing PR that address them and request to publish a newer build by using comments section of pull request or in [@tgx_dev](https://t.me/tgx_dev) chat.

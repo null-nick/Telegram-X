@@ -15,11 +15,15 @@
 #include <log.h>
 #include <libyuv.h>
 #include <android/bitmap.h>
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <utility>
-#include <rlottie.h>
+#include <vector>
+#include <tlottie.h>
 extern "C" {
 #include <libavformat/avformat.h>
 #include <libavutil/eval.h>
@@ -37,8 +41,10 @@ extern "C" {
 
 #define MAX_GIF_SIZE 920
 #define BITMAP_TARGET_FORMAT AV_PIX_FMT_RGBA
-#define LOTTIE_CACHE_MAGIC 0xf0ebaef1
-#define LOTTIE_CACHE_MAGIC_REDUCED 0xf0ebaef2
+#define LOTTIE_CACHE_MAGIC 0xf0ebaef3
+#define LOTTIE_CACHE_MAGIC_REDUCED 0xf0ebaef4
+
+static constexpr float TLOTTIE_CURVE_TOLERANCE = 0.125f;
 
 static const std::string av_make_error_str (int errnum) {
   char errbuf[AV_ERROR_MAX_STRING_SIZE];
@@ -51,7 +57,8 @@ static const std::string av_make_error_str (int errnum) {
 
 struct LottieInfo {
   const std::string path;
-  std::unique_ptr<rlottie::Animation> animation;
+  TLottieInstance *animation = nullptr;
+  std::vector<uint32_t> renderBuffer;
   FILE *cacheFile = nullptr;
   uint8_t *cacheBuffer = nullptr;
   size_t cacheBufferSize = 0;
@@ -77,6 +84,7 @@ struct LottieInfo {
   }
 
   ~LottieInfo () {
+    tlottie_drop(animation);
     if (cacheFile != nullptr) {
       fclose(cacheFile);
     }
@@ -85,6 +93,92 @@ struct LottieInfo {
     }
   }
 };
+
+static uint32_t get_tlottie_fitz_modifier (int fitzpatrickType) {
+  switch (fitzpatrickType) {
+    case 1:
+    case 2:
+    case 12:
+      return TLOTTIE_FITZ_TYPE_12;
+    case 3:
+      return TLOTTIE_FITZ_TYPE_3;
+    case 4:
+      return TLOTTIE_FITZ_TYPE_4;
+    case 5:
+      return TLOTTIE_FITZ_TYPE_5;
+    case 6:
+      return TLOTTIE_FITZ_TYPE_6;
+    default:
+      return TLOTTIE_FITZ_NONE;
+  }
+}
+
+static TLottieInstance *create_tlottie (const std::string &json, int fitzpatrickType) {
+  return tlottie_new_with_options(
+    reinterpret_cast<const uint8_t *>(json.data()), json.size(),
+    get_tlottie_fitz_modifier(fitzpatrickType), nullptr, 0, nullptr, 0,
+    TLOTTIE_CHANNEL_RGBA
+  );
+}
+
+static bool render_tlottie_frame (TLottieInstance *animation, uint32_t frameNo,
+                                  const AndroidBitmapInfo &bitmapInfo, void *pixels,
+                                  std::vector<uint32_t> &renderBuffer) {
+  if (animation == nullptr || pixels == nullptr || bitmapInfo.width == 0 ||
+      bitmapInfo.height == 0 ||
+      bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_8888 ||
+      bitmapInfo.stride < static_cast<size_t>(bitmapInfo.width) * sizeof(uint32_t)) {
+    return false;
+  }
+  const uint32_t sourceWidth = tlottie_width(animation);
+  const uint32_t sourceHeight = tlottie_height(animation);
+  if (sourceWidth == 0 || sourceHeight == 0) {
+    return false;
+  }
+
+  const double scale = std::min(
+    bitmapInfo.width / static_cast<double>(sourceWidth),
+    bitmapInfo.height / static_cast<double>(sourceHeight)
+  );
+  const uint32_t width = std::clamp(
+    static_cast<uint32_t>(std::lround(sourceWidth * scale)), 1u, bitmapInfo.width
+  );
+  const uint32_t height = std::clamp(
+    static_cast<uint32_t>(std::lround(sourceHeight * scale)), 1u, bitmapInfo.height
+  );
+  const bool direct = width == bitmapInfo.width && height == bitmapInfo.height &&
+                      bitmapInfo.stride == bitmapInfo.width * sizeof(uint32_t);
+  uint32_t *output;
+  if (direct) {
+    output = static_cast<uint32_t *>(pixels);
+  } else {
+    renderBuffer.resize(static_cast<size_t>(width) * height);
+    output = renderBuffer.data();
+  }
+
+  if (tlottie_render_with_options(
+        animation, static_cast<float>(frameNo), width, height, output,
+        static_cast<size_t>(width) * height, 1, TLOTTIE_CURVE_TOLERANCE, 1
+      ) != TLOTTIE_OK) {
+    return false;
+  }
+  if (!direct) {
+    auto *destination = static_cast<uint8_t *>(pixels);
+    for (uint32_t y = 0; y < bitmapInfo.height; y++) {
+      std::memset(destination + static_cast<size_t>(y) * bitmapInfo.stride, 0, bitmapInfo.stride);
+    }
+    const uint32_t left = (bitmapInfo.width - width) / 2;
+    const uint32_t top = (bitmapInfo.height - height) / 2;
+    for (uint32_t y = 0; y < height; y++) {
+      std::memcpy(
+        destination + static_cast<size_t>(top + y) * bitmapInfo.stride + left * sizeof(uint32_t),
+        output + static_cast<size_t>(y) * width,
+        width * sizeof(uint32_t)
+      );
+    }
+  }
+  return true;
+}
 
 struct VideoInfo {
 
@@ -575,22 +669,28 @@ JNI_FUNC(void, cancelLottieDecoder, jlong ptr) {
 }
 
 JNI_FUNC(jboolean, decodeLottieFirstFrame, jstring jPath, jstring jsonData, jobject bitmap) {
+  (void) jPath;
   std::string json = jni::from_jstring(env, jsonData);
-  std::string path = jni::from_jstring(env, jPath);
-  std::unique_ptr<rlottie::Animation> animation = rlottie::Animation::loadFromData(json, path, nullptr);
-  if (animation == nullptr || animation->totalFrame() == 0) {
+  TLottieInstance *animation = create_tlottie(json, 0);
+  if (animation == nullptr || tlottie_frame_count(animation) == 0) {
+    tlottie_drop(animation);
     return JNI_FALSE;
   }
   AndroidBitmapInfo bitmapInfo;
-  AndroidBitmap_getInfo(env, bitmap, &bitmapInfo);
-  void *pixels;
-  if (AndroidBitmap_lockPixels(env, bitmap, &pixels) != ANDROID_BITMAP_RESULT_SUCCESS) {
+  if (AndroidBitmap_getInfo(env, bitmap, &bitmapInfo) != ANDROID_BITMAP_RESULT_SUCCESS) {
+    tlottie_drop(animation);
     return JNI_FALSE;
   }
-  rlottie::Surface surface((uint32_t *) pixels, bitmapInfo.width, bitmapInfo.height, bitmapInfo.stride);
-  animation->renderSync(0, surface, true);
+  void *pixels;
+  if (AndroidBitmap_lockPixels(env, bitmap, &pixels) != ANDROID_BITMAP_RESULT_SUCCESS) {
+    tlottie_drop(animation);
+    return JNI_FALSE;
+  }
+  std::vector<uint32_t> renderBuffer;
+  const bool success = render_tlottie_frame(animation, 0, bitmapInfo, pixels, renderBuffer);
   AndroidBitmap_unlockPixels(env, bitmap);
-  return JNI_TRUE;
+  tlottie_drop(animation);
+  return success ? JNI_TRUE : JNI_FALSE;
 }
 
 JNI_FUNC(jlong, createLottieDecoder, jstring jPath, jstring jsonData, jdoubleArray data, jint fitzpatrickType) {
@@ -616,38 +716,17 @@ JNI_FUNC(jlong, createLottieDecoder, jstring jPath, jstring jsonData, jdoubleArr
     }
   }*/
 
-  rlottie::FitzModifier modifier = rlottie::FitzModifier::None;
-  switch (fitzpatrickType) {
-    case 1:
-    case 2:
-    case 12:
-      modifier = rlottie::FitzModifier::Type12;
-      break;
-    case 3:
-      modifier = rlottie::FitzModifier::Type3;
-      break;
-    case 4:
-      modifier = rlottie::FitzModifier::Type4;
-      break;
-    case 5:
-      modifier = rlottie::FitzModifier::Type5;
-      break;
-    case 6:
-      modifier = rlottie::FitzModifier::Type6;
-      break;
-  }
-
   LottieInfo *info = new LottieInfo(path);
-  info->animation = rlottie::Animation::loadFromData(json, path, nullptr, modifier);
+  info->animation = create_tlottie(json, fitzpatrickType);
 
   if (info->animation == nullptr) {
     delete info;
     return 0;
   }
 
-  size_t totalFrame = info->animation->totalFrame();
-  double frameRate = info->animation->frameRate();
-  double duration = info->animation->duration();
+  uint32_t totalFrame = tlottie_frame_count(info->animation);
+  double frameRate = tlottie_frame_rate(info->animation);
+  double duration = frameRate > 0.0 ? totalFrame / frameRate : 0.0;
 
   if (totalFrame == 0) {
     delete info;
@@ -671,10 +750,8 @@ JNI_FUNC(void, getLottieSize, jlong ptr, jintArray data) {
   LottieInfo *info = jni::jlong_to_ptr<LottieInfo *>(ptr);
   jint *dataArr = env->GetIntArrayElements(data, 0);
 
-  size_t width, height;
-  info->animation->size(width, height);
-  dataArr[0] = (jint) width;
-  dataArr[1] = (jint) height;
+  dataArr[0] = static_cast<jint>(tlottie_width(info->animation));
+  dataArr[1] = static_cast<jint>(tlottie_height(info->animation));
   env->ReleaseIntArrayElements(data, dataArr, 0);
 }
 
@@ -693,13 +770,16 @@ JNI_FUNC(jint, createLottieCache, jlong ptr, jstring jCachePath, jobject firstFr
   }
 
   AndroidBitmapInfo bitmapInfo;
-  AndroidBitmap_getInfo(env, bitmap, &bitmapInfo);
+  if (AndroidBitmap_getInfo(env, bitmap, &bitmapInfo) != ANDROID_BITMAP_RESULT_SUCCESS ||
+      bitmapInfo.format != ANDROID_BITMAP_FORMAT_RGBA_8888) {
+    return 2;
+  }
 
   size_t uncompressedSize = bitmapInfo.height * bitmapInfo.stride;
 
-  double frameRate = info->animation->frameRate();
+  double frameRate = tlottie_frame_rate(info->animation);
   bool skipOdd = frameRate == 60.0 && limitFps == JNI_TRUE;
-  uint32_t frameCount = (uint32_t) info->animation->totalFrame();
+  uint32_t frameCount = tlottie_frame_count(info->animation);
   uint32_t maxCompressedFrameSize = 0;
   uint32_t firstFrameSize = 0;
 
@@ -788,8 +868,12 @@ JNI_FUNC(jint, createLottieCache, jlong ptr, jstring jCachePath, jobject firstFr
         }
       }
       if (compressedSize == 0 && !skipFrame) {
-        rlottie::Surface surface((uint32_t *) pixels, bitmapInfo.width, bitmapInfo.height, bitmapInfo.stride);
-        info->animation->renderSync((size_t) frameNo, surface, true);
+        if (!render_tlottie_frame(
+              info->animation, frameNo, bitmapInfo, pixels, info->renderBuffer
+            )) {
+          aborted = true;
+          break;
+        }
         //libyuv::ABGRToARGB((uint8_t *) pixels, bitmapInfo.stride, (uint8_t *) pixels, bitmapInfo.stride, bitmapInfo.width, bitmapInfo.height);
         compressedSize = (uint32_t) LZ4_compress_default((const char *) pixels, (char *) compressBuffer, (int) uncompressedSize, (int) compressBound);
       }
@@ -815,7 +899,7 @@ JNI_FUNC(jint, createLottieCache, jlong ptr, jstring jCachePath, jobject firstFr
       fclose(cacheFile);
       unlink(cachePath.c_str());
       AndroidBitmap_unlockPixels(env, bitmap);
-      return 3;
+      return info->canceled ? 3 : 2;
     }
 
     info->maxCompressedFrameSize = maxCompressedFrameSize;
@@ -872,7 +956,7 @@ JNI_FUNC(jboolean, getLottieFrame, jlong ptr, jobject bitmap, jlong jFrameNo) {
   bool success = false;
 
   if (info->cacheFile != nullptr) {
-    if (info->nextFrameNo >= info->animation->totalFrame() || frameNo < info->nextFrameNo) {
+    if (info->nextFrameNo >= tlottie_frame_count(info->animation) || frameNo < info->nextFrameNo) {
       fseek(info->cacheFile, info->headerSize, SEEK_SET);
       info->nextFrameNo = 0;
     }
@@ -931,15 +1015,19 @@ JNI_FUNC(jboolean, getLottieFrame, jlong ptr, jobject bitmap, jlong jFrameNo) {
   }
 
   if (!success) {
-    rlottie::Surface surface((uint32_t *) pixels, bitmapInfo.width, bitmapInfo.height, bitmapInfo.stride);
-    info->animation->renderSync((size_t) frameNo, surface, true);
+    success = render_tlottie_frame(
+      info->animation, frameNo, bitmapInfo, pixels, info->renderBuffer
+    );
     if (info->cacheFile != nullptr) {
-      logi(TAG_GIF_LOADER, "read frame directly: %d, nextFrameNo:%d, totalFrame:%d", frameNo, info->nextFrameNo, info->animation->totalFrame());
+      logi(
+        TAG_GIF_LOADER, "read frame directly: %d, nextFrameNo:%d, totalFrame:%d",
+        frameNo, info->nextFrameNo, tlottie_frame_count(info->animation)
+      );
     }
     // libyuv::ABGRToARGB((uint8_t *) pixels, bitmapInfo.stride, (uint8_t *) pixels, bitmapInfo.stride, bitmapInfo.width, bitmapInfo.height);
   }
 
   AndroidBitmap_unlockPixels(env, bitmap);
 
-  return JNI_TRUE;
+  return success ? JNI_TRUE : JNI_FALSE;
 }

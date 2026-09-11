@@ -4,7 +4,6 @@ import Config
 import org.gradle.api.DefaultTask
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
-import org.gradle.api.provider.SetProperty
 import org.gradle.api.tasks.*
 import tgx.gradle.requireDir
 import tgx.gradle.requireFile
@@ -26,6 +25,10 @@ abstract class ValidateNativeBuildTask : DefaultTask() {
   @get:PathSensitive(PathSensitivity.RELATIVE)
   abstract val ffmpegDirs: ConfigurableFileCollection
 
+  @get:InputFiles
+  @get:PathSensitive(PathSensitivity.RELATIVE)
+  abstract val tlottieDirs: ConfigurableFileCollection
+
   @TaskAction
   fun validateDirs() {
     requireDir(jetpackMediaDir.get().asFile)
@@ -42,6 +45,11 @@ abstract class ValidateNativeBuildTask : DefaultTask() {
         requireDir(ffmpegDir.resolve("include/lib$extension"))
         requireFile(ffmpegDir.resolve("lib/lib${extension}.a"))
       }
+    }
+
+    for (tlottieDir in tlottieDirs) {
+      requireDir(tlottieDir)
+      requireFile(tlottieDir.resolve("lib/libtlottie.a"))
     }
   }
 }

@@ -121,8 +121,8 @@ endif()
 # opusfile
 include("${PROJECT_SOURCE_DIR}/BuildOpusfile.cmake")
 
-# rlottie
-include("${PROJECT_SOURCE_DIR}/BuildRlottie.cmake")
+# tlottie
+include("${PROJECT_SOURCE_DIR}/BuildTlottie.cmake")
 
 # lz4
 include("${PROJECT_SOURCE_DIR}/BuildLz4.cmake")
@@ -228,7 +228,7 @@ target_link_libraries(${NATIVE_LIB}
   ogg
   opusfile
   opus
-  rlottie
+  tlottie
   lz4
 )
 if (${USE_WEBP})

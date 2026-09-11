@@ -66,11 +66,6 @@
 	url = https://github.com/TGX-Android/X-Core
 	shallow = true
 	branch = main
-[submodule "rlottie"]
-	path = app/jni/third_party/rlottie
-	url = https://github.com/TGX-Android/rlottie
-	shallow = true
-	branch = main
 [submodule "vkryl/td"]
 	path = vkryl/td
 	url = https://github.com/TGX-Android/tdlib-utils
@@ -138,3 +133,8 @@
 [submodule "app/jni/third_party/pixman"]
 	path = app/jni/third_party/pixman
 	url = https://gitlab.freedesktop.org/pixman/pixman.git
+[submodule "tlottie"]
+	path = app/jni/third_party/tlottie
+	url = https://github.com/Dkaraush/tlottie
+	shallow = true
+	branch = dev
