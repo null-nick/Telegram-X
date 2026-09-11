@@ -109,13 +109,13 @@ add_subdirectory(
 include("${PROJECT_SOURCE_DIR}/BuildYuv.cmake")
 
 # vpx
-if(EXISTS "${VPX_LIB_PATH}" AND EXISTS "${VPX_DIR}/include")
-  add_library(vpx STATIC IMPORTED)
-  set_target_properties(vpx PROPERTIES IMPORTED_LOCATION "${VPX_LIB_PATH}")
-  target_include_directories(vpx INTERFACE "${VPX_DIR}/include")
-else()
-  message(WARNING "./gradlew buildLibvpx was not run yet")
-  add_library(vpx INTERFACE)
+set(VPX_INCLUDE_DIR "${VPX_DIR}/include")
+add_library(vpx STATIC IMPORTED)
+set_target_properties(vpx PROPERTIES IMPORTED_LOCATION "${VPX_LIB_PATH}")
+target_include_directories(vpx INTERFACE "${VPX_INCLUDE_DIR}")
+file(MAKE_DIRECTORY "${VPX_INCLUDE_DIR}")
+if(NOT EXISTS "${VPX_LIB_PATH}" OR NOT EXISTS "${VPX_INCLUDE_DIR}")
+  message(WARNING "Missing dependency: vpx. Run :app:buildLibvpx or Refresh Linked C++ Projects")
 endif()
 
 # opusfile
@@ -136,15 +136,12 @@ endif()
 foreach(FFMPEG_LIB IN LISTS FFMPEG_LIBS)
   set(FFMPEG_LIB_PATH "${FFMPEG_DIR}/${ANDROID_ABI}/lib/lib${FFMPEG_LIB}.a")
   set(FFMPEG_INCLUDE_DIR "${FFMPEG_DIR}/${ANDROID_ABI}/include")
-  if(EXISTS "${FFMPEG_LIB_PATH}" AND EXISTS "${FFMPEG_INCLUDE_DIR}")
-    add_library(${FFMPEG_LIB} STATIC IMPORTED)
-    set_target_properties(${FFMPEG_LIB} PROPERTIES IMPORTED_LOCATION "${FFMPEG_LIB_PATH}")
-    target_include_directories(${FFMPEG_LIB} INTERFACE
-      "${FFMPEG_INCLUDE_DIR}"
-    )
-  else()
-    message(WARNING "./gradlew buildFFmpeg was not run yet, missing ${FFMPEG_LIB}")
-    add_library(${FFMPEG_LIB} INTERFACE)
+  add_library(${FFMPEG_LIB} STATIC IMPORTED)
+  set_target_properties(${FFMPEG_LIB} PROPERTIES IMPORTED_LOCATION "${FFMPEG_LIB_PATH}")
+  target_include_directories(${FFMPEG_LIB} INTERFACE "${FFMPEG_INCLUDE_DIR}")
+  file(MAKE_DIRECTORY "${FFMPEG_INCLUDE_DIR}")
+  if(NOT EXISTS "${FFMPEG_LIB_PATH}" OR NOT EXISTS "${FFMPEG_INCLUDE_DIR}")
+    message(WARNING "Missing dependency: ${FFMPEG_LIB}. Run :app:buildFfmpeg or Refresh Linked C++ Projects.")
   endif()
 endforeach()
 

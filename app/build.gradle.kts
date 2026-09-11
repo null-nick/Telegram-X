@@ -4,6 +4,8 @@ import androidx.baselineprofile.gradle.consumer.BaselineProfileConsumerExtension
 import com.android.build.api.artifact.SingleArtifact
 import com.android.build.api.variant.BuildConfigField
 import com.android.build.api.variant.impl.VariantOutputImpl
+import com.android.build.gradle.tasks.ExternalNativeBuildJsonTask
+import com.android.build.gradle.tasks.ExternalNativeBuildTask
 import org.gradle.kotlin.dsl.support.uppercaseFirstChar
 import tgx.gradle.*
 import tgx.gradle.source.GitVersionSource
@@ -265,6 +267,9 @@ val buildFfmpegTask = tasks.register("buildFfmpeg") {
   description = "Builds FFmpeg for all flavors"
   dependsOn(buildFfmpegTasks.values)
 }
+
+val buildNativeTasks = mutableMapOf<String, TaskProvider<*>>()
+
 
 //noinspection WrongGradleMethod
 android {
@@ -687,6 +692,7 @@ android {
         dependsOn(*nativeBuildTasks.toTypedArray())
       }
       variant.lifecycleTasks.registerPreBuild(buildNativeTask)
+      buildNativeTasks["${sdkVariant.flavor}${abiVariant.flavor.uppercaseFirstChar()}"] = buildNativeTask
 
       variant.sources.res?.apply {
         addGeneratedSourceDirectory(
@@ -861,6 +867,14 @@ if (generateBaselineProfile) {
 
   afterEvaluate {
     dependencies.add("latestLabReleaseBaselineProfile", project(":baseline-profile"))
+  }
+}
+
+afterEvaluate {
+  tasks.withType<ExternalNativeBuildTask>().configureEach {
+    val variantName = variantName.replace(Regex("(Release|Debug)$", RegexOption.IGNORE_CASE), "")
+    val buildNativeTask = buildNativeTasks[variantName]!!
+    dependsOn(buildNativeTask)
   }
 }
 
