@@ -194,9 +194,9 @@ target_link_libraries(${TGCALLS_LIB}
 )
 
 target_link_options(${TGCALLS_LIB} PRIVATE
-  "$<$<CONFIG:Release>:-Wl,--gc-sections,--icf=safe>"
-  "$<$<CONFIG:Release>:-Wl,--exclude-libs,ALL>"
-  "$<$<CONFIG:Release>:-flto=full>"
+  "$<$<CONFIG:Release,RelWithDebInfo,MinSizeRel>:-Wl,--gc-sections,--icf=safe>"
+  "$<$<CONFIG:Release,RelWithDebInfo,MinSizeRel>:-Wl,--exclude-libs,ALL>"
+  "$<$<CONFIG:Release,RelWithDebInfo,MinSizeRel>:-flto=full>"
 )
 
 if (${ANDROID_ABI} STREQUAL "arm64-v8a" OR ${ANDROID_ABI} STREQUAL "x86_64")
