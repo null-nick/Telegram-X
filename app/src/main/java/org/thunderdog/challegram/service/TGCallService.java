@@ -54,7 +54,7 @@ import androidx.annotation.Nullable;
 import androidx.core.app.NotificationManagerCompat;
 
 import org.drinkless.tdlib.TdApi;
-import io.github.pytgcalls.FrameCallback;
+import io.github.pytgcalls.FramesCallback;
 import io.github.pytgcalls.RemoteSourceChangeCallback;
 import org.pytgcalls.ntgcallsx.CallInterface;
 import org.pytgcalls.ntgcallsx.NTgCallsInterface;
@@ -193,7 +193,7 @@ public class TGCallService extends Service implements
 
   private boolean isProximityNear, isHeadsetPlugged;
 
-  public void setFrameCallback(FrameCallback callback) {
+  public void setFrameCallback(FramesCallback callback) {
     if (tgcalls != null) {
       tgcalls.setFrameCallback(callback);
     }

@@ -534,7 +534,7 @@ android {
         )
         externalNativeBuild.cmake {
           targets += "tgxjni"
-          if (!variant.isLegacy) {
+          if (!variant.isLegacy && !config.useNTgCalls) {
             targets += "tgcallsjni"
           }
           arguments(
@@ -1018,6 +1018,7 @@ dependencies {
     exclude(group = "com.google.firebase", module = "firebase-analytics")
     exclude(group = "com.google.firebase", module = "firebase-measurement-connector")
   }
+  // implementation("com.google.firebase:firebase-appcheck-safetynet:16.1.2")
   // Play Integrity: https://developer.android.com/google/play/integrity/reference/com/google/android/play/core/release-notes
   flavorImplementation(
     libs.google.play.integrity.legacy,

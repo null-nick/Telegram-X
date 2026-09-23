@@ -137,11 +137,11 @@ public final class N {
   public native static void onFatalError (String msg, int cause);
 
   // Unavailable in legacy flavor
-  private static native String[] getTgCallsVersions ();
+  public static native String[] getTgCallsVersions ();
 
   public static String[] getTgCallsLibVersions () {
     if (BuildConfig.USE_NTGCALLS) {
-      return NTgCalls.getProtocol().libraryVersions.toArray(new String[0]);
+      return NTgCalls.getProtocol().library_versions.toArray(new String[0]);
     } else {
       return getTgCallsVersions();
     }

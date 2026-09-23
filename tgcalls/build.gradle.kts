@@ -5,7 +5,7 @@ plugins {
   id("tgx-module")
 }
 
-val config = extra["config"] as ApplicationConfig
+val config = tgxConfig.config.get()
 
 dependencies {
   implementation(libs.androidx.annotation)
