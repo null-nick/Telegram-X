@@ -1275,6 +1275,12 @@ public class InputView extends NoClipEditText implements InlineSearchContext.Cal
           draft = TD.toCharSequence(textDraft.text);
           break;
         }
+        case TdApi.DraftMessageContentInputRichMessage.CONSTRUCTOR: {
+          TdApi.DraftMessageContentInputRichMessage richMessage = (TdApi.DraftMessageContentInputRichMessage) draftContent;
+          // TODO
+          draft = "";
+          break;
+        }
         case TdApi.DraftMessageContentRichMessage.CONSTRUCTOR: {
           TdApi.DraftMessageContentRichMessage richMessage = (TdApi.DraftMessageContentRichMessage) draftContent;
           // TODO
@@ -1287,7 +1293,7 @@ public class InputView extends NoClipEditText implements InlineSearchContext.Cal
           break;
         }
         default: {
-          Td.assertDraftMessageContent_b637f166();
+          Td.assertDraftMessageContent_f690069b();
           throw Td.unsupported(draftContent);
         }
       }
@@ -1608,7 +1614,7 @@ public class InputView extends NoClipEditText implements InlineSearchContext.Cal
             content = tdlib.filegen().createThumbnail(new TdApi.InputMessageAnimation(new TdApi.InputAnimation(generated, null, null, 0, imageWidth, imageHeight), null, false, false), isSecretChat);
           } else if ((mediaType != MediaType.JPEG && (mediaType == MediaType.WEBP || path.contains("sticker") || Math.max(imageWidth, imageHeight) <= 512))) {
             TdApi.InputFileGenerated generated = PhotoGenerationInfo.newFile(path, 0, timestamp, true, 512);
-            content = tdlib.filegen().createThumbnail(new TdApi.InputMessageSticker(generated, null, imageWidth, imageHeight, null), isSecretChat);
+            content = tdlib.filegen().createThumbnail(new TdApi.InputMessageSticker(new TdApi.InputSticker(generated, null, imageWidth, imageHeight), null), isSecretChat);
           } else {
             TdApi.InputFileGenerated generated = PhotoGenerationInfo.newFile(path, 0, timestamp, false, 0);
             content = tdlib.filegen().createThumbnail(new TdApi.InputMessagePhoto(new TdApi.InputPhoto(generated, null, null, null, imageWidth, imageHeight), null, false, null, false), isSecretChat);

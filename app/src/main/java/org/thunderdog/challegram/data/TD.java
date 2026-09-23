@@ -110,6 +110,7 @@ import java.util.Calendar;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -212,6 +213,7 @@ public class TD {
         false,
         false,
         false,
+        false,
         false
       );
     }
@@ -236,6 +238,8 @@ public class TD {
         rights.canManageTags;
       case RightId.MANAGE_OR_CREATE_TOPICS ->
         rights.canManageTopics;
+      case RightId.SEND_WELCOME_MESSAGES ->
+        rights.canSendWelcomeMessages;
       case RightId.MANAGE_DIRECT_MESSAGES ->
         rights.canManageDirectMessages;
       case RightId.POST_STORIES ->
@@ -303,6 +307,7 @@ public class TD {
         false,
         false,
         false,
+        false,
         false
       );
     }
@@ -353,6 +358,7 @@ public class TD {
       case RightId.DELETE_STORIES:
       case RightId.MANAGE_DIRECT_MESSAGES:
       case RightId.REMAIN_ANONYMOUS:
+      case RightId.SEND_WELCOME_MESSAGES:
         break;
     }
     throw new IllegalArgumentException(Lang.getResourceEntryName(rightId));
@@ -1933,19 +1939,19 @@ public class TD {
             break;
           }
         } else {
-          return in.substring(i, i + size).toUpperCase();
+          return in.substring(i, i + size).toUpperCase(Locale.ROOT);
         }
       }
       i += size;
     }
 
     if (allowTwo && b != null) {
-      return b.toString().toUpperCase();
+      return b.toString().toUpperCase(Locale.ROOT);
     }
 
     if (force) {
       int codePoint = in.codePointAt(0);
-      return in.substring(0, Character.charCount(codePoint)).toUpperCase();
+      return in.substring(0, Character.charCount(codePoint)).toUpperCase(Locale.ROOT);
     }
     return null;
   }
@@ -2436,6 +2442,46 @@ public class TD {
     return "";
   }
 
+  public static @Nullable TdApi.ChecklistTask findTask (TdApi.ChecklistTask[] tasks, int taskId) {
+    for (TdApi.ChecklistTask task : tasks) {
+      if (task.id == taskId) {
+        return task;
+      }
+    }
+    return null;
+  }
+
+  public static TdApi.FormattedText format (String format, TdApi.FormattedText... formattedArguments) {
+    List<TdApi.TextEntity> entities = new ArrayList<>();
+    Object[] args = new Object[formattedArguments.length];
+    for (int i = 0; i < formattedArguments.length; i++) {
+      args[i] = formattedArguments[i].text;
+    }
+    String result = Lang.formatString(format, (target, argStart, argEnd, argIndex, needFakeBold) -> {
+      TdApi.FormattedText formattedArgument = formattedArguments[argIndex];
+      if (argStart > 0) {
+        for (TdApi.TextEntity entity : formattedArgument.entities) {
+          entities.add(new TdApi.TextEntity(entity.offset + argStart, entity.length, entity.type));
+        }
+      } else {
+        Collections.addAll(entities, formattedArgument.entities);
+      }
+      return null;
+    }, args).toString();
+    entities.sort((a, b) -> {
+      int aOffset = a.offset;
+      int bOffset = b.offset;
+      if (aOffset < bOffset) {
+        return -1;
+      }
+      if (aOffset > bOffset) {
+        return 1;
+      }
+      return 0;
+    });
+    return new TdApi.FormattedText(result, entities.toArray(new TdApi.TextEntity[0]));
+  }
+
   public static String toErrorString (@Nullable TdApi.Object object) {
     if (object == null)
       return "Unknown error (null)";
@@ -2448,14 +2494,6 @@ public class TD {
     }
     return "not an error";
   }
-
-  /*public static String makeErrorString (TonApi.Object object) {
-    if (object.getConstructor() == TonApi.Error.CONSTRUCTOR) {
-      TonApi.Error error = (TonApi.Error) object;
-      return translateError(error.code, error.message);
-    }
-    return "not an error";
-  }*/
 
   public static final String ERROR_USER_PRIVACY = "USER_PRIVACY_RESTRICTED";
   public static final String ERROR_USER_CHANNELS_TOO_MUCH = "USER_CHANNELS_TOO_MUCH";
@@ -2529,12 +2567,23 @@ public class TD {
     if (floodSeconds > 0) {
       return Lang.getString(R.string.format_TooManyRequests, Lang.getTryAgainIn(floodSeconds));
     }
+    int premiumActiveUntil = getPremiumActiveUntil(code, message, -1);
+    if (premiumActiveUntil > 0) {
+      return Lang.getString(R.string.error_PremiumActive, Lang.getDate(premiumActiveUntil, TimeUnit.SECONDS));
+    }
     return "#" + code + ": " + message;
   }
 
   public static int getFloodErrorSeconds (int code, String message, int defaultValue) {
     if (code == 429 && message.startsWith("Too Many Requests: retry after ")) {
       return StringUtils.parseInt(message.substring("Too Many Requests: retry after ".length()));
+    }
+    return defaultValue;
+  }
+
+  public static int getPremiumActiveUntil (int code, String message, int defaultValue) {
+    if (code == 420 && message.startsWith("PREMIUM_SUB_ACTIVE_UNTIL_")) {
+      return StringUtils.parseInt(message.substring("PREMIUM_SUB_ACTIVE_UNTIL_".length()));
     }
     return defaultValue;
   }
@@ -3707,7 +3756,7 @@ public class TD {
         // TODO rich message
         break;
       default:
-        Td.assertMessageContent_bb294b24();
+        Td.assertMessageContent_af730a78();
         break;
     }
     return false;
@@ -5512,7 +5561,7 @@ public class TD {
       case TdApi.MessagePaidMedia.CONSTRUCTOR:
         return true;
       default:
-        Td.assertMessageContent_bb294b24();
+        Td.assertMessageContent_af730a78();
         break;
     }
     return false;
@@ -5987,11 +6036,11 @@ public class TD {
       case TdApi.InputMessageAudio.CONSTRUCTOR:
         return ((TdApi.InputMessageAudio) content).audio.audio;
       case TdApi.InputMessageSticker.CONSTRUCTOR:
-        return ((TdApi.InputMessageSticker) content).sticker;
+        return ((TdApi.InputMessageSticker) content).sticker.sticker;
       case TdApi.InputMessageVideoNote.CONSTRUCTOR:
-        return ((TdApi.InputMessageVideoNote) content).videoNote;
+        return ((TdApi.InputMessageVideoNote) content).videoNote.videoNote;
       case TdApi.InputMessageVoiceNote.CONSTRUCTOR:
-        return ((TdApi.InputMessageVoiceNote) content).voiceNote;
+        return ((TdApi.InputMessageVoiceNote) content).voiceNote.voiceNote;
       case TdApi.InputMessageLocation.CONSTRUCTOR:
       case TdApi.InputMessageLiveLocation.CONSTRUCTOR:
       case TdApi.InputMessageContact.CONSTRUCTOR:
@@ -6072,13 +6121,13 @@ public class TD {
         ((TdApi.InputMessageAudio) content).audio.audio = inputFile;
         return;
       case TdApi.InputMessageSticker.CONSTRUCTOR:
-        ((TdApi.InputMessageSticker) content).sticker = inputFile;
+        ((TdApi.InputMessageSticker) content).sticker.sticker = inputFile;
         return;
       case TdApi.InputMessageVideoNote.CONSTRUCTOR:
-        ((TdApi.InputMessageVideoNote) content).videoNote = inputFile;
+        ((TdApi.InputMessageVideoNote) content).videoNote.videoNote = inputFile;
         return;
       case TdApi.InputMessageVoiceNote.CONSTRUCTOR:
-        ((TdApi.InputMessageVoiceNote) content).voiceNote = inputFile;
+        ((TdApi.InputMessageVoiceNote) content).voiceNote.voiceNote = inputFile;
         return;
       case TdApi.InputMessageLocation.CONSTRUCTOR:
       case TdApi.InputMessageLiveLocation.CONSTRUCTOR:
@@ -6115,9 +6164,9 @@ public class TD {
       case TdApi.InputMessageAudio.CONSTRUCTOR:
         return ((TdApi.InputMessageAudio) content).audio.albumCoverThumbnail;
       case TdApi.InputMessageSticker.CONSTRUCTOR:
-        return ((TdApi.InputMessageSticker) content).thumbnail;
+        return ((TdApi.InputMessageSticker) content).sticker.thumbnail;
       case TdApi.InputMessageVideoNote.CONSTRUCTOR:
-        return ((TdApi.InputMessageVideoNote) content).thumbnail;
+        return ((TdApi.InputMessageVideoNote) content).videoNote.thumbnail;
       case TdApi.InputMessageVoiceNote.CONSTRUCTOR:
       case TdApi.InputMessageLocation.CONSTRUCTOR:
       case TdApi.InputMessageLiveLocation.CONSTRUCTOR:
@@ -6192,7 +6241,7 @@ public class TD {
           retriever = U.openRetriever(file.getFilePath());
           if (!sendAsAnimation) {
             String hasAudioStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_HAS_AUDIO);
-            if (StringUtils.isEmpty(hasAudioStr) || !StringUtils.equalsOrBothEmpty(hasAudioStr.toLowerCase(), "yes")) {
+            if (StringUtils.isEmpty(hasAudioStr) || !StringUtils.equalsOrBothEmpty(hasAudioStr.toLowerCase(Locale.ROOT), "yes")) {
               sendAsAnimation = true;
             }
           }

@@ -83,6 +83,11 @@ public class TdlibCache implements LiveLocationManager.OutputDelegate, CleanupSt
     default void onMyUserBioUpdated (@Nullable TdApi.FormattedText newBio) { }
   }
 
+  public interface CommunityDataChangeListener {
+    default void onCommunityUpdated (TdApi.Community community) { }
+    default void onCommunityFullUpdated (long id, TdApi.CommunityFullInfo community) { }
+  }
+
   public interface BasicGroupDataChangeListener {
     default void onBasicGroupUpdated (TdApi.BasicGroup basicGroup, boolean migratedToSupergroup) { }
     default void onBasicGroupFullUpdated (long basicGroupId, TdApi.BasicGroupFullInfo basicGroupFull) { }
@@ -119,6 +124,11 @@ public class TdlibCache implements LiveLocationManager.OutputDelegate, CleanupSt
   private final ReferenceLongMap<UserStatusChangeListener> statusListeners = new ReferenceLongMap<>(true, statusFullnessListener);
   private final ReferenceLongMap<UserStatusChangeListener> simpleStatusListeners = new ReferenceLongMap<>(true, null);
   private final ReferenceList<MyUserDataChangeListener> myUserListeners = new ReferenceList<>(true);
+
+  private final HashMap<Long, TdApi.Community> communities = new HashMap<>();
+  private final HashMap<Long, TdApi.CommunityFullInfo> communitiesFull = new HashMap<>();
+  private final ReferenceList<CommunityDataChangeListener> communityGlobalListeners = new ReferenceList<>(true);
+  private final ReferenceLongMap<CommunityDataChangeListener> communityListeners = new ReferenceLongMap<>(true);
 
   private final HashMap<Long, TdApi.BasicGroup> basicGroup = new HashMap<>();
   private final HashMap<Long, TdApi.BasicGroupFullInfo> basicGroupFull = new HashMap<>();
@@ -554,6 +564,38 @@ public class TdlibCache implements LiveLocationManager.OutputDelegate, CleanupSt
     notifyUserStatusChanged(update.userId, user.status, uiOnly);
     synchronized (onlineMutex) {
       checkUserStatus(user, user.status, false);
+    }
+  }
+
+  // Community
+
+  @TdlibThread
+  void onUpdateCommunity (TdApi.UpdateCommunity update) {
+    boolean updated;
+    synchronized (dataLock) {
+      TdApi.Community community = update.community;
+      TdApi.Community oldCommunity = communities.get(update.community.id);
+      communities.put(community.id, community);
+      updated = oldCommunity != null;
+    }
+    if (updated) {
+      notifyListeners(communityGlobalListeners.iterator(), update.community);
+      notifyListeners(communityListeners.iterator(update.community.id), update.community);
+    }
+  }
+
+  @TdlibThread
+  void onUpdateCommunityFull (TdApi.UpdateCommunityFullInfo update) {
+    boolean updated;
+    synchronized (dataLock) {
+      TdApi.CommunityFullInfo community = update.communityFullInfo;
+      TdApi.CommunityFullInfo oldCommunity = communitiesFull.get(update.communityId);
+      communitiesFull.put(update.communityId, community);
+      updated = oldCommunity != null;
+    }
+    if (updated) {
+      notifyListeners(communityGlobalListeners.iterator(), update.communityId, update.communityFullInfo);
+      notifyListeners(communityListeners.iterator(update.communityId), update.communityId, update.communityFullInfo);
     }
   }
 
@@ -1148,6 +1190,20 @@ public class TdlibCache implements LiveLocationManager.OutputDelegate, CleanupSt
   }
 
   @Nullable
+  public TdApi.Community community (long communityId) {
+    synchronized (dataLock) {
+      return communities.get(communityId);
+    }
+  }
+
+  @Nullable
+  public TdApi.CommunityFullInfo communityFull (long communityId) {
+    synchronized (dataLock) {
+      return communitiesFull.get(communityId);
+    }
+  }
+
+  @Nullable
   public TdApi.BasicGroup basicGroup (long basicGroupId) {
     synchronized (dataLock) {
       return basicGroup.get(basicGroupId);
@@ -1564,6 +1620,22 @@ public class TdlibCache implements LiveLocationManager.OutputDelegate, CleanupSt
     if (list != null) {
       while (list.hasNext()) {
         list.next().onUserStatusChanged(userId, status, uiOnly);
+      }
+    }
+  }
+
+  private static void notifyListeners (@Nullable Iterator<CommunityDataChangeListener> list, TdApi.Community community) {
+    if (list != null) {
+      while (list.hasNext()) {
+        list.next().onCommunityUpdated(community);
+      }
+    }
+  }
+
+  private static void notifyListeners (@Nullable Iterator<CommunityDataChangeListener> list, long id, TdApi.CommunityFullInfo community) {
+    if (list != null) {
+      while (list.hasNext()) {
+        list.next().onCommunityFullUpdated(id, community);
       }
     }
   }

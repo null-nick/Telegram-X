@@ -28,9 +28,6 @@ import androidx.media3.decoder.vp9.VpxLibrary;
 
 import io.github.pytgcalls.NTgCalls;
 import org.thunderdog.challegram.config.Config;
-import org.thunderdog.challegram.voip.VoIPController;
-import org.webrtc.SoftwareVideoEncoderFactory;
-import org.webrtc.VideoCodecInfo;
 
 import java.nio.ByteBuffer;
 import java.util.Locale;
@@ -138,8 +135,8 @@ public final class N {
   }
 
   public native static void onFatalError (String msg, int cause);
-  public native static void throwDirect (String msg);
 
+  // Unavailable in legacy flavor
   private static native String[] getTgCallsVersions ();
 
   public static String[] getTgCallsLibVersions () {
@@ -151,8 +148,14 @@ public final class N {
   }
   public static native String toHexString (byte[] array);
 
+  private static boolean loaded;
+
   public static boolean init () {
-    return NLoader.loadLibraries();
+    if (!loaded) {
+      NLoader.loadLibraries();
+      loaded = true;
+    }
+    return true;
   }
 
   public static void setupLibraries () {
@@ -164,15 +167,15 @@ public final class N {
       FfmpegLibrary.setLibraries();
       if (BuildConfig.DEBUG) {
         android.util.Log.v("tgx", String.format(Locale.US,
-          "leveldb %s, libopus %s, libvpx %s, ffmpeg %s, tgvoip %s, tgcalls %s",
+          "leveldb %s, libopus %s, libvpx %s, ffmpeg %s, tgcalls %s",
           LevelDB.getVersion(),
           OpusLibrary.getVersion(),
           VpxLibrary.getVersion(),
           FfmpegLibrary.getVersion(),
-          VoIPController.getVersion(),
-          TextUtils.join("+", N.getTgCallsLibVersions())
+          BuildConfig.CALLS_AVAILABLE ?
+            TextUtils.join("+", N.getTgCallsLibVersions()) :
+            "disabled"
         ));
-        VideoCodecInfo[] softwareVideoCodecs = new SoftwareVideoEncoderFactory().getSupportedCodecs();
       }
     }
   }

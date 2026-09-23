@@ -423,10 +423,10 @@ public abstract class MediaPreview implements ListAnimator.Measurable {
           return new MediaPreviewSimple(tdlib, size, cornerRadius, giftedStars.sticker);
         break;
       }
-      case TdApi.MessageGiftedTon.CONSTRUCTOR: {
-        TdApi.MessageGiftedTon giftedTon = (TdApi.MessageGiftedTon) message.content;
-        if (giftedTon.sticker != null)
-          return new MediaPreviewSimple(tdlib, size, cornerRadius, giftedTon.sticker);
+      case TdApi.MessageGiftedGrams.CONSTRUCTOR: {
+        TdApi.MessageGiftedGrams giftedGram = (TdApi.MessageGiftedGrams) message.content;
+        if (giftedGram.sticker != null)
+          return new MediaPreviewSimple(tdlib, size, cornerRadius, giftedGram.sticker);
         break;
       }
       case TdApi.MessagePremiumGiftCode.CONSTRUCTOR: {
@@ -464,6 +464,7 @@ public abstract class MediaPreview implements ListAnimator.Measurable {
       case TdApi.MessageChatAddMembers.CONSTRUCTOR:
       case TdApi.MessageChatJoinByLink.CONSTRUCTOR:
       case TdApi.MessageChatJoinByRequest.CONSTRUCTOR:
+      case TdApi.MessageChatJoinFromCommunity.CONSTRUCTOR:
       case TdApi.MessageChatDeleteMember.CONSTRUCTOR:
       case TdApi.MessageChatUpgradeTo.CONSTRUCTOR:
       case TdApi.MessageChatUpgradeFrom.CONSTRUCTOR:
@@ -521,12 +522,14 @@ public abstract class MediaPreview implements ListAnimator.Measurable {
       case TdApi.MessageManagedBotCreated.CONSTRUCTOR:
       case TdApi.MessagePollOptionAdded.CONSTRUCTOR:
       case TdApi.MessagePollOptionDeleted.CONSTRUCTOR:
+      case TdApi.MessageChatAddedToCommunity.CONSTRUCTOR:
+      case TdApi.MessageChatRemovedFromCommunity.CONSTRUCTOR:
       case TdApi.MessageUnsupported.CONSTRUCTOR: {
         // No media preview.
         break;
       }
       default: {
-        Td.assertMessageContent_bb294b24();
+        Td.assertMessageContent_af730a78();
         throw Td.unsupported(message.content);
       }
     }
