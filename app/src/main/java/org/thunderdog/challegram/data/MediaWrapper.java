@@ -669,6 +669,28 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
     if (setTargetSize(targetSize)) {
       this.fileProgress.setFile(targetSize != null ? targetSize.photo : null, source != null ? source.getMessage(messageId) : null);
     }
+    if (HD_DEBUG) {
+      StringBuilder b = new StringBuilder("setPhoto msg=").append(messageId).append(" sizes=[");
+      for (TdApi.PhotoSize size : photo.sizes) {
+        b.append(' ').append(hdDebug(size));
+      }
+      b.append(" ] preview=").append(hdDebug(previewSize)).append(" target=").append(hdDebug(targetSize))
+        .append(" mini=").append(photo.minithumbnail != null)
+        .append(" estMax=").append(TGMessage.getEstimatedContentMaxWidth());
+      android.util.Log.i(HD_DEBUG_TAG, b.toString());
+    }
+  }
+
+  // TODO remove HD photo diagnostics
+  private static final boolean HD_DEBUG = true;
+  private static final String HD_DEBUG_TAG = "TGX_HD";
+
+  private static String hdDebug (@Nullable TdApi.PhotoSize size) {
+    if (size == null) {
+      return "null";
+    }
+    TdApi.File f = size.photo;
+    return size.type + ":" + size.width + "x" + size.height + "#" + f.id + "(" + f.size + "b,loaded=" + TD.isFileLoaded(f) + ",dl=" + f.local.canBeDownloaded + ",active=" + f.local.isDownloadingActive + ",prefix=" + f.local.downloadedPrefixSize + ")";
   }
 
   private boolean setTargetSize (@Nullable TdApi.PhotoSize targetSize) {
@@ -815,6 +837,13 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
   }
 
   public void requestImage (ImageReceiver receiver) {
+    if (HD_DEBUG && photo != null) {
+      android.util.Log.i(HD_DEBUG_TAG, "requestImage msg=" + sourceMessageId + " show=" + showImage() +
+        " targetImage=" + (targetImageFile != null ? targetImageFile.toString() : "null") +
+        " targetFile=" + (targetFile != null ? targetFile.id + "(loaded=" + TD.isFileLoaded(targetFile) + ",active=" + targetFile.local.isDownloadingActive + ")" : "null") +
+        " progress=" + (fileProgress != null ? "downloaded=" + fileProgress.isDownloaded() : "null") +
+        " hot=" + isHot());
+    }
     receiver.requestFile(showImage() ? targetImageFile : null);
   }
 
@@ -1268,6 +1297,9 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
 
   @Override
   public void onStateChanged (TdApi.File file, @TdlibFilesManager.FileDownloadState int state) {
+    if (HD_DEBUG && photo != null) {
+      android.util.Log.i(HD_DEBUG_TAG, "onStateChanged msg=" + sourceMessageId + " file=" + file.id + " state=" + state + " loaded=" + TD.isFileLoaded(file) + " target=" + (targetFile != null ? targetFile.id : 0));
+    }
     updateVideoStreamingState();
 
     if ((video != null || animation != null) && updateDuration()) {
