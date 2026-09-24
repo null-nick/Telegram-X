@@ -88,6 +88,17 @@ public class FiltersState {
   public FiltersState (FiltersState source) {
     this.data = new SparseIntArray(source.data.size());
     reset(source);
+    this.hdExported = source.hdExported;
+  }
+
+  private boolean hdExported;
+
+  public boolean isHdExported () {
+    return hdExported;
+  }
+
+  public void setHdExported (boolean hdExported) {
+    this.hdExported = hdExported;
   }
 
   @Override

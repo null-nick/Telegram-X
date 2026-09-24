@@ -644,7 +644,12 @@ public class EGLEditorContext {
             break;
           }
           case ACTION_GET_BITMAP: {
-            getBitmapInternal((BitmapCallback) msg.obj);
+            Object[] data = (Object[]) msg.obj;
+            if (data[0] != null) {
+              getBitmapInternal((Bitmap) data[0], (BitmapCallback) data[1]);
+            } else {
+              getBitmapInternal((BitmapCallback) data[1]);
+            }
             break;
           }
         }
@@ -691,7 +696,11 @@ public class EGLEditorContext {
   }
 
   public void getBitmap (BitmapCallback callback) {
-    queue.sendMessage(Message.obtain(queue.getHandler(), ACTION_GET_BITMAP, callback), 0);
+    getBitmap(null, callback);
+  }
+
+  public void getBitmap (@Nullable Bitmap source, BitmapCallback callback) {
+    queue.sendMessage(Message.obtain(queue.getHandler(), ACTION_GET_BITMAP, new Object[] {source, callback}), 0);
   }
 
   // Internal
@@ -733,6 +742,65 @@ public class EGLEditorContext {
     GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
     GLES20.glClear(0);
     UI.post(() -> callback.onBitmapObtained(bitmap));
+  }
+
+  private void getBitmapInternal (Bitmap source, final BitmapCallback callback) {
+    Bitmap result = null;
+    if (inited && makeCurrent()) {
+      final Bitmap previousBitmap = currentBitmap;
+      final int previousWidth = renderBufferWidth, previousHeight = renderBufferHeight;
+      final int[] previousFrameBuffer = renderFrameBuffer, previousTexture = renderTexture;
+      renderFrameBuffer = new int[3];
+      renderTexture = new int[3];
+      try {
+        int[] maxTextureSize = new int[1];
+        GLES20.glGetIntegerv(GLES20.GL_MAX_TEXTURE_SIZE, maxTextureSize, 0);
+        int maxSide = Math.max(source.getWidth(), source.getHeight());
+        if (maxTextureSize[0] > 0 && maxSide > maxTextureSize[0]) {
+          float scale = (float) maxTextureSize[0] / (float) maxSide;
+          source = Bitmap.createScaledBitmap(source, Math.round(source.getWidth() * scale), Math.round(source.getHeight() * scale), true);
+        }
+        currentBitmap = source;
+        loadTexture(source);
+        hsvGenerated = false;
+        needUpdateBlurTexture = true;
+        GLES20.glViewport(0, 0, renderBufferWidth, renderBufferHeight);
+        drawEnhancePass();
+        drawSharpenPass();
+        drawCustomParamsPass();
+        boolean isBlured = drawBlurPass();
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, renderFrameBuffer[1]);
+        GLES20.glFramebufferTexture2D(GLES20.GL_FRAMEBUFFER, GLES20.GL_COLOR_ATTACHMENT0, GLES20.GL_TEXTURE_2D, renderTexture[isBlured ? 0 : 1], 0);
+        GLES20.glClear(0);
+        result = getRenderBufferBitmap();
+        GLES20.glBindFramebuffer(GLES20.GL_FRAMEBUFFER, 0);
+      } catch (Throwable t) {
+        Log.e("Cannot render filters in full size", t);
+        result = null;
+      }
+      GLES20.glDeleteFramebuffers(3, renderFrameBuffer, 0);
+      GLES20.glDeleteTextures(3, renderTexture, 0);
+      renderFrameBuffer = previousFrameBuffer;
+      renderTexture = previousTexture;
+      currentBitmap = previousBitmap;
+      renderBufferWidth = previousWidth;
+      renderBufferHeight = previousHeight;
+      hsvGenerated = false;
+      needUpdateBlurTexture = true;
+      render();
+    }
+    final Bitmap bitmap = result;
+    UI.post(() -> callback.onBitmapObtained(bitmap));
+  }
+
+  private boolean makeCurrent () {
+    if (!eglContext.equals(egl10.eglGetCurrentContext()) || !eglSurface.equals(egl10.eglGetCurrentSurface(EGL10.EGL_DRAW))) {
+      if (!egl10.eglMakeCurrent(eglDisplay, eglSurface, eglSurface, eglContext)) {
+        Log.e("eglMakeCurrent failed %s", U.getEGLErrorString(egl10.eglGetError()));
+        return false;
+      }
+    }
+    return true;
   }
 
   private Bitmap getRenderBufferBitmap() {

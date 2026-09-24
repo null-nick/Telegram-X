@@ -421,11 +421,15 @@ public class EGLEditorView extends ViewGroup {
   }
 
   public void getBitmapAsync (BitmapCallback callback) {
+    getBitmapAsync(null, callback);
+  }
+
+  public void getBitmapAsync (@Nullable Bitmap source, BitmapCallback callback) {
     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.ICE_CREAM_SANDWICH && isReady()) {
       switch (initedType) {
         case TYPE_FILTERS:
           if (editorContext != null) {
-            editorContext.getBitmap(callback);
+            editorContext.getBitmap(source, callback);
           } else {
             callback.onBitmapObtained(null);
           }

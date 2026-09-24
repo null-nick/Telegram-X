@@ -6338,7 +6338,7 @@ public class TD {
         content = tdlib.filegen().createThumbnail(new TdApi.InputMessageVideo(new TdApi.InputVideo(inputVideo, null, null, 0, null, file.getVideoDuration(true), width, height, U.canStreamVideo(inputVideo)), caption, showCaptionAboveMedia, file.getSelfDestructType(), hasSpoiler), isSecretChat);
       }
     } else {
-      final boolean isFiltered = file.getFiltersState() != null && !file.getFiltersState().isEmpty();
+      final boolean isFiltered = file.getFiltersState() != null && !file.getFiltersState().isEmpty() && !file.getFiltersState().isHdExported();
       final int resolutionLimit = isFiltered ? 0 : PhotoGenerationInfo.preferredResolutionLimit();
       final int sizeLimit = resolutionLimit != 0 ? resolutionLimit : PhotoGenerationInfo.SIZE_LIMIT;
       int[] size = new int[2];

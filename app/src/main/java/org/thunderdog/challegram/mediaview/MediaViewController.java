@@ -80,6 +80,7 @@ import org.thunderdog.challegram.data.TGMessage;
 import org.thunderdog.challegram.data.TGMessageMedia;
 import org.thunderdog.challegram.data.TGMessageText;
 import org.thunderdog.challegram.data.TGWebPage;
+import org.thunderdog.challegram.filegen.PhotoGenerationInfo;
 import org.thunderdog.challegram.loader.AvatarReceiver;
 import org.thunderdog.challegram.loader.DoubleImageReceiver;
 import org.thunderdog.challegram.loader.ImageCache;
@@ -7377,16 +7378,52 @@ public class MediaViewController extends ViewController<MediaViewController.Args
 
   private void applyFiltersAsync (final int futureSection) {
     editorView.getBitmapAsync(bitmap -> {
-      setUIBlocked(false);
-      if (bitmap != null) {
-        ImageFilteredFile filteredFile = stack.getCurrent().setFiltersState(currentFiltersState);
-        tdlib.filegen().saveFilteredBitmap(filteredFile, bitmap);
-        applyFilteredBitmap(filteredFile, bitmap);
-        changeSectionImpl(futureSection);
-      } else {
+      if (bitmap == null) {
+        setUIBlocked(false);
         UI.showToast("Error while saving changes, sorry", Toast.LENGTH_SHORT);
+        return;
       }
+      if (!needFullSizeFilters(bitmap)) {
+        onFiltersApplied(futureSection, bitmap, null);
+        return;
+      }
+      ImageGalleryFile sourceFile = new ImageGalleryFile(currentSourceFile);
+      sourceFile.setSize(PhotoGenerationInfo.SIZE_LIMIT_HD);
+      ImageReader.instance().post(() -> {
+        Bitmap source = ImageReader.readImage(sourceFile, sourceFile.getFilePath());
+        if (source != null && source.getConfig() != Bitmap.Config.ARGB_8888) {
+          source = source.copy(Bitmap.Config.ARGB_8888, false);
+        }
+        final Bitmap fullSizeSource = source;
+        UI.post(() -> {
+          if (isDestroyed()) {
+            return;
+          }
+          if (fullSizeSource == null || editorView == null) {
+            onFiltersApplied(futureSection, bitmap, null);
+            return;
+          }
+          editorView.getBitmapAsync(fullSizeSource, fullSizeBitmap -> {
+            if (!isDestroyed()) {
+              onFiltersApplied(futureSection, bitmap, fullSizeBitmap);
+            }
+          });
+        });
+      });
     });
+  }
+
+  private boolean needFullSizeFilters (Bitmap bitmap) {
+    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && sendDelegate != null && sendDelegate.isSendHdEnabled() && currentSourceFile != null && Math.max(currentSourceFile.getWidth(), currentSourceFile.getHeight()) > Math.max(bitmap.getWidth(), bitmap.getHeight());
+  }
+
+  private void onFiltersApplied (int futureSection, Bitmap bitmap, @Nullable Bitmap fullSizeBitmap) {
+    setUIBlocked(false);
+    currentFiltersState.setHdExported(fullSizeBitmap != null);
+    ImageFilteredFile filteredFile = stack.getCurrent().setFiltersState(currentFiltersState);
+    tdlib.filegen().saveFilteredBitmap(filteredFile, fullSizeBitmap != null ? fullSizeBitmap : bitmap);
+    applyFilteredBitmap(filteredFile, bitmap);
+    changeSectionImpl(futureSection);
   }
 
   private void changeSectionImpl (int section) {

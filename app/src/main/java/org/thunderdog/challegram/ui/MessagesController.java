@@ -10707,7 +10707,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
             content = tdlib.filegen().createThumbnail(new TdApi.InputMessageVideo(new TdApi.InputVideo(inputVideo, null, null, 0, null, file.getVideoDuration(true), width, height, U.canStreamVideo(inputVideo)), caption, showCaptionAboveMedia, file.getSelfDestructType(), hasSpoiler), isSecretChat);
           }
         } else {
-          final boolean isFiltered = file.getFiltersState() != null && !file.getFiltersState().isEmpty();
+          final boolean isFiltered = file.getFiltersState() != null && !file.getFiltersState().isEmpty() && !file.getFiltersState().isHdExported();
           final int sizeLimit = isHd && !isFiltered ? PhotoGenerationInfo.SIZE_LIMIT_HD : PhotoGenerationInfo.SIZE_LIMIT;
           int[] size = new int[2];
           file.getOutputSize(size, sizeLimit);
