@@ -2368,6 +2368,12 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     return topics;
   }
 
+  @AnyThread
+  public @Nullable TdApi.ForumTopicInfo forumTopicInfo (long chatId, long forumTopicId) {
+    TdlibForumTopicManager.Entry entry = topics.find(new TdlibForumTopicManager.Key(chatId, (int) forumTopicId));
+    return entry != null && entry.value != null ? entry.value.info : null;
+  }
+
   public TdlibEmojiReactionsManager reactions () {
     return reactions;
   }

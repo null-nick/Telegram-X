@@ -224,13 +224,13 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
 
     // Check if we should show draft (draft exists with text input)
     boolean hasDraft = topic.draftMessage != null &&
-      topic.draftMessage.inputMessageText != null &&
-      topic.draftMessage.inputMessageText.getConstructor() == TdApi.InputMessageText.CONSTRUCTOR;
+      topic.draftMessage.content != null &&
+      topic.draftMessage.content.getConstructor() == TdApi.DraftMessageContentText.CONSTRUCTOR;
 
     if (hasDraft) {
       // Show draft preview
       this.showingDraft = true;
-      TdApi.InputMessageText inputText = (TdApi.InputMessageText) topic.draftMessage.inputMessageText;
+      TdApi.DraftMessageContentText inputText = (TdApi.DraftMessageContentText) topic.draftMessage.content;
       String draftText = inputText.text != null && !StringUtils.isEmpty(inputText.text.text) ?
         inputText.text.text : "";
       this.senderText = Lang.getString(R.string.Draft);

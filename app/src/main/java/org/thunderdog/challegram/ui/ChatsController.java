@@ -866,36 +866,8 @@ public class ChatsController extends TelegramViewController<ChatsController.Argu
   private boolean hideArchive, archiveCollapsed;
   private TdlibChatList archiveList;
   private ChatListListener archiveListListener;
-  private int pendingArchiveUpdateReason = -1;
-  private boolean archiveUpdateScheduled;
 
   private int chatScrollState = RecyclerView.SCROLL_STATE_IDLE;
-
-  private int mergeArchiveUpdateReason (int currentReason, int newReason) {
-    if (currentReason == -1) {
-      return newReason;
-    }
-    if (currentReason == newReason) {
-      return currentReason;
-    }
-    return ChatsAdapter.ARCHIVE_UPDATE_ALL;
-  }
-
-  private void scheduleArchiveUpdate (int reason) {
-    pendingArchiveUpdateReason = mergeArchiveUpdateReason(pendingArchiveUpdateReason, reason);
-    if (archiveUpdateScheduled) {
-      return;
-    }
-    archiveUpdateScheduled = true;
-    runOnUiThreadOptional(() -> {
-      archiveUpdateScheduled = false;
-      int pendingReason = pendingArchiveUpdateReason;
-      pendingArchiveUpdateReason = -1;
-      if (pendingReason != -1 && adapter != null) {
-        adapter.updateArchive(pendingReason);
-      }
-    });
-  }
 
   public boolean isPullingArchive () {
     if (!hideArchive || adapter == null || !adapter.hasArchive())
