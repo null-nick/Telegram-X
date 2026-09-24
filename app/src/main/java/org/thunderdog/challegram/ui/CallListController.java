@@ -89,7 +89,11 @@ public class CallListController extends RecyclerViewController<Void> implements
 
   @Override
   protected int getMenuId () {
-    return messages != null && !messages.isEmpty() ? R.id.menu_btn_more : 0;
+    if (Config.ENABLE_DELETE_CALL_HISTORY) {
+      return messages != null && !messages.isEmpty() ? R.id.menu_btn_more : 0;
+    } else {
+      return 0;
+    }
   }
 
   @Override
