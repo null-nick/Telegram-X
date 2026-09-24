@@ -164,26 +164,8 @@ public class ImageReader {
     listener.onImageLoaded(bitmap != null, bitmap);
   }
 
-  // TODO remove HD photo diagnostics
-  static void hd (@Nullable ImageFile file, String message) {
-    if (file != null && file.getClass() == ImageFile.class) {
-      android.util.Log.i("TGX_HD", "#" + file + " size=" + file.getSize() + " " + message);
-    }
-  }
-
-  static String hd (@Nullable Bitmap bitmap) {
-    return bitmap == null ? "null" : bitmap.getWidth() + "x" + bitmap.getHeight() + "/" + bitmap.getConfig() + (bitmap.isRecycled() ? "/recycled" : "");
-  }
-
   public static Bitmap readImage (ImageFile file, String path) {
-    Bitmap result = readImageImpl(file, path);
-    hd(file, "readImage result=" + hd(result));
-    return result;
-  }
-
-  private static Bitmap readImageImpl (ImageFile file, String path) {
     boolean needSquare = file.needDecodeSquare();
-    hd(file, "readImage start path=" + path + " webp=" + file.isWebp() + " private=" + file.isPrivate() + " square=" + needSquare + " swOnly=" + file.isSwOnly());
 
     ImageFile exifFile;
     if (file instanceof ImageFilteredFile) {
@@ -221,7 +203,6 @@ public class ImageReader {
                 decoder.setTargetSize(width = (int) ((float) width * ratio), height = (int) ((float) height * ratio));
               }
             }
-            hd(file, "ImageDecoder header src=" + outSize[0] + "x" + outSize[1] + " mime=" + info.getMimeType() + " target=" + width + "x" + height + " limit=" + limitSize);
             if (needSquare && width != height) {
               if (width > height) {
                 decoder.setCrop(new Rect(width / 2 - height / 2, 0, width / 2 + height / 2 + height % 2, height));
@@ -242,10 +223,8 @@ public class ImageReader {
             Log.i(Log.TAG_IMAGE_LOADER, "#%s: Couldn't blur bitmap, resultCode: %d", file.toString(), res);
           }
         }
-        hd(file, "ImageDecoder result=" + hd(bitmap));
         return bitmap;
       } catch (Throwable t) {
-        hd(file, "ImageDecoder failed: " + android.util.Log.getStackTraceString(t));
         Log.e("#%s: Can't decode bitmap using modern API, getting to fallback", t, file.toString());
       }
     }
@@ -262,7 +241,6 @@ public class ImageReader {
       if (limitSize != 0) {
         opts.inSampleSize = calculateInSampleSize(opts, limitSize, limitSize);
       }
-      hd(file, "BitmapFactory bounds=" + opts.outWidth + "x" + opts.outHeight + " mime=" + opts.outMimeType + " sample=" + opts.inSampleSize);
     }
 
     if (Log.isEnabled(Log.TAG_IMAGE_LOADER)) {
@@ -382,11 +360,9 @@ public class ImageReader {
         }
       }
     } catch (Throwable t) {
-      hd(file, "BitmapFactory failed: " + android.util.Log.getStackTraceString(t));
       Log.e(Log.TAG_IMAGE_LOADER, "#%s: Cannot load bitmap, config: %s", t, file.toString(), opts.inPreferredConfig.toString());
       bitmap = null;
     }
-    hd(file, "BitmapFactory result=" + hd(bitmap) + " config=" + opts.inPreferredConfig);
 
     if (bitmap != null) {
       if (file.isPrivate()) {

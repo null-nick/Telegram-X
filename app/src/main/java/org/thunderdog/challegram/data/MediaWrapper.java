@@ -994,9 +994,6 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
     if (size == 0 && photo != null && Math.max(contentWidth, contentHeight) > MAX_BITMAP_SIZE) {
       size = MAX_BITMAP_SIZE;
     }
-    if (HD_DEBUG && photo != null) {
-      android.util.Log.i(HD_DEBUG_TAG, "setImageScaling msg=" + sourceMessageId + " size=" + size + " content=" + contentWidth + "x" + contentHeight + " current=" + (targetImageFile != null ? targetImageFile.getSize() + " key=" + targetImageFile : "null"));
-    }
     if (targetImageFile != null && targetImageFile.getSize() != size) {
       targetImageFile.setSize(size);
       return showImage();
