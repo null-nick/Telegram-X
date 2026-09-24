@@ -66,7 +66,7 @@ public class Config {
 
   public static final boolean ENABLE_BASELINE_PROFILE_HOOKS = BuildConfig.LAB_FLAVOR;
 
-  public static final boolean ENABLE_DELETE_CALL_HISTORY = BuildConfig.DEBUG;
+  public static final boolean ENABLE_DELETE_CALL_HISTORY = true;//BuildConfig.DEBUG;
 
   public static final boolean DEBUG_TDLIB_REFERENCES = false;
 
