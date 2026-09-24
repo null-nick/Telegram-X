@@ -502,7 +502,7 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           view.getToggler().setRadioEnabled(Lang.rtl(), isUpdate);
         } else if (itemId == R.id.btn_toggleNewSetting) {
           updateSettingView(view, item, isUpdate);
-        } else if (itemId == R.id.btn_experiment || itemId == R.id.btn_sendHqPhoto) {
+        } else if (itemId == R.id.btn_experiment) {
           view.getToggler().setRadioEnabled(Settings.instance().isExperimentEnabled(item.getLongValue()), isUpdate);
         } else if (itemId == R.id.btn_unifiedPushToggle) {
           UnifiedPushHelper.UnifiedPushState state = getUnifiedPushState();
@@ -640,18 +640,6 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
           view.setData(Strings.buildSize(logSize[1]));
         } else if (itemId == R.id.btn_tdlib_androidLogs) {
           view.getToggler().setRadioEnabled(Settings.instance().getLogSettings().needAndroidLog(), isUpdate);
-        } else if (itemId == R.id.btn_resolutionOption) {
-          switch (Settings.instance().getResolutionOption()) {
-            case Settings.RESOLUTION_OPTION_LOW:
-              view.setData(R.string.ResolutionLow);
-              break;
-            case Settings.RESOLUTION_OPTION_MEDIUM:
-              view.setData(R.string.ResolutionMedium);
-              break;
-            case Settings.RESOLUTION_OPTION_HIGH:
-              view.setData(R.string.ResolutionHigh);
-              break;
-          }
         }
       }
     };
@@ -784,14 +772,6 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
         items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
         items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, R.string.Experiment_PeerIdsInfo));
 
-        items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
-        items.add(new ListItem(ListItem.TYPE_RADIO_SETTING, R.id.btn_sendHqPhoto, 0, R.string.Experiment_SendHQPhoto).setLongValue(Settings.EXPERIMENT_FLAG_SEND_HQ_PHOTO));
-        if (Settings.instance().sendHqPhotos()) {
-          items.add(new ListItem(ListItem.TYPE_SEPARATOR_FULL, R.id.sep_resolutionOption));
-          items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_resolutionOption, 0, R.string.Experiment_ResolutionOption));
-        }
-        items.add(new ListItem(ListItem.TYPE_SHADOW_BOTTOM));
-        items.add(new ListItem(ListItem.TYPE_DESCRIPTION, 0, 0, Lang.getMarkdownStringSecure(this, R.string.Experiment_ResolutionInfo)));
         if (TelegramXExtension.INSTANCE.isNotEmpty()) {
           if (!items.isEmpty()) {
             items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
@@ -1226,10 +1206,6 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       Settings.instance().setNeedRtl(Lang.packId(), adapter.toggleView(v));
     } else if (viewId == R.id.btn_toggleNewSetting) {
       handleSettingClick(v, adapter);
-    } else if (viewId == R.id.btn_sendHqPhoto) {
-      if (Settings.instance().setExperimentEnabled(Settings.EXPERIMENT_FLAG_SEND_HQ_PHOTO, adapter.toggleView(v))) {
-        updateResolutionSelectorVisibility();
-      }
     } else if (viewId == R.id.btn_experiment) {
       ListItem item = (ListItem) v.getTag();
       if (Settings.instance().setExperimentEnabled(item.getLongValue(), adapter.toggleView(v))) {
@@ -1538,8 +1514,6 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       viewTdlibLog(v, true);
     } else if (viewId == R.id.btn_tdlib_androidLogs) {
       Settings.instance().getLogSettings().setNeedAndroidLog(adapter.toggleView(v));
-    } else if (viewId == R.id.btn_resolutionOption) {
-      showResolutionOption();
     }
   }
 
@@ -1691,24 +1665,6 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
     };
   }
 
-  private void updateResolutionSelectorVisibility () {
-    int hqIndex = adapter.indexOfViewById(R.id.btn_sendHqPhoto);
-    if (hqIndex == -1) {
-      return;
-    }
-    if (Settings.instance().sendHqPhotos()) {
-      if (adapter.indexOfViewById(R.id.btn_resolutionOption) == -1) {
-        adapter.addItems(hqIndex + 1,
-          new ListItem(ListItem.TYPE_SEPARATOR_FULL, R.id.sep_resolutionOption),
-          new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_resolutionOption, 0, R.string.Experiment_ResolutionOption)
-        );
-      }
-    } else {
-      adapter.removeItemById(R.id.btn_resolutionOption);
-      adapter.removeItemById(R.id.sep_resolutionOption);
-    }
-  }
-
   private void refreshUnifiedPushRows () {
     UnifiedPushHelper.UnifiedPushState state = getUnifiedPushState();
     int idx = adapter.indexOfViewById(R.id.btn_unifiedPushDistributor);
@@ -1828,26 +1784,5 @@ public class SettingsBugController extends RecyclerViewController<SettingsBugCon
       Log.setEnabledTags(tags);
       adapter.updateValuedSettingById(R.id.btn_log_tags);
     }
-  }
-
-  private void showResolutionOption () {
-    int resolutionOption = Settings.instance().getResolutionOption();
-    showSettings(new SettingsWrapBuilder(R.id.btn_resolutionOption).setRawItems(new ListItem[] {
-      new ListItem(ListItem.TYPE_RADIO_OPTION, R.id.btn_resolutionLow, 0, R.string.ResolutionLow, R.id.btn_resolutionOption, resolutionOption == Settings.RESOLUTION_OPTION_LOW),
-      new ListItem(ListItem.TYPE_RADIO_OPTION, R.id.btn_resolutionMedium, 0, R.string.ResolutionMedium, R.id.btn_resolutionOption, resolutionOption == Settings.RESOLUTION_OPTION_MEDIUM),
-      new ListItem(ListItem.TYPE_RADIO_OPTION, R.id.btn_resolutionHigh, 0, R.string.ResolutionHigh, R.id.btn_resolutionOption, resolutionOption == Settings.RESOLUTION_OPTION_HIGH),
-    }).setAllowResize(false).addHeaderItem(Lang.getString(R.string.Experiment_ResolutionInfo)).setIntDelegate((id, result) -> {
-      int newResolutionOption = Settings.instance().getResolutionOption();
-      int resolutionResult = result.get(R.id.btn_resolutionOption);
-      if (resolutionResult == R.id.btn_resolutionLow) {
-        newResolutionOption = Settings.RESOLUTION_OPTION_LOW;
-      } else if (resolutionResult == R.id.btn_resolutionMedium) {
-        newResolutionOption = Settings.RESOLUTION_OPTION_MEDIUM;
-      } else if (resolutionResult == R.id.btn_resolutionHigh) {
-        newResolutionOption = Settings.RESOLUTION_OPTION_HIGH;
-      }
-      Settings.instance().setResolutionOption(newResolutionOption);
-      adapter.updateValuedSettingById(R.id.btn_resolutionOption);
-    }));
   }
 }

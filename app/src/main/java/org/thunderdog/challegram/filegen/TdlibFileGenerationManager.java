@@ -195,7 +195,16 @@ public final class TdlibFileGenerationManager {
       case TASK_GENERATE_PHOTO: {
         PhotoGenerationInfo info = (PhotoGenerationInfo) msg.obj;
         try {
-          generatePhoto(info);
+          try {
+            generatePhoto(info);
+          } catch (OutOfMemoryError e) {
+            if (info.getResolutionLimit() <= PhotoGenerationInfo.SIZE_LIMIT) {
+              throw e;
+            }
+            Log.e("Not enough memory to generate HD photo, falling back to SD", e);
+            info.setResolutionLimit(PhotoGenerationInfo.SIZE_LIMIT);
+            generatePhoto(info);
+          }
         } catch (Throwable t) {
           Log.e("Cannot generate photo", t);
           failGeneration(info, ERROR_UNKNOWN, "Unknown error, see logs for details");
@@ -1028,24 +1037,7 @@ public final class TdlibFileGenerationManager {
     final boolean applyLessCompression = U.isScreenshotFolder(originalPath);
     boolean isTransparent = info.getAllowTransparency() || (!applyLessCompression && isTransparent(originalPath, uri));
 
-    final int defaultSizeLimit;
-    if (Settings.instance().sendHqPhotos()) {
-      switch (Settings.instance().getResolutionOption()) {
-        case Settings.RESOLUTION_OPTION_LOW:
-          defaultSizeLimit = 800;
-          break;
-        case Settings.RESOLUTION_OPTION_HIGH:
-          defaultSizeLimit = 2560;
-          break;
-        case Settings.RESOLUTION_OPTION_MEDIUM:
-        default:
-          defaultSizeLimit = PhotoGenerationInfo.SIZE_LIMIT;
-          break;
-      }
-    } else {
-      defaultSizeLimit = PhotoGenerationInfo.SIZE_LIMIT;
-    }
-    final int maxSize = info.getResolutionLimit() != 0 ? info.getResolutionLimit() : defaultSizeLimit;
+    final int maxSize = info.getResolutionLimit() != 0 ? info.getResolutionLimit() : PhotoGenerationInfo.SIZE_LIMIT;
 
     final boolean saveToGallery = Settings.instance().needSaveEditedMediaToGallery() && info.isEdited();
 

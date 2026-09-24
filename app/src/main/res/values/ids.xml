@@ -889,6 +889,7 @@
   <item type="id" name="btn_bold" />
   <item type="id" name="btn_italic" />
   <item type="id" name="btn_spoiler" />
+  <item type="id" name="btn_hd" />
   <item type="id" name="btn_strikethrough" />
   <item type="id" name="btn_underline" />
   <item type="id" name="btn_monospace" />
@@ -1490,15 +1491,6 @@
   <item type="id" name="btn_themeExportSetAuthor" />
 
   <item type="id" name="btn_featureToggles" />
-
-  <!-- RESOLUTION ID SECTION -->
-
-  <item type="id" name="btn_sendHqPhoto" />
-  <item type="id" name="btn_resolutionLow" />
-  <item type="id" name="btn_resolutionMedium" />
-  <item type="id" name="btn_resolutionHigh" />
-  <item type="id" name="btn_resolutionOption" />
-  <item type="id" name="sep_resolutionOption" />
 
   <!-- * -->
 
