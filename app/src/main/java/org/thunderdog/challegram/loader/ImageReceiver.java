@@ -683,6 +683,7 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
   }
 
   public void requestFile (ImageFile file) {
+    ImageReader.hd(file, "receiver.requestFile detached=" + isDetached + " current=" + this.file + " view=" + getWidth() + "x" + getHeight());
     if (isDetached) {
       cachedFile = file;
       return;
@@ -756,6 +757,7 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
   }
 
   private void setBitmap (Bitmap bitmap) {
+    ImageReader.hd(file, "receiver.setBitmap bitmap=" + ImageReader.hd(bitmap));
     if (this.bitmap != bitmap) {
       this.bitmap = bitmap;
       if (bitmapShader != null) {
@@ -992,6 +994,7 @@ public class ImageReceiver implements Watcher, ValueAnimator.AnimatorUpdateListe
 
   @Override
   public void imageLoaded (ImageFile file, boolean successful, Bitmap bitmap) {
+    ImageReader.hd(file, "receiver.imageLoaded success=" + successful + " bitmap=" + ImageReader.hd(bitmap) + " current=" + this.file + " matches=" + compareToFile(this.file, file));
     ImageFile currentFile = this.file;
     if (compareToFile(currentFile, file)) {
       if (successful) {
