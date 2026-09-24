@@ -355,6 +355,7 @@ android {
     buildConfigString("THEME_FILE_EXTENSION", App.THEME_EXTENSION)
 
     buildConfigField("boolean", "USE_NTGCALLS", config.useNTgCalls.toString())
+    buildConfigField("boolean", "RECORD_CRASHES", config.recordCrashes.toString())
 
     // Library versions in BuildConfig.java
 

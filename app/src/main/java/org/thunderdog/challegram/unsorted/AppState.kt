@@ -56,7 +56,7 @@ private fun initApplicationImpl() {
     TdlibNotificationUtils.initialize()
   }
 
-  if (BuildConfig.DEBUG || BuildConfig.EXPERIMENTAL) {
+  if (BuildConfig.DEBUG || BuildConfig.EXPERIMENTAL || BuildConfig.RECORD_CRASHES) {
     trace("CrashReporter") {
       val defaultUncaughtExceptionHandler = Thread.getDefaultUncaughtExceptionHandler()
       val isCrashing = AtomicBoolean(false)

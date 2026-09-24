@@ -92,6 +92,7 @@ data class ApplicationConfig(
   val forceOptimize: Boolean,
   val doNotObfuscate: Boolean,
   val useNTgCalls: Boolean,
+  val recordCrashes: Boolean,
 
   val build: BuildVersions,
 

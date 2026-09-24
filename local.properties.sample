@@ -30,3 +30,6 @@ youtube.api_key=
 
 ## Extension module to apply.
 tgx.extension=none
+
+## Store uncaught exceptions and show recovery screen on next launch in release builds.
+# app.record_crashes=true

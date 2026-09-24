@@ -80,6 +80,8 @@ abstract class AppConfigurationSource : ValueSource<ApplicationConfig, AppConfig
           properties.getProperty("app.dontobfuscate")?.toBoolean() ?: false,
       useNTgCalls =
         properties.getProperty("app.ntgcalls")?.toBoolean() ?: false,
+      recordCrashes =
+        properties.getProperty("app.record_crashes")?.toBoolean() ?: false,
       telegramApiId =
         properties.getIntOrThrow("telegram.api_id"),
       telegramApiHash =
