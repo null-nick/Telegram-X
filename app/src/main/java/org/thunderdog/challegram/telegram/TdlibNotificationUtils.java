@@ -331,11 +331,44 @@ public class TdlibNotificationUtils {
   }
 
   static PendingIntent newIntent (int accountId, long forLocalChatId, long specificMessageId) {
-    return PendingIntent.getActivity(UI.getContext(), 0, forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId) : Intents.valueOfMain(accountId), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(true));
+    // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+    return newIntent(accountId, forLocalChatId, specificMessageId, null);
+  }
+
+  static PendingIntent newIntent (
+    int accountId,
+    long forLocalChatId,
+    long specificMessageId,
+    @Nullable TdApi.MessageTopic topic
+  ) {
+    return PendingIntent.getActivity(
+      UI.getContext(),
+      0,
+      newCoreIntent(accountId, forLocalChatId, specificMessageId, topic),
+      PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(true)
+    );
+    // endregion
   }
 
   static Intent newCoreIntent (int accountId, long forLocalChatId, long specificMessageId) {
-    return forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId) : Intents.valueOfMain(accountId);
+    // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+    return newCoreIntent(accountId, forLocalChatId, specificMessageId, null);
+  }
+
+  static Intent newCoreIntent (
+    int accountId,
+    long forLocalChatId,
+    long specificMessageId,
+    @Nullable TdApi.MessageTopic topic
+  ) {
+    Intent intent = forLocalChatId != 0 ? Intents.valueOfLocalChatId(
+      accountId,
+      forLocalChatId,
+      specificMessageId
+    ) : Intents.valueOfMain(accountId);
+    Td.put(intent, "topic_id", topic);
+    return intent;
+    // endregion
   }
 
   private static final String KEY_PREFIX_SHORTCUT = "tgx_ns_";
@@ -369,6 +402,20 @@ public class TdlibNotificationUtils {
     long messageId,
     @Nullable Bitmap icon
   ) {
+    return newChatShortcut(context, accountId, shortcutId, title, localChatId, messageId, null, icon);
+  }
+
+  @RequiresApi(Build.VERSION_CODES.R)
+  static ShortcutInfoCompat newChatShortcut (
+    Context context,
+    int accountId,
+    String shortcutId,
+    CharSequence title,
+    long localChatId,
+    long messageId,
+    @Nullable TdApi.MessageTopic topic,
+    @Nullable Bitmap icon
+  ) {
     IconCompat chatIcon = U.isValidBitmap(icon) ? IconCompat.createWithBitmap(icon) : null;
     Person person = new Person.Builder()
       .setName(title)
@@ -380,7 +427,7 @@ public class TdlibNotificationUtils {
       .setIsConversation()
       .setLongLived(true)
       .setShortLabel(title)
-      .setIntent(newCoreIntent(accountId, localChatId, messageId))
+      .setIntent(newCoreIntent(accountId, localChatId, messageId, topic))
       .setIcon(chatIcon)
       .build();
   }

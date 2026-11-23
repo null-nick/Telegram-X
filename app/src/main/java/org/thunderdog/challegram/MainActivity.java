@@ -79,6 +79,9 @@ import org.thunderdog.challegram.ui.IntroController;
 import org.thunderdog.challegram.ui.ListItem;
 import org.thunderdog.challegram.ui.MainController;
 import org.thunderdog.challegram.ui.MessagesController;
+// region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+import org.thunderdog.challegram.ui.ForumTopicsController;
+// endregion
 import org.thunderdog.challegram.ui.PasscodeController;
 import org.thunderdog.challegram.ui.PasswordController;
 import org.thunderdog.challegram.ui.PhoneController;
@@ -843,7 +846,14 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
       }
       long messageId = intent.getLongExtra("message_id", 0);
       if (accountId != TdlibAccount.NO_ID && chatId != 0) {
-        openMessagesController(accountId, chatId, messageId);
+        // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+        openMessagesController(
+          accountId,
+          chatId,
+          messageId,
+          intent.getExtras() != null ? Td.restoreMessageTopic(intent.getExtras(), "topic_id") : null
+        );
+        // endregion
         return true;
       } else {
         Log.e("Cannot open chat, no information found: %s", intent);
@@ -1213,6 +1223,9 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
     }
 
     outState.putInt(BUNDLE_ACCOUNT_ID, account.id);
+    // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+    navigation.forumContainer().saveState(outState);
+    // endregion
 
     /*if (current.getId() == R.id.controller_messages ||
        (current.getId() == R.id.controller_passcode && !((PasscodeController) current).inSetupMode() && current.getChatId() != 0)) {
@@ -1282,6 +1295,9 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
     }*/
 
     if (restoreType == BUNDLE_RESTORE_TYPE_COMPLEX) {
+      // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+      navigation.forumContainer().restoreState(in, account.tdlib());
+      // endregion
       int stackSize = in.getInt(BUNDLE_ITEM_COUNT);
       if (stackSize <= 0) {
         return INSTANCE_NOT_RESTORED;
@@ -1333,6 +1349,16 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
       restore = new PasscodeController(context, tdlib);
     } else if (id == R.id.controller_messages) {
       restore = new MessagesController(context, tdlib);
+    // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+    } else if (id == R.id.controller_forumTopics) {
+      restore = new ForumTopicsController(context, tdlib);
+    } else if (id == R.id.controller_forumTopicProfile) {
+      restore = new org.thunderdog.challegram.ui.ForumTopicProfileController(context, tdlib);
+    } else if (id == R.id.controller_forumTopicEdit) {
+      restore = new org.thunderdog.challegram.ui.ForumTopicEditController(context, tdlib);
+    } else if (id == R.id.controller_forumTopicNotifications) {
+      restore = new org.thunderdog.challegram.ui.ForumTopicNotificationController(context, tdlib);
+    // endregion
     } else if (id == R.id.controller_profile) {
       restore = new ProfileController(context, tdlib);
     } else if (id == R.id.controller_themeSettings) {
@@ -1437,6 +1463,15 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
     return m != null ? m : createIfNeeded ? createMessagesController(tdlib) : null;
   }
 
+  // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+  /** The navigation stack, not this cache, owns destruction of the outgoing host. */
+  public void forgetMessagesController (MessagesController expected) {
+    if (messageControllers.get(expected.tdlib().id()) == expected) {
+      messageControllers.remove(expected.tdlib().id());
+    }
+  }
+
+  // endregion
   private void openMainController (int accountId) {
     if (navigation.isEmpty()) {
       initDefault(accountId, true);
@@ -1466,13 +1501,25 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
   }
 
   private void openMessagesController (int accountId, long chatId, long specificMessageId) {
-    openMessagesController(accountId, chatId, specificMessageId, false);
+    openMessagesController(accountId, chatId, specificMessageId, null, false);
   }
+
+  // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+  private void openMessagesController (
+    int accountId,
+    long chatId,
+    long specificMessageId,
+    @Nullable TdApi.MessageTopic topicId
+  ) {
+    openMessagesController(accountId, chatId, specificMessageId, topicId, false);
+  }
+  // endregion
 
   private void openMessagesController (
     int accountId,
     long chatId,
     long specificMessageId,
+    @Nullable TdApi.MessageTopic topicId,
     boolean startCall
   ) {
     final Tdlib tdlib = TdlibManager.instanceForAccountId(accountId).account(accountId).tdlib();
@@ -1480,7 +1527,11 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
       tdlib.incrementUiReferenceCount();
       handler.post(() -> {
         final TdlibContext context = new TdlibContext(this, tdlib);
-        final TdlibUi.ChatOpenParameters params = new TdlibUi.ChatOpenParameters().onDone(tdlib::decrementUiReferenceCount);
+        // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+        final TdlibUi.ChatOpenParameters params = new TdlibUi.ChatOpenParameters()
+          .messageTopic(topicId)
+          .onDone(tdlib::decrementUiReferenceCount);
+        // endregion
         if (specificMessageId != 0)
           params.highlightMessage(new MessageId(chatId, specificMessageId));
         if (startCall) {
@@ -1510,7 +1561,7 @@ public class MainActivity extends BaseActivity implements GlobalAccountListener,
       ((MessagesController) current).compareChat(chatId)) {
       current.tdlib().context().calls().makeCall(current, userId, null);
     } else {
-      openMessagesController(accountId, chatId, 0, true);
+      openMessagesController(accountId, chatId, 0, null, true);
     }
   }
 
