@@ -109,6 +109,14 @@ public class MediaLayout extends FrameLayoutFix implements
     void onSendPhoto (ImageGalleryFile file, boolean isFirst);
   }
 
+  /** Selection for an embedded document. The picker must never send to a chat. */
+  public interface ArticleCallback extends MediaCallback {
+    void onMediaSelected (ImageGalleryFile file, boolean asFile, boolean spoiler);
+    void onFileSelected (String path, boolean audio);
+    void onLocationSelected (TdApi.Location location, String title);
+    void onOpenGallery (boolean asFile);
+  }
+
   public static final long REVEAL_DURATION = 220l;
   public static final long REVEAL_HIDE_DURATION = 285l;
 
@@ -218,7 +226,7 @@ public class MediaLayout extends FrameLayoutFix implements
     this.needHd = Settings.instance().getNewSetting(Settings.SETTING_FLAG_SEND_HD_PHOTOS);
     this.rtl = Lang.rtl();
     this.needVote = false;
-    final MediaBottomBar.BarItem[] items;
+    MediaBottomBar.BarItem[] items;
     final int index;
 
     switch (mode) {
@@ -268,7 +276,14 @@ public class MediaLayout extends FrameLayoutFix implements
               new MediaBottomBar.BarItem(R.drawable.deproko_baseline_bots_24, R.string.InlineBot, ColorId.attachInlineBot)
           };
         }
-        index = 2;
+        if (target != null && target.canOpenArticleEditor()) {
+          MediaBottomBar.BarItem article = new MediaBottomBar.BarItem(R.drawable.article_document_24, R.string.Article, ColorId.attachFile);
+          MediaBottomBar.BarItem[] expandedItems = new MediaBottomBar.BarItem[items.length + 1];
+          System.arraycopy(items, 0, expandedItems, rtl ? 1 : 0, items.length);
+          expandedItems[rtl ? 0 : items.length] = article;
+          items = expandedItems;
+        }
+        index = rtl ? items.length - 3 : 2;
         mode = MODE_DEFAULT;
         break;
       }
@@ -382,6 +397,8 @@ public class MediaLayout extends FrameLayoutFix implements
   public void setCallback (@NonNull MediaCallback callback) {
     this.callback = callback;
   }
+
+  public boolean isArticlePicker () { return callback instanceof ArticleCallback; }
 
   public boolean inSpecificMode () {
     return mode != MODE_DEFAULT;
@@ -696,7 +713,14 @@ public class MediaLayout extends FrameLayoutFix implements
       return false;
     }
 
-    switch (toIndex) {
+    switch (rtl ? controllers.length - toIndex - 1 : toIndex) {
+      case 5: {
+        if (target != null) {
+          target.openArticleEditor(null);
+          hide(false);
+        }
+        return false;
+      }
       case 3: {
         boolean googleMapsInstalled;
         try {
@@ -1176,6 +1200,11 @@ public class MediaLayout extends FrameLayoutFix implements
   }
 
   public void sendFilesMixed (View view, List<String> files, ArrayList<MediaBottomFilesController.MusicEntry> musicFiles, TdApi.MessageSendOptions options, boolean isMultiSend) {
+    if (callback instanceof ArticleCallback) {
+      if (files != null) for (String file : files) ((ArticleCallback) callback).onFileSelected(file, false);
+      if (musicFiles != null) for (MediaBottomFilesController.MusicEntry file : musicFiles) ((ArticleCallback) callback).onFileSelected(file.getPath(), true);
+      hide(isMultiSend); return;
+    }
     if ((files == null || files.isEmpty()) && (musicFiles == null || musicFiles.isEmpty()))
       return;
     if (files != null && !files.isEmpty()) {
@@ -1214,6 +1243,7 @@ public class MediaLayout extends FrameLayoutFix implements
   }
 
   public void sendFile (View v, String file) {
+    if (callback instanceof ArticleCallback) { ((ArticleCallback) callback).onFileSelected(file, false); hide(false); return; }
     List<String> files = Collections.singletonList(file);
     if (target != null && target.showFilesRestriction(v, files, null)) {
       return;
@@ -1224,6 +1254,7 @@ public class MediaLayout extends FrameLayoutFix implements
   }
 
   public void sendMusic (View view, MediaBottomFilesController.MusicEntry musicFile) {
+    if (callback instanceof ArticleCallback) { ((ArticleCallback) callback).onFileSelected(musicFile.getPath(), true); hide(false); return; }
     if (target != null && target.showRestriction(view, RightId.SEND_AUDIO)) {
       return;
     }
@@ -1332,7 +1363,9 @@ public class MediaLayout extends FrameLayoutFix implements
         if (galleryFile.getFilePath() != null) {
           galleryFiles.add(galleryFile);
         }
-        if (callback != null && callback instanceof MediaGalleryCallback) {
+        if (callback instanceof ArticleCallback) {
+          ((ArticleCallback) callback).onMediaSelected(galleryFile, asFiles, allowSpoiler && needSpoiler);
+        } else if (callback instanceof MediaGalleryCallback) {
           if (galleryFile.isVideo()) {
             ((MediaGalleryCallback) callback).onSendVideo(galleryFile, first);
           } else {
@@ -1362,6 +1395,7 @@ public class MediaLayout extends FrameLayoutFix implements
   }
 
   public void sendVenue (MediaLocationData place) {
+    if (callback instanceof ArticleCallback) { ((ArticleCallback) callback).onLocationSelected(new TdApi.Location(place.getLatitude(), place.getLongitude(), 0), place.getTitle()); hide(false); return; }
     pickDateOrProceed((sendOptions, disableMarkdown) -> {
       if (target != null) {
         target.send(place.convertToInputMessage(), true, sendOptions, null);
@@ -1372,6 +1406,7 @@ public class MediaLayout extends FrameLayoutFix implements
   }
 
   public void sendLocation (double latitude, double longitude, double accuracy, int heading, int livePeriod) {
+    if (callback instanceof ArticleCallback) { ((ArticleCallback) callback).onLocationSelected(new TdApi.Location(latitude, longitude, accuracy), ""); hide(false); return; }
     pickDateOrProceed((sendOptions, disableMarkdown) -> {
       if (target != null) {
         TdApi.Location location = new TdApi.Location(latitude, longitude, accuracy);
@@ -1395,6 +1430,7 @@ public class MediaLayout extends FrameLayoutFix implements
 
   public void openGallery (boolean sendAsFile) {
     hide(false);
+    if (callback instanceof ArticleCallback) { ((ArticleCallback) callback).onOpenGallery(sendAsFile); return; }
     UI.openGalleryDelayed(UI.getContext(getContext()), sendAsFile);
   }
 
@@ -1513,7 +1549,7 @@ public class MediaLayout extends FrameLayoutFix implements
       groupMediaFactor = needGroupMedia ? 1f : 0f;
       bottomBar.addView(counterHintView);
 
-      sendButton = new SendButton(getContext(), R.drawable.deproko_baseline_send_24) {
+      sendButton = new SendButton(getContext(), isArticlePicker() ? R.drawable.baseline_check_24 : R.drawable.deproko_baseline_send_24) {
         @Override
         public boolean onTouchEvent (MotionEvent e) {
           return isEnabled() && Views.isValid(this) && super.onTouchEvent(e);

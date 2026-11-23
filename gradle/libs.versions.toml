@@ -1,5 +1,6 @@
 [versions]
 android-gradle-plugin = "9.5.2"
+jlatexmath = "0.2.0"
 
 kotlin = "2.4.21"
 ksp = "2.3.13"
@@ -152,6 +153,7 @@ google-mlkit-language-id-legacy = "16.1.1"
 
 [libraries]
 androidx-webkit = { module = "androidx.webkit:webkit", version.ref = "androidx-webkit" }
+jlatexmath-android = { module = "ru.noties:jlatexmath-android", version.ref = "jlatexmath" }
 desugaring = { module = "com.android.tools:desugar_jdk_libs", version.ref = "desugaring" }
 androidx-multidex = { module = "androidx.multidex:multidex", version.ref = "androidx-multidex" }
 

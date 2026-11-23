@@ -7435,6 +7435,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
     pendingMessageCaptions.clear();
     animatedDiceExplicit.clear();
     suggestedActions.clear();
+    textCompositionStyles = new TdApi.TextCompositionStyle[0];
     resetOptions();
     sessionsInfo = null;
     animatedTgxEmoji.clear();
@@ -9496,6 +9497,8 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
   }
 
   private final List<TdApi.SuggestedAction> suggestedActions = new ArrayList<>();
+  private volatile TdApi.TextCompositionStyle[] textCompositionStyles = new TdApi.TextCompositionStyle[0];
+  public TdApi.TextCompositionStyle[] textCompositionStyles () { return textCompositionStyles.clone(); }
 
   @TdlibThread
   private void updateSuggestedActions (TdApi.UpdateSuggestedActions update) {
@@ -10731,7 +10734,12 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
       case TdApi.UpdateActiveGiftAuctions.CONSTRUCTOR:
       case TdApi.UpdateStakeDiceState.CONSTRUCTOR:
       case TdApi.UpdateNewOauthRequest.CONSTRUCTOR:
+        break;
+
       case TdApi.UpdateTextCompositionStyles.CONSTRUCTOR:
+        textCompositionStyles = ((TdApi.UpdateTextCompositionStyles) update).styles.clone();
+        break;
+
       case TdApi.UpdateAllowedBotUsernamePremiumSuffixes.CONSTRUCTOR:
       case TdApi.UpdateTonWalletGaslessTransfersInfo.CONSTRUCTOR:
       case TdApi.UpdateTonWalletState.CONSTRUCTOR:

@@ -248,6 +248,7 @@ data class TdlibOptions(
   @JvmField var forceInAppUpdate: Boolean = false,
   @JvmField var youtubePipDisabled: Boolean = false,
   @JvmField var richMessagePostingDisabled: Boolean = false,
+  @JvmField var richMessagePosting: String = "premium",
 
   @JvmField var stickersEmojiSuggestOnlyApi: Boolean = false,
 
@@ -710,8 +711,10 @@ data class TdlibOptions(
         forceInAppUpdate = value.boolValue()
       "youtube_pip" ->
         youtubePipDisabled = value.stringValue() == "disabled"
-      "rich_message_posting" ->
+      "rich_message_posting" -> {
+        richMessagePosting = value.stringValue()
         richMessagePostingDisabled = value.stringValue() == "disabled"
+      }
 
       "stickers_emoji_suggest_only_api" ->
         stickersEmojiSuggestOnlyApi = value.boolValue()
@@ -871,3 +874,5 @@ data class RtcServer(
     map["password"]?.stringValue() ?: ""
   )
 }
+
+const val DEFAULT_EMOJIES_ANIMATED_ZOOM = .75

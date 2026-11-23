@@ -310,6 +310,7 @@ public class TextPart {
     final float textSize = paint.getTextSize();
     final int textY = y + source.getAscent(textSize) + paint.baselineShift;
     drawText(c, end, x, textY, paint);
+    drawDiffUnderline(c, x, textY, paint.measureText(line, start, end), alpha);
   }
 
   private void drawText (Canvas c, int end, float x, float y, TextPaint paint) {
@@ -319,6 +320,19 @@ public class TextPart {
     } else {
       c.drawText(line, start, end, x, y, paint);
     }
+  }
+
+  private void drawDiffUnderline (Canvas canvas, float x, float baseline, float width, float alpha) {
+    if (!(entity instanceof TextEntityCustom) || !((TextEntityCustom) entity).isDiffReplacement()) return;
+    android.graphics.Path wave = new android.graphics.Path();
+    float step = Screen.dp(2), y = baseline + Screen.dp(2);
+    wave.moveTo(x, y);
+    for (float offset = 0; offset < width; offset += step * 2) {
+      float half = Math.min(step, width - offset), whole = Math.min(step * 2, width - offset);
+      wave.quadTo(x + offset + half, y + step, x + offset + whole, y);
+    }
+    android.graphics.Paint paint = Paints.strokeSmallPaint(ColorUtils.alphaColor(alpha, org.thunderdog.challegram.theme.Theme.textLinkColor()));
+    canvas.drawPath(wave, paint);
   }
 
   private void drawError (Canvas c, float cx, float cy, float radius, float alpha, int color) {
@@ -450,6 +464,7 @@ public class TextPart {
       } else {
         drawText(c, end, x, textY, textPaint);
       }
+      drawDiffUnderline(c, x, textY, width, alpha);
     }
   }
 

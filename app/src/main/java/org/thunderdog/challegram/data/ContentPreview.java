@@ -285,7 +285,9 @@ public class ContentPreview {
       }
       case TdApi.MessageRichMessage.CONSTRUCTOR: {
         TdApi.MessageRichMessage richMessage = (TdApi.MessageRichMessage) message.content;
-        // TODO rich message text representation
+        if (allowContent) {
+          alternativeText = org.thunderdog.challegram.data.article.ArticleRichText.preview(richMessage.message, 256);
+        }
         break;
       }
       case TdApi.MessageAnimatedEmoji.CONSTRUCTOR: {
@@ -1294,6 +1296,8 @@ public class ContentPreview {
 
   private static @NonNull ContentPreview getSimpleContentPreview (@TdApi.MessageContent.Constructors int type, Tdlib tdlib, long chatId, TdApi.MessageSender sender, String senderName, boolean isOutgoing, boolean isChatsList, TdApi.FormattedText formattedArgument, boolean argumentTranslatable, long arg1, long arg2) {
     switch (type) {
+      case TdApi.MessageRichMessage.CONSTRUCTOR:
+        return new ContentPreview(EMOJI_FILE, R.string.Article, formattedArgument, argumentTranslatable);
       case TdApi.MessageText.CONSTRUCTOR:
         return new ContentPreview(arg1 == ARG_TRUE ? EMOJI_LINK : null, R.string.YouHaveNewMessage, formattedArgument, argumentTranslatable);
       case TdApi.MessageAnimatedEmoji.CONSTRUCTOR:
@@ -1648,7 +1652,6 @@ public class ContentPreview {
       case TdApi.MessageBotInvite.CONSTRUCTOR:
       case TdApi.MessagePollOptionAdded.CONSTRUCTOR:
       case TdApi.MessagePollOptionDeleted.CONSTRUCTOR:
-      case TdApi.MessageRichMessage.CONSTRUCTOR:
       case TdApi.MessageChatAddedToCommunity.CONSTRUCTOR:
       case TdApi.MessageChatRemovedFromCommunity.CONSTRUCTOR:
       case TdApi.MessageTonConnectRequest.CONSTRUCTOR:

@@ -1480,4 +1480,6 @@
   <item type="id" name="btn_playback_speed_2_0" />
   <item type="id" name="btn_proxyWeb" />
   <item type="id" name="edit_proxy_path" />
+  <item type="id" name="controller_articleEditor" />
+  <item type="id" name="controller_articlePreview" />
 </resources>
