@@ -4,7 +4,7 @@ import android.content.Context
 import org.drinkless.tdlib.TdApi
 import org.thunderdog.challegram.Log
 import org.thunderdog.challegram.U
-import org.thunderdog.challegram.tool.UI
+import org.thunderdog.challegram.unsorted.AppContext
 import org.thunderdog.challegram.unsorted.Settings
 import org.unifiedpush.android.connector.UnifiedPush
 import tgx.bridge.PushManagerBridge
@@ -78,7 +78,7 @@ object UnifiedPushHelper {
   }
 
   fun handleNewEndpoint(context: Context, endpoint: String) {
-    UI.initApp(context.applicationContext)
+    AppContext.init(context.applicationContext)
     val deviceToken = TdApi.DeviceTokenSimplePush(endpoint)
     Settings.instance().isUnifiedPushEnabled = true
     PushManagerBridge.onNewToken(context.applicationContext, deviceToken)
@@ -94,7 +94,7 @@ object UnifiedPushHelper {
   }
 
   fun handleMessage(context: Context, message: ByteArray, sentTime: Long, ttl: Int) {
-    UI.initApp(context.applicationContext)
+    AppContext.init(context.applicationContext)
     val payload = try {
       String(message, StandardCharsets.UTF_8)
     } catch (t: Throwable) {

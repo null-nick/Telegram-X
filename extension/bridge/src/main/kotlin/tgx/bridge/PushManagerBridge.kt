@@ -8,6 +8,10 @@ interface DeviceTokenRetrieverFactory {
   fun onCreateNewTokenRetriever(context: Context): DeviceTokenRetriever
 }
 
+interface PushManagerFactory {
+  fun onCreatePushManager(): PushManager
+}
+
 interface PushManager {
   fun onNewToken (context: Context, token: DeviceToken)
   fun onMessageReceived (context: Context, message: Map<String, Any>, sentTime: Long, ttl: Int)
@@ -18,12 +22,20 @@ interface PushManager {
 
 object PushManagerBridge {
   lateinit var applicationScope: CoroutineScope
-  lateinit var manager: PushManager
+  lateinit var managerFactory: PushManagerFactory
   lateinit var deviceTokenRetrieverFactory: DeviceTokenRetrieverFactory
 
-  @JvmStatic fun initialize (applicationScope: CoroutineScope, receiver: PushManager, deviceTokenRetrieverFactory: DeviceTokenRetrieverFactory) {
+  private val manager by lazy {
+    managerFactory.onCreatePushManager()
+  }
+
+  @JvmStatic fun initialize (
+    applicationScope: CoroutineScope,
+    managerFactory: PushManagerFactory,
+    deviceTokenRetrieverFactory: DeviceTokenRetrieverFactory
+  ) {
     this.applicationScope = applicationScope
-    this.manager = receiver
+    this.managerFactory = managerFactory
     this.deviceTokenRetrieverFactory = deviceTokenRetrieverFactory
   }
 

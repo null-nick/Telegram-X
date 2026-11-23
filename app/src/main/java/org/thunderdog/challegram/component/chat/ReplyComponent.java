@@ -1042,6 +1042,7 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
             case TdApi.LinkPreviewTypeStoryAlbum.CONSTRUCTOR:
             case TdApi.LinkPreviewTypeSupergroupBoost.CONSTRUCTOR:
             case TdApi.LinkPreviewTypeRequestManagedBot.CONSTRUCTOR:
+            case TdApi.LinkPreviewTypeBotInvite.CONSTRUCTOR:
             case TdApi.LinkPreviewTypeTheme.CONSTRUCTOR:
             case TdApi.LinkPreviewTypeUnsupported.CONSTRUCTOR:
             case TdApi.LinkPreviewTypeUpgradedGift.CONSTRUCTOR:
@@ -1054,7 +1055,7 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
             case TdApi.LinkPreviewTypeTextCompositionStyle.CONSTRUCTOR:
               break;
             default:
-              Td.assertLinkPreviewType_883de866();
+              Td.assertLinkPreviewType_821de27a();
               throw Td.unsupported(linkPreview.type);
           }
         }
