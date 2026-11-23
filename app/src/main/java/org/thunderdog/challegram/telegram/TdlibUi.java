@@ -110,7 +110,6 @@ import org.thunderdog.challegram.ui.MessagesController;
 import org.thunderdog.challegram.ui.PasscodeController;
 import org.thunderdog.challegram.ui.PasscodeSetupController;
 import org.thunderdog.challegram.ui.PasswordController;
-import org.thunderdog.challegram.ui.PaymentFormController;
 import org.thunderdog.challegram.ui.PhoneController;
 import org.thunderdog.challegram.ui.ProfileController;
 import org.thunderdog.challegram.ui.RequestController;
@@ -128,7 +127,6 @@ import org.thunderdog.challegram.ui.SettingsPrivacyController;
 import org.thunderdog.challegram.ui.SettingsPrivacyKeyController;
 import org.thunderdog.challegram.ui.SettingsProxyController;
 import org.thunderdog.challegram.ui.SettingsSessionsController;
-import org.thunderdog.challegram.ui.SettingsStarsController;
 import org.thunderdog.challegram.ui.SettingsStickersAndEmojiController;
 import org.thunderdog.challegram.ui.SettingsThemeController;
 import org.thunderdog.challegram.ui.SettingsWebsitesController;
@@ -4133,26 +4131,10 @@ public class TdlibUi extends Handler {
       case TdApi.InternalLinkTypeAttachmentMenuBot.CONSTRUCTOR:
       case TdApi.InternalLinkTypeWebApp.CONSTRUCTOR:
       case TdApi.InternalLinkTypeMainWebApp.CONSTRUCTOR:
-      case TdApi.InternalLinkTypePremiumFeaturesPage.CONSTRUCTOR:
+
+      case TdApi.InternalLinkTypeInvoice.CONSTRUCTOR:
+
       case TdApi.InternalLinkTypeRestorePurchases.CONSTRUCTOR:
-      {
-        showLinkTooltip(tdlib, R.drawable.baseline_warning_24, Lang.getString(R.string.InternalUrlUnsupported), openParameters);
-        break;
-      }
-
-      case TdApi.InternalLinkTypeInvoice.CONSTRUCTOR: {
-        TdApi.InternalLinkTypeInvoice invoice = (TdApi.InternalLinkTypeInvoice) linkType;
-        openPaymentForm(context, invoice.invoiceName, openParameters, after);
-        break;
-      }
-
-      case TdApi.InternalLinkTypeStarPurchase.CONSTRUCTOR: {
-        TdApi.InternalLinkTypeStarPurchase buyStars = (TdApi.InternalLinkTypeStarPurchase) linkType;
-        SettingsStarsController starsController = new SettingsStarsController(context.context(), tdlib);
-        starsController.setArguments(new SettingsStarsController.Args(buyStars.starCount, buyStars.purpose));
-        context.context().navigation().navigateTo(starsController);
-        break;
-      }
       case TdApi.InternalLinkTypeChatBoost.CONSTRUCTOR:
       case TdApi.InternalLinkTypeGiftCollection.CONSTRUCTOR:
       case TdApi.InternalLinkTypeGiftAuction.CONSTRUCTOR:
@@ -4170,11 +4152,13 @@ public class TdlibUi extends Handler {
       case TdApi.InternalLinkTypeNewPrivateChat.CONSTRUCTOR:
       case TdApi.InternalLinkTypeNewStory.CONSTRUCTOR:
       case TdApi.InternalLinkTypeOauth.CONSTRUCTOR:
+      case TdApi.InternalLinkTypePremiumFeaturesPage.CONSTRUCTOR:
       case TdApi.InternalLinkTypePremiumGiftPurchase.CONSTRUCTOR:
       case TdApi.InternalLinkTypeRequestManagedBot.CONSTRUCTOR:
       case TdApi.InternalLinkTypeBotInvite.CONSTRUCTOR:
       case TdApi.InternalLinkTypeSavedMessages.CONSTRUCTOR:
       case TdApi.InternalLinkTypeSearch.CONSTRUCTOR:
+      case TdApi.InternalLinkTypeStarPurchase.CONSTRUCTOR:
       case TdApi.InternalLinkTypeTextCompositionStyle.CONSTRUCTOR:
       case TdApi.InternalLinkTypeTonConnect.CONSTRUCTOR:
       case TdApi.InternalLinkTypeTonWalletTransfer.CONSTRUCTOR: {
@@ -8314,74 +8298,5 @@ public class TdlibUi extends Handler {
         act.run();
       }
     }
-  }
-
-  // Payment
-
-  public void openPaymentForm (ViewController<?> context, TdApi.PaymentForm paymentForm, TdApi.InputInvoice inputInvoice) {
-    if (paymentForm.type instanceof TdApi.PaymentFormTypeRegular) {
-      PaymentFormController formController = new PaymentFormController(context.context(), tdlib);
-      formController.setArguments(new PaymentFormController.Args(paymentForm, inputInvoice, 0));
-      context.navigateTo(formController);
-    } else if (paymentForm.type instanceof TdApi.PaymentFormTypeStars) {
-      TdApi.PaymentFormTypeStars starsType = (TdApi.PaymentFormTypeStars) paymentForm.type;
-      showStarsPaymentConfirmation(context, paymentForm, inputInvoice, starsType.starCount);
-    } else {
-      UI.showToast(R.string.PaymentUnsupportedType, Toast.LENGTH_SHORT);
-    }
-  }
-
-  private void showStarsPaymentConfirmation (ViewController<?> context, TdApi.PaymentForm paymentForm, TdApi.InputInvoice inputInvoice, long starCount) {
-    String message = Lang.getString(R.string.StarsPayConfirmMessage, starCount);
-    context.showOptions(
-      message,
-      new int[] { R.id.btn_done, R.id.btn_cancel },
-      new String[] { Lang.getString(R.string.StarsPayConfirm, starCount), Lang.getString(R.string.Cancel) },
-      new int[] { ViewController.OptionColor.BLUE, ViewController.OptionColor.NORMAL },
-      new int[] { R.drawable.baseline_star_24, R.drawable.baseline_cancel_24 },
-      (view, optionId) -> {
-        if (optionId == R.id.btn_done) {
-          sendStarsPayment(paymentForm, inputInvoice);
-        }
-        return true;
-      }
-    );
-  }
-
-  private void sendStarsPayment (TdApi.PaymentForm paymentForm, TdApi.InputInvoice inputInvoice) {
-    UI.showToast(R.string.PaymentProcessing, Toast.LENGTH_SHORT);
-    tdlib.send(new TdApi.SendPaymentForm(inputInvoice, paymentForm.id, "", "", null, 0), (result, error) -> {
-      UI.post(() -> {
-        if (error != null) {
-          UI.showToast(Lang.getString(R.string.StarsPaymentFailed, TD.toErrorString(error)), Toast.LENGTH_SHORT);
-        } else {
-          UI.showToast(R.string.StarsPaymentSuccess, Toast.LENGTH_SHORT);
-        }
-      });
-    });
-  }
-
-  public void openPaymentForm (TdlibDelegate context, String invoiceName, @Nullable UrlOpenParameters openParameters, @Nullable RunnableBool after) {
-    UI.showToast(R.string.LoadingPaymentForm, Toast.LENGTH_SHORT);
-    TdApi.InputInvoiceName inputInvoice = new TdApi.InputInvoiceName(invoiceName);
-    tdlib.send(new TdApi.GetPaymentForm(inputInvoice, null), (result, error) -> {
-      UI.post(() -> {
-        if (error != null) {
-          UI.showToast(TD.toErrorString(error), Toast.LENGTH_SHORT);
-          if (after != null) {
-            after.runWithBool(false);
-          }
-        } else {
-          TdApi.PaymentForm paymentForm = (TdApi.PaymentForm) result;
-          ViewController<?> controller = context.context().navigation().getCurrentStackItem();
-          if (controller != null) {
-            openPaymentForm(controller, paymentForm, inputInvoice);
-          }
-          if (after != null) {
-            after.runWithBool(true);
-          }
-        }
-      });
-    });
   }
 }

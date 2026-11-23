@@ -14,7 +14,6 @@
  */
 package org.thunderdog.challegram.ui;
 
-import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
@@ -157,11 +156,6 @@ public class SettingsController extends ViewController<Void> implements
       supportOpen.cancel();
       supportOpen = null;
     }
-  }
-
-  private void launchPremiumPurchase () {
-    // Navigate to Premium settings screen
-    navigateTo(new SettingsPremiumController(context, tdlib));
   }
 
   @Override
@@ -690,8 +684,6 @@ public class SettingsController extends ViewController<Void> implements
 
     items.add(new ListItem(ListItem.TYPE_SHADOW_TOP));
     items.add(new ListItem(ListItem.TYPE_VALUED_SETTING_COMPACT, R.id.btn_devices, R.drawable.baseline_devices_other_24, R.string.Devices));
-    items.add(new ListItem(ListItem.TYPE_SEPARATOR));
-    items.add(new ListItem(ListItem.TYPE_SETTING, R.id.btn_premium, R.drawable.baseline_premium_star_24, R.string.TelegramPremium));
     items.add(new ListItem(ListItem.TYPE_SEPARATOR));
 
     checkErrors(false);
@@ -1260,8 +1252,6 @@ public class SettingsController extends ViewController<Void> implements
       tdlib.ui().openCallSettings(this);
     } else if (viewId == R.id.btn_devices) {
       navigateTo(new SettingsSessionsController(context, tdlib));
-    } else if (viewId == R.id.btn_premium) {
-      launchPremiumPurchase();
     } else if (viewId == R.id.btn_checkUpdates) {
       openInstallerPage(((AppInstallationUtil.DownloadUrl) ((ListItem) v.getTag()).getData()));
     } else if (viewId == R.id.btn_subscribeToBeta) {

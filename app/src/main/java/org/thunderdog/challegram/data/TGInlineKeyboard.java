@@ -25,7 +25,6 @@ import android.graphics.drawable.Drawable;
 import android.text.TextPaint;
 import android.view.MotionEvent;
 import android.view.View;
-import android.widget.Toast;
 
 import androidx.annotation.DrawableRes;
 import androidx.annotation.NonNull;
@@ -451,11 +450,8 @@ public class TGInlineKeyboard {
       this.wrapper = new EmojiString(text, maxWidth, textPaint);
       this.type = button.type;
       if (type.getConstructor() == TdApi.InlineKeyboardButtonTypeBuy.CONSTRUCTOR) {
-        // Only get currency char if the message is actually an invoice
-        if (parent.getMessage().content.getConstructor() == TdApi.MessageInvoice.CONSTRUCTOR) {
-          currencyChar = CurrencyUtils.getCurrencyChar(((TdApi.MessageInvoice) parent.getMessage().content).currency);
-          currencyCharWidth = U.measureText(currencyChar, Paints.getBoldTextPaint(CURRENCY_TEXT_SIZE_DP));
-        }
+        currencyChar = CurrencyUtils.getCurrencyChar(((TdApi.MessageInvoice) parent.getMessage().content).currency);
+        currencyCharWidth = U.measureText(currencyChar, Paints.getBoldTextPaint(CURRENCY_TEXT_SIZE_DP));
       }
     }
 
@@ -1152,24 +1148,7 @@ public class TGInlineKeyboard {
       }
 
       switch (type.getConstructor()) {
-        case TdApi.InlineKeyboardButtonTypeBuy.CONSTRUCTOR: {
-          // Open payment form for this message
-          makeActive();
-          showProgressDelayed();
-          TdApi.InputInvoiceMessage inputInvoice = new TdApi.InputInvoiceMessage(parent.getChatId(), context.messageId);
-          context.context.tdlib.send(new TdApi.GetPaymentForm(inputInvoice, null), (result, error) -> {
-            parent.executeOnUiThreadOptional(() -> {
-              makeInactive();
-              if (error != null) {
-                UI.showToast(TD.toErrorString(error), Toast.LENGTH_SHORT);
-              } else {
-                TdApi.PaymentForm paymentForm = (TdApi.PaymentForm) result;
-                context.context.tdlib.ui().openPaymentForm(context.context.messagesController(), paymentForm, inputInvoice);
-              }
-            });
-          });
-          break;
-        }
+        case TdApi.InlineKeyboardButtonTypeBuy.CONSTRUCTOR:
         case TdApi.InlineKeyboardButtonTypeCopyText.CONSTRUCTOR:
         case TdApi.InlineKeyboardButtonTypeWebApp.CONSTRUCTOR:
           // TODO
