@@ -80,7 +80,6 @@ import org.thunderdog.challegram.data.TGMessage;
 import org.thunderdog.challegram.data.TGMessageMedia;
 import org.thunderdog.challegram.data.TGMessageText;
 import org.thunderdog.challegram.data.TGWebPage;
-import org.thunderdog.challegram.filegen.PhotoGenerationInfo;
 import org.thunderdog.challegram.loader.AvatarReceiver;
 import org.thunderdog.challegram.loader.DoubleImageReceiver;
 import org.thunderdog.challegram.loader.ImageCache;
@@ -7395,52 +7394,16 @@ public class MediaViewController extends ViewController<MediaViewController.Args
 
   private void applyFiltersAsync (final int futureSection) {
     editorView.getBitmapAsync(bitmap -> {
-      if (bitmap == null) {
-        setUIBlocked(false);
+      setUIBlocked(false);
+      if (bitmap != null) {
+        ImageFilteredFile filteredFile = stack.getCurrent().setFiltersState(currentFiltersState);
+        tdlib.filegen().saveFilteredBitmap(filteredFile, bitmap);
+        applyFilteredBitmap(filteredFile, bitmap);
+        changeSectionImpl(futureSection);
+      } else {
         UI.showToast("Error while saving changes, sorry", Toast.LENGTH_SHORT);
-        return;
       }
-      if (!needFullSizeFilters(bitmap)) {
-        onFiltersApplied(futureSection, bitmap, null);
-        return;
-      }
-      ImageGalleryFile sourceFile = new ImageGalleryFile(currentSourceFile);
-      sourceFile.setSize(PhotoGenerationInfo.SIZE_LIMIT_HD);
-      ImageReader.instance().post(() -> {
-        Bitmap source = ImageReader.readImage(sourceFile, sourceFile.getFilePath());
-        if (source != null && source.getConfig() != Bitmap.Config.ARGB_8888) {
-          source = source.copy(Bitmap.Config.ARGB_8888, false);
-        }
-        final Bitmap fullSizeSource = source;
-        UI.post(() -> {
-          if (isDestroyed()) {
-            return;
-          }
-          if (fullSizeSource == null || editorView == null) {
-            onFiltersApplied(futureSection, bitmap, null);
-            return;
-          }
-          editorView.getBitmapAsync(fullSizeSource, fullSizeBitmap -> {
-            if (!isDestroyed()) {
-              onFiltersApplied(futureSection, bitmap, fullSizeBitmap);
-            }
-          });
-        });
-      });
     });
-  }
-
-  private boolean needFullSizeFilters (Bitmap bitmap) {
-    return Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && sendDelegate != null && sendDelegate.isSendHdEnabled() && currentSourceFile != null && Math.max(currentSourceFile.getWidth(), currentSourceFile.getHeight()) > Math.max(bitmap.getWidth(), bitmap.getHeight());
-  }
-
-  private void onFiltersApplied (int futureSection, Bitmap bitmap, @Nullable Bitmap fullSizeBitmap) {
-    setUIBlocked(false);
-    currentFiltersState.setHdExported(fullSizeBitmap != null);
-    ImageFilteredFile filteredFile = stack.getCurrent().setFiltersState(currentFiltersState);
-    tdlib.filegen().saveFilteredBitmap(filteredFile, fullSizeBitmap != null ? fullSizeBitmap : bitmap);
-    applyFilteredBitmap(filteredFile, bitmap);
-    changeSectionImpl(futureSection);
   }
 
   private void changeSectionImpl (int section) {
@@ -8797,7 +8760,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
         @Override
         public boolean sendSelectedItems (View view, ArrayList<ImageFile> images, TdApi.MessageSendOptions options, boolean disableMarkdown, boolean asFiles, boolean showCaptionAboveMedia, boolean hasSpoiler) {
           ImageGalleryFile galleryFile = (ImageGalleryFile) images.get(0);
-          return onSendMedia(galleryFile, options, disableMarkdown, asFiles, showCaptionAboveMedia, hasSpoiler, isSendHdEnabled());
+          return onSendMedia(galleryFile, options, disableMarkdown, asFiles, showCaptionAboveMedia, hasSpoiler);
         }
 
         @Override
@@ -8806,7 +8769,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
           mediaStack.getCurrent().setHasSpoiler(hideMedia);
         }
 
-        private boolean onSendMedia (ImageGalleryFile file, TdApi.MessageSendOptions options, boolean disableMarkdown, boolean asFiles, boolean showCaptionAboveMedia, boolean hasSpoiler, boolean isHd) {
+        private boolean onSendMedia (ImageGalleryFile file, TdApi.MessageSendOptions options, boolean disableMarkdown, boolean asFiles, boolean showCaptionAboveMedia, boolean hasSpoiler) {
           MessagesController m = findOutputController();
           if (m != null) {
             final MediaItem oldItem = forceEditModeOld_arguments != null && forceEditModeOld_arguments.stack != null ?
@@ -8844,7 +8807,7 @@ public class MediaViewController extends ViewController<MediaViewController.Args
               }
               return false;
             }
-            return m.sendPhotosAndVideosCompressed(new ImageGalleryFile[] {file}, false, options, disableMarkdown, asFiles, showCaptionAboveMedia, hasSpoiler, isHd);
+            return m.sendPhotosAndVideosCompressed(new ImageGalleryFile[] {file}, false, options, disableMarkdown, asFiles, showCaptionAboveMedia, hasSpoiler);
           }
           return false;
         }
@@ -8999,20 +8962,6 @@ public class MediaViewController extends ViewController<MediaViewController.Args
 
     if (chat != null && !hasFlag(Args.FLAG_DISALLOW_SEND_BUTTON_HAPTIC_MENU)) {
       tdlib.ui().createSimpleHapticMenu(this, chat.id, () -> currentActiveButton == 0, this::canDisableMarkdown, () -> true, hapticItems -> {
-        MediaItem currentItem = stack.getCurrent();
-        if (sendDelegate != null && sendDelegate.allowSendHd() && currentItem != null && !currentItem.isVideo()) {
-          hapticItems.add(0,
-            new HapticMenuHelper.MenuItem(R.id.btn_hd, Lang.getString(R.string.SendHd), R.drawable.baseline_hd_24)
-              .setIsCheckbox(true, sendDelegate.isSendHdEnabled())
-              .setOnClickListener((view, parentView, item) -> {
-                if (view.getId() == R.id.btn_hd) {
-                  sendDelegate.onSendHdStateChanged(item.isCheckboxSelected);
-                  return true;
-                }
-                return false;
-              })
-          );
-        }
         if (sendDelegate != null && sendDelegate.allowHideMedia()) {
           hapticItems.add(0,
             new HapticMenuHelper.MenuItem(R.id.btn_spoiler, Lang.getString(R.string.HideMedia), R.drawable.deproko_baseline_whatshot_24)

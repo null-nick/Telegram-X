@@ -47,7 +47,6 @@ import org.thunderdog.challegram.R;
 import org.thunderdog.challegram.U;
 import org.thunderdog.challegram.config.Config;
 import org.thunderdog.challegram.core.Lang;
-import org.thunderdog.challegram.filegen.PhotoGenerationInfo;
 import org.thunderdog.challegram.loader.DoubleImageReceiver;
 import org.thunderdog.challegram.loader.ImageFile;
 import org.thunderdog.challegram.loader.ImageFileLocal;
@@ -672,13 +671,10 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
     }
   }
 
-  private int targetMaxSide;
-
   private boolean setTargetSize (@Nullable TdApi.PhotoSize targetSize) {
     if (isSameContent(this.targetFile, targetSize != null ? targetSize.photo : null)) {
       return false;
     }
-    this.targetMaxSide = targetSize != null ? Math.max(targetSize.width, targetSize.height) : 0;
     if (targetSize != null) {
       this.targetFile = targetSize.photo;
       this.targetImageFile = new ImageFile(tdlib, targetSize.photo);
@@ -966,9 +962,6 @@ public class MediaWrapper implements FileProgressComponent.SimpleListener, FileP
 
   public boolean setImageScaling (int size) {
     size = Math.min(MAX_BITMAP_SIZE, size);
-    if (size == 0 && targetMaxSide > PhotoGenerationInfo.SIZE_LIMIT) {
-      size = PhotoGenerationInfo.SIZE_LIMIT;
-    }
     if (targetImageFile != null && targetImageFile.getSize() != size) {
       targetImageFile.setSize(size);
       return showImage();

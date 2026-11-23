@@ -113,7 +113,6 @@
   <string name="login_PremiumRequiredTitle">Telegram Premium required</string>
   <string name="login_PremiumRequiredBtn">Visit telegram.org</string>
   <string name="login_PremiumRequired">**Telegram Premium** is required to proceed.\n\nUnfortunately, it\'s currently not possible to make in-app purchases through **Telegram X**.\n\nPlease use one of other official apps and enter the same phone number to set up the subscription.</string>
-  <string name="PaidReactionInsufficientStars">You don\'t have enough Stars for this reaction. Buy Stars in Settings.</string>
   <string name="login_error">Error: %1$s. __Contact us__, if you need help.</string>
   <string name="login_Code">Code</string>
   <string name="login_LastDigits_one">Last %1$s digit</string>
@@ -2749,7 +2748,6 @@
   <string name="RingtoneCustom">Custom</string>
   <string name="IncognitoKeyboard">Incognito Keyboard</string>
   <string name="IncognitoKeyboardInfo">Request keyboard to not update any personalized data such as typing history and personalized language model based on what you type in Secret Chats.\n\nBe aware that this setting is not a guarantee, and some IMEs may not respect it.</string>
-  <string name="Story">Story</string>
   <string name="FailureMessageText">This message could not be displayed because of an error. We are very sorry for that.\n\nPlease copy the scary error details below and submit them to @tgandroidtests so we can investigate the issue. Thank you!</string>
   <string name="PrivacyCallsP2PTitle2">Peer-to-Peer in Calls</string>
   <string name="PeerToPeerInfo">Disabling peer-to-peer will relay all calls through Telegram servers to avoid revealing your IP address, but may decrease audio quality.</string>
@@ -5483,7 +5481,6 @@
 
   <string name="MediaSpoilerHint">Media will be blurred inside the chat and reveal after additional tap.</string>
   <string name="HideMedia">Hide media</string>
-  <string name="SendHd">Send in HD</string>
   <string name="MediaHapticForward">Forward</string>
 
   <string name="ShowXMoreStickers_one">show %1$s more</string>
@@ -5690,6 +5687,8 @@
   <string name="BasicGroupId">Group ID</string>
   <string name="SuperGroupId">Supergroup ID</string>
   <string name="ChannelId">Channel ID</string>
+
+
 
   <string name="BoostingGiveawayJustStarted">%1$s just started a giveaway of Telegram Premium subscriptions for its followers.</string>
   <string name="BoostingGiveawayServiceWinnersSelected_one">%1$s winner of the giveaway was randomly selected by Telegram and received their gift link in a private message.</string>
