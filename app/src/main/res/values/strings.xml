@@ -2464,7 +2464,6 @@
   <string name="EventLogForumTopicUnhidden">%1$s made topic %2$s visible</string>
   <string name="EventLogForumTopicUnhiddenYou">You made topic %1$s visible</string>
 
-
   <string name="EventLogMutedNewParticipants">%1$s muted new video chat participants</string>
   <string name="EventLogUnmutedNewParticipants">%1$s allowed new video chat participants to speak</string>
   <string name="EventLogMutedNewParticipantsYou">You muted new video chat participants</string>
@@ -3378,7 +3377,7 @@
   <string name="ColorHue">H</string>
   <string name="ColorSaturation">S</string>
   <string name="ColorLightness">L</string>
-  <string name="ColorAlphaPercentage">A%%</string>
+  <string name="ColorAlphaPercentage">A%</string>
 
   <string name="ThemeEditName">Edit Name</string>
   <string name="ThemeEditWallpaper">Edit Wallpaper</string>
@@ -5681,8 +5680,6 @@
   <string name="SuperGroupId">Supergroup ID</string>
   <string name="ChannelId">Channel ID</string>
 
-
-
   <string name="BoostingGiveawayJustStarted">%1$s just started a giveaway of Telegram Premium subscriptions for its followers.</string>
   <string name="BoostingGiveawayServiceWinnersSelected_one">%1$s winner of the giveaway was randomly selected by Telegram and received their gift link in a private message.</string>
   <string name="BoostingGiveawayServiceWinnersSelected_other">%1$s winners of the giveaway were randomly selected by Telegram and received their gift link in a private message.</string>
@@ -5996,7 +5993,6 @@
   <string name="PlaybackSpeedHintHold">Hold to access more options</string>
   <string name="PlaybackSpeedHintSwipe">Hold and swipe horizontally for precise adjustment</string>
   <string name="PlaybackSpeedHintTemplate">%1$s.\n%2$s.</string>
-
 
   <string name="DeactivatedBot">deactivated bot</string>
 
