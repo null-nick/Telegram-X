@@ -479,7 +479,7 @@ public class ThreadInfo {
     notifyMessageThreadReadInbox();
   }
 
-  public void updateReadOutbox (long lastReadOutboxMessageId) {
+  private void updateReadOutbox (long lastReadOutboxMessageId) {
     TdApi.MessageReplyInfo replyInfo = threadInfo.replyInfo;
     if (replyInfo == null || replyInfo.lastReadOutboxMessageId >= lastReadOutboxMessageId)
       return;

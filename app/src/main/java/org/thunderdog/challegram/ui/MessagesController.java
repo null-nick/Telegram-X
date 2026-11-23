@@ -2825,7 +2825,6 @@ public class MessagesController extends ViewController<MessagesController.Argume
       updateForcedSubtitle(); // must be called before calling headerCell.setChat
       headerCell.setCallback(areScheduled ? null : this);
     }
-
     TdApi.Chat headerChat = messageThread != null ? tdlib.chatSync(messageThread.getContextChatId()) : null;
     headerCell.setChat(tdlib, headerChat != null ? headerChat : chat, messageThread);
 
