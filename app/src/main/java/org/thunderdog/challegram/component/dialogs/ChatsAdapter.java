@@ -32,7 +32,6 @@ import org.thunderdog.challegram.data.TGChat;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.ui.ChatsController;
 import org.thunderdog.challegram.v.ChatsRecyclerView;
-import org.thunderdog.challegram.widget.StoryBarView;
 import org.thunderdog.challegram.widget.SuggestedChatsView;
 
 import java.lang.annotation.Retention;
@@ -209,10 +208,6 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
         holder.setChatIds(suggestedChatIds);
         break;
       }
-      case VIEW_TYPE_STORY_BAR: {
-        // Story bar manages its own state via setActiveStories
-        break;
-      }
     }
   }
 
@@ -255,9 +250,6 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
   @Override
   public int getItemCount () {
     int itemCount = 0;
-    if (hasStoryBar()) {
-      itemCount++;
-    }
     if (hasSuggestedChats()) {
       itemCount++;
     }
@@ -279,55 +271,7 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
     return suggestedChatIds.length > 0;
   }
 
-  private boolean showStoryBar = false;
-
-  public void setShowStoryBar (boolean show) {
-    if (this.showStoryBar != show) {
-      boolean hadStoryBar = hasStoryBar();
-      this.showStoryBar = show;
-      if (hadStoryBar && !hasStoryBar()) {
-        notifyItemRemoved(0);
-      } else if (!hadStoryBar && hasStoryBar()) {
-        notifyItemInserted(0);
-      }
-    }
-  }
-
-  public boolean hasStoryBar () {
-    return showStoryBar;
-  }
-
-  private @Nullable StoryBarView storyBarView;
-  private @Nullable java.util.List<TdApi.ChatActiveStories> activeStories;
-  private boolean canPostStory = false;
-
-  public void setStoryBarView (@Nullable StoryBarView view) {
-    this.storyBarView = view;
-    if (view != null && activeStories != null) {
-      view.setActiveStories(activeStories);
-      view.setCanPostStory(canPostStory);
-    }
-  }
-
-  public @Nullable StoryBarView getStoryBarView () {
-    return storyBarView;
-  }
-
-  public void setActiveStories (@Nullable java.util.List<TdApi.ChatActiveStories> stories) {
-    this.activeStories = stories;
-    if (storyBarView != null) {
-      storyBarView.setActiveStories(stories);
-    }
-  }
-
-  public void setCanPostStory (boolean canPost) {
-    this.canPostStory = canPost;
-    if (storyBarView != null) {
-      storyBarView.setCanPostStory(canPost);
-    }
-  }
-
-  @IntDef({VIEW_TYPE_CHAT, VIEW_TYPE_INFO, VIEW_TYPE_EMPTY, VIEW_TYPE_SUGGESTED_CHATS, VIEW_TYPE_STORY_BAR})
+  @IntDef({VIEW_TYPE_CHAT, VIEW_TYPE_INFO, VIEW_TYPE_EMPTY, VIEW_TYPE_SUGGESTED_CHATS})
   public @interface ViewType {
   }
 
@@ -335,15 +279,10 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
   public static final int VIEW_TYPE_INFO = 1;
   public static final int VIEW_TYPE_EMPTY = 2;
   public static final int VIEW_TYPE_SUGGESTED_CHATS = 3;
-  public static final int VIEW_TYPE_STORY_BAR = 4;
 
   @Override
   public int getItemViewType (int position) {
-    if (hasStoryBar() && position == 0) {
-      return VIEW_TYPE_STORY_BAR;
-    }
-    int adjustedPosition = hasStoryBar() ? position - 1 : position;
-    if (hasSuggestedChats() && adjustedPosition == 0) {
+    if (hasSuggestedChats() && position == 0) {
       return VIEW_TYPE_SUGGESTED_CHATS;
     }
     if (hasChats()) {
@@ -389,20 +328,14 @@ public class ChatsAdapter extends RecyclerView.Adapter<ChatsViewHolder> {
     if (chatIndex == -1) {
       return -1;
     }
-    int offset = 0;
-    if (hasStoryBar()) offset++;
-    if (hasSuggestedChats()) offset++;
-    return chatIndex + offset;
+    return hasSuggestedChats() ? chatIndex + 1 : chatIndex;
   }
 
   public int getChatIndexByItemPosition (int itemPosition) {
     if (itemPosition == RecyclerView.NO_POSITION) {
       return -1;
     }
-    int offset = 0;
-    if (hasStoryBar()) offset++;
-    if (hasSuggestedChats()) offset++;
-    return itemPosition - offset;
+    return hasSuggestedChats() ? itemPosition - 1 : itemPosition;
   }
 
   public int findChatItemPosition (long chatId) {

@@ -2887,20 +2887,6 @@ public final class TGMessageService extends TGMessageServiceImpl {
     });
   }
 
-  public TGMessageService (MessagesManager context, TdApi.Message msg, TdApi.MessageStory messageStory) {
-    super(context, msg);
-    TdlibSender storyPoster = new TdlibSender(tdlib, msg.chatId, new TdApi.MessageSenderChat(messageStory.storyPosterChatId));
-    setTextCreator(() ->
-      getText(
-        R.string.SharedStory,
-        new SenderArgument(storyPoster)
-      )
-    );
-    setOnClickListener(() ->
-      tdlib.ui().openStory(context.controller(), messageStory.storyPosterChatId, messageStory.storyId)
-    );
-  }
-
   // Pre-impl: utilities used by constructors
 
   @Override

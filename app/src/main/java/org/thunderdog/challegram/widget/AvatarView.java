@@ -16,10 +16,6 @@ package org.thunderdog.challegram.widget;
 
 import android.content.Context;
 import android.graphics.Canvas;
-import android.graphics.LinearGradient;
-import android.graphics.Paint;
-import android.graphics.RectF;
-import android.graphics.Shader;
 import android.graphics.drawable.Drawable;
 import android.view.MotionEvent;
 import android.view.View;
@@ -39,7 +35,6 @@ import org.thunderdog.challegram.telegram.TdlibAccount;
 import org.thunderdog.challegram.telegram.TdlibCache;
 import org.thunderdog.challegram.theme.ColorId;
 import org.thunderdog.challegram.theme.Theme;
-import org.thunderdog.challegram.unsorted.Settings;
 import org.thunderdog.challegram.tool.Drawables;
 import org.thunderdog.challegram.tool.Paints;
 import org.thunderdog.challegram.tool.Screen;
@@ -54,28 +49,11 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
   private static final int FLAG_NEED_OVERLAY = 0x08;
   private static final int FLAG_CUSTOM_WINDOW_MANAGEMENT = 0x10;
 
-  // Story ring states
-  public static final int STORY_NONE = 0;
-  public static final int STORY_READ = 1;
-  public static final int STORY_UNREAD = 2;
-
-  // Story ring constants
-  private static final int RING_WIDTH_DP = 2;
-  private static final int RING_GAP_DP = 2;
-
-  // Story ring colors
-  private static final int STORY_READ_COLOR = 0xFFAAAAAA;
-
   private int flags;
 
   private final ImageReceiver receiver;
   private ImageReceiver preview;
   private Drawable overlayIcon;
-
-  // Story ring fields
-  private int storyState = STORY_NONE;
-  private Paint storyRingPaint;
-  private RectF storyRingRect;
 
   public AvatarView (Context context) {
     super(context);
@@ -391,80 +369,6 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
     return (flags & FLAG_NO_ROUND) == 0;
   }
 
-  public int getStoryState () {
-    return storyState;
-  }
-
-  public void setStoryState (int state) {
-    if (this.storyState != state) {
-      this.storyState = state;
-      updateStoryRingPaint();
-      invalidate();
-    }
-  }
-
-  private void ensureStoryRingPaint () {
-    if (storyRingPaint == null) {
-      storyRingPaint = new Paint(Paint.ANTI_ALIAS_FLAG);
-      storyRingPaint.setStyle(Paint.Style.STROKE);
-      storyRingPaint.setStrokeWidth(Screen.dp(RING_WIDTH_DP));
-      storyRingRect = new RectF();
-    }
-  }
-
-  private void updateStoryRingPaint () {
-    if (storyState == STORY_NONE) {
-      return;
-    }
-    ensureStoryRingPaint();
-    if (storyState == STORY_UNREAD) {
-      int width = getWidth();
-      int height = getHeight();
-      if (width > 0 && height > 0) {
-        int[] colors = Settings.instance().getStoryRingColors();
-        LinearGradient gradient = new LinearGradient(
-          0, 0, width, height,
-          colors,
-          null,
-          Shader.TileMode.CLAMP
-        );
-        storyRingPaint.setShader(gradient);
-      }
-    } else {
-      storyRingPaint.setShader(null);
-      storyRingPaint.setColor(STORY_READ_COLOR);
-    }
-  }
-
-  @Override
-  protected void onSizeChanged (int w, int h, int oldw, int oldh) {
-    super.onSizeChanged(w, h, oldw, oldh);
-    if (storyState == STORY_UNREAD) {
-      updateStoryRingPaint();
-    }
-  }
-
-  private void drawStoryRing (Canvas c) {
-    if (storyState == STORY_NONE || Settings.instance().hideStories()) {
-      return;
-    }
-    ensureStoryRingPaint();
-
-    float centerX = receiver.centerX();
-    float centerY = receiver.centerY();
-    float avatarRadius = receiver.getRadius();
-    float ringRadius = avatarRadius + Screen.dp(RING_GAP_DP) + Screen.dp(RING_WIDTH_DP) / 2f;
-
-    storyRingRect.set(
-      centerX - ringRadius,
-      centerY - ringRadius,
-      centerX + ringRadius,
-      centerY + ringRadius
-    );
-
-    c.drawOval(storyRingRect, storyRingPaint);
-  }
-
   private void drawPlaceholder (Canvas c, @ColorInt int color) {
     if (needRounds()) {
       c.drawCircle(receiver.centerX(), receiver.centerY(), receiver.getRadius(), Paints.fillingPaint(
@@ -477,10 +381,7 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
 
   @Override
   protected void onDraw (Canvas c) {
-    // Draw story ring first (behind the avatar if needed, but we draw it on top for visibility)
-    boolean hasContent = account != null || getUserId() != 0 || getChatId() != 0;
-
-    if (hasContent) {
+    if (account != null || getUserId() != 0 || getChatId() != 0) {
       if (hasPhoto) {
         if (receiver.needPlaceholder() && (preview == null || preview.needPlaceholder())) {
           drawPlaceholder(c, Theme.placeholderColor());
@@ -500,9 +401,6 @@ public class AvatarView extends View implements Destroyable, TdlibCache.UserData
           drawPlaceholder(c, avatarPlaceholderMetadata != null ? avatarPlaceholderMetadata.accentColor.getPrimaryColor() : Theme.placeholderColor());
         }
       }
-
-      // Draw story ring around the avatar
-      drawStoryRing(c);
     }
     if ((flags & FLAG_NEED_OVERLAY) != 0) {
       if (hasPhoto) {
