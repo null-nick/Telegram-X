@@ -36,10 +36,6 @@ app.download_url=https://telegram.org/dlx
 telegram.api_id=94575
 telegram.api_hash=a3406de8d171bb422bb6ddf3bbd800e2
 
-## Obtain credentials to access YouTube API:
-# https://developers.google.com/youtube/android/player/register
-youtube.api_key=
-
 ## Extension module to apply. One of: none, hms
 tgx.extension=none
 

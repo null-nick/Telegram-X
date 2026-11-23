@@ -2129,12 +2129,6 @@
   <string name="BigReactionsChats">Chats</string>
   <string name="BigReactionsChannels">Channels</string>
   <string name="BigReactionsNone">None</string>
-  <string name="ShowCameraWhileTyping">Camera button</string>
-  <string name="ShowAttachWhileTyping">Attach button</string>
-  <string name="ShowVoiceWhileTyping">Voice button</string>
-  <string name="InputWhileTyping">Show while typing</string>
-  <string name="InputWhileTypingInfo">Select which buttons remain visible when you\'re typing a message. Sending media will use your text as caption.</string>
-  <string name="Input">Input</string>
   <string name="ChannelReactionsAnonymous">Reactions in channels are anonymous</string>
 
   <string name="UserRestrictions">User Permissions</string>
@@ -5818,16 +5812,6 @@
   <string name="GiftLinkShareDesc">You can also %1$s to a friend as a gift.</string>
   <string name="GiftLinkShareDesc_SendThisLink">send this link</string>
 
-  <string name="GiftReceived">Gift Received</string>
-  <string name="GiftSent">Gift Sent</string>
-  <string name="GiftConverted">Gift Converted</string>
-  <string name="GiftUpgraded">Gift Upgraded</string>
-  <string name="GiftRefunded">Gift Refunded</string>
-  <string name="ViewGift">View Gift</string>
-  <string name="xGiftValue_one">Worth %1$s Telegram Star</string>
-  <string name="xGiftValue_other">Worth %1$s Telegram Stars</string>
-  <string name="xGiftCanBeSold_one">Can be converted to %1$s Star</string>
-  <string name="xGiftCanBeSold_other">Can be converted to %1$s Stars</string>
 
   <string name="YouSharedUser">You shared **%1$s**</string>
   <string name="YouSharedUsers_one">You shared **%1$s user**</string>
