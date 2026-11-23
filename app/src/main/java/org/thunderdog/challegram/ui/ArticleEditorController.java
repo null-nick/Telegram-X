@@ -794,7 +794,9 @@ public final class ArticleEditorController extends ViewController<ArticleEditorC
     if (type == R.string.ArticleCode) return new TdApi.InputPageBlockPreformatted(emptyText(), "");
     if (type == R.string.ArticleFooter) return new TdApi.InputPageBlockFooter(emptyText());
     if (type == R.string.ArticleQuote) return new TdApi.InputPageBlockBlockQuote(paragraph(), emptyText());
-    if (type == R.string.ArticleExpandableQuote) return new TdApi.InputPageBlockExpandableBlockQuote(emptyText(), emptyText());
+    if (type == R.string.ArticleExpandableQuote) {
+      return new TdApi.InputPageBlockExpandableBlockQuote(paragraph(), emptyText());
+    }
     if (type == R.string.ArticlePullQuote) return new TdApi.InputPageBlockPullQuote(emptyText(), emptyText());
     if (type == R.string.ArticleList) return new TdApi.InputPageBlockList(new TdApi.InputPageBlockListItem[] {new TdApi.InputPageBlockListItem(paragraph(), false, false, 0, "")});
     if (type == R.string.ArticleDetails) return new TdApi.InputPageBlockDetails(emptyText(), paragraph(), true);

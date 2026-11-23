@@ -85,7 +85,7 @@ public final class ArticleMapper {
       }
       case TdApi.PageBlockExpandableBlockQuote.CONSTRUCTOR: {
         TdApi.PageBlockExpandableBlockQuote b = (TdApi.PageBlockExpandableBlockQuote) raw;
-        return new TdApi.InputPageBlockExpandableBlockQuote(b.text, b.credit);
+        return new TdApi.InputPageBlockExpandableBlockQuote(blocks(b.blocks), b.credit);
       }
       case TdApi.PageBlockPullQuote.CONSTRUCTOR: {
         TdApi.PageBlockPullQuote b = (TdApi.PageBlockPullQuote) raw;

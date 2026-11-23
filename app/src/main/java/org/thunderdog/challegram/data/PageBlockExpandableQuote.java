@@ -22,8 +22,47 @@ public final class PageBlockExpandableQuote extends PageBlockRichText {
   private int fullHeight, visibleHeight;
   private final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
   public PageBlockExpandableQuote (ViewController<?> context, TdApi.PageBlockExpandableBlockQuote quote, int quoteLevel, TdlibUi.UrlOpenParameters parameters) {
-    super(context, quote, Td.isEmpty(quote.credit) ? quote.text : new TdApi.RichTexts(new TdApi.RichText[] {quote.text, new TdApi.RichTextPlain("\n"), new TdApi.RichTextItalic(quote.credit)}), quoteLevel + 1, 16f, false, parameters);
+    super(
+      context,
+      quote,
+      withCredit(joinParagraphs(quote.blocks), quote.credit),
+      quoteLevel + 1,
+      16f,
+      false,
+      parameters
+    );
     label.setTextSize(Screen.dp(14f));
+  }
+  // The quote comes as blocks, but is drawn as one text: only paragraphs are shown
+  private static TdApi.RichText joinParagraphs (TdApi.PageBlock[] blocks) {
+    java.util.ArrayList<TdApi.RichText> parts = new java.util.ArrayList<>();
+    if (blocks != null) {
+      for (TdApi.PageBlock block : blocks) {
+        if (block instanceof TdApi.PageBlockParagraph && !parts.isEmpty()) {
+          parts.add(new TdApi.RichTextPlain("\n"));
+        }
+        if (block instanceof TdApi.PageBlockParagraph) {
+          parts.add(((TdApi.PageBlockParagraph) block).text);
+        }
+      }
+    }
+    if (parts.isEmpty()) {
+      return new TdApi.RichTextPlain("");
+    }
+    if (parts.size() == 1) {
+      return parts.get(0);
+    }
+    return new TdApi.RichTexts(parts.toArray(new TdApi.RichText[0]));
+  }
+  private static TdApi.RichText withCredit (TdApi.RichText text, TdApi.RichText credit) {
+    if (Td.isEmpty(credit)) {
+      return text;
+    }
+    return new TdApi.RichTexts(new TdApi.RichText[] {
+      text,
+      new TdApi.RichTextPlain("\n"),
+      new TdApi.RichTextItalic(credit)
+    });
   }
   @Override protected int computeHeight (View view, int width) {
     fullHeight = super.computeHeight(view, width);

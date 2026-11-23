@@ -449,7 +449,13 @@ public final class ArticleCodec {
       }
       case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: {
         TdApi.InputPageBlockExpandableBlockQuote v = (TdApi.InputPageBlockExpandableBlockQuote) value;
-        write(out, v.text, depth + 1, budget);
+        out.writeInt(v.blocks == null ? -1 : v.blocks.length);
+        if (v.blocks != null) {
+          if (v.blocks.length > MAX_ITEMS) throw new IOException("Article array is too large");
+          for (int i0 = 0; i0 < v.blocks.length; i0++) {
+            write(out, v.blocks[i0], depth + 1, budget);
+          }
+        }
         write(out, v.credit, depth + 1, budget);
         return;
       }
@@ -1117,7 +1123,13 @@ public final class ArticleCodec {
       }
       case TdApi.PageBlockExpandableBlockQuote.CONSTRUCTOR: {
         TdApi.PageBlockExpandableBlockQuote v = (TdApi.PageBlockExpandableBlockQuote) value;
-        write(out, v.text, depth + 1, budget);
+        out.writeInt(v.blocks == null ? -1 : v.blocks.length);
+        if (v.blocks != null) {
+          if (v.blocks.length > MAX_ITEMS) throw new IOException("Article array is too large");
+          for (int i0 = 0; i0 < v.blocks.length; i0++) {
+            write(out, v.blocks[i0], depth + 1, budget);
+          }
+        }
         write(out, v.credit, depth + 1, budget);
         return;
       }
@@ -2309,7 +2321,15 @@ public final class ArticleCodec {
       }
       case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: {
         TdApi.InputPageBlockExpandableBlockQuote v = new TdApi.InputPageBlockExpandableBlockQuote();
-        v.text = (TdApi.RichText) read(in, depth + 1, budget);
+        {
+          int n0 = length(in);
+          if (n0 >= 0) {
+            v.blocks = new TdApi.InputPageBlock[n0];
+            for (int i0 = 0; i0 < n0; i0++) {
+              v.blocks[i0] = (TdApi.InputPageBlock) read(in, depth + 1, budget);
+            }
+          }
+        }
         v.credit = (TdApi.RichText) read(in, depth + 1, budget);
         return v;
       }
@@ -3005,7 +3025,15 @@ public final class ArticleCodec {
       }
       case TdApi.PageBlockExpandableBlockQuote.CONSTRUCTOR: {
         TdApi.PageBlockExpandableBlockQuote v = new TdApi.PageBlockExpandableBlockQuote();
-        v.text = (TdApi.RichText) read(in, depth + 1, budget);
+        {
+          int n0 = length(in);
+          if (n0 >= 0) {
+            v.blocks = new TdApi.PageBlock[n0];
+            for (int i0 = 0; i0 < n0; i0++) {
+              v.blocks[i0] = (TdApi.PageBlock) read(in, depth + 1, budget);
+            }
+          }
+        }
         v.credit = (TdApi.RichText) read(in, depth + 1, budget);
         return v;
       }
@@ -4111,7 +4139,11 @@ public final class ArticleCodec {
       }
       case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: {
         TdApi.InputPageBlockExpandableBlockQuote v = (TdApi.InputPageBlockExpandableBlockQuote) value;
-        visit(v.text, visitor, depth + 1, budget);
+        if (v.blocks != null) {
+          for (int i0 = 0; i0 < v.blocks.length; i0++) {
+            visit(v.blocks[i0], visitor, depth + 1, budget);
+          }
+        }
         visit(v.credit, visitor, depth + 1, budget);
         return;
       }
@@ -4600,7 +4632,11 @@ public final class ArticleCodec {
       }
       case TdApi.PageBlockExpandableBlockQuote.CONSTRUCTOR: {
         TdApi.PageBlockExpandableBlockQuote v = (TdApi.PageBlockExpandableBlockQuote) value;
-        visit(v.text, visitor, depth + 1, budget);
+        if (v.blocks != null) {
+          for (int i0 = 0; i0 < v.blocks.length; i0++) {
+            visit(v.blocks[i0], visitor, depth + 1, budget);
+          }
+        }
         visit(v.credit, visitor, depth + 1, budget);
         return;
       }
@@ -5299,7 +5335,6 @@ public final class ArticleCodec {
         }
         case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: {
           TdApi.InputPageBlockExpandableBlockQuote v = (TdApi.InputPageBlockExpandableBlockQuote) value;
-          if (v.text != null) v.text = transform.apply(v.text);
           if (v.credit != null) v.credit = transform.apply(v.credit);
           break;
         }
@@ -5362,7 +5397,6 @@ public final class ArticleCodec {
         }
         case TdApi.PageBlockExpandableBlockQuote.CONSTRUCTOR: {
           TdApi.PageBlockExpandableBlockQuote v = (TdApi.PageBlockExpandableBlockQuote) value;
-          if (v.text != null) v.text = transform.apply(v.text);
           if (v.credit != null) v.credit = transform.apply(v.credit);
           break;
         }

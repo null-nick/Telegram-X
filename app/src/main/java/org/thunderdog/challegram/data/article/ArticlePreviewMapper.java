@@ -49,7 +49,11 @@ public final class ArticlePreviewMapper {
         return new TdApi.PageBlockList(items);
       }
       case TdApi.InputPageBlockBlockQuote.CONSTRUCTOR: { TdApi.InputPageBlockBlockQuote b = (TdApi.InputPageBlockBlockQuote) input; return new TdApi.PageBlockBlockQuote(blocks(b.blocks), b.credit); }
-      case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: { TdApi.InputPageBlockExpandableBlockQuote b = (TdApi.InputPageBlockExpandableBlockQuote) input; return new TdApi.PageBlockExpandableBlockQuote(b.text, b.credit); }
+      case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: {
+        TdApi.InputPageBlockExpandableBlockQuote quote =
+          (TdApi.InputPageBlockExpandableBlockQuote) input;
+        return new TdApi.PageBlockExpandableBlockQuote(blocks(quote.blocks), quote.credit);
+      }
       case TdApi.InputPageBlockPullQuote.CONSTRUCTOR: { TdApi.InputPageBlockPullQuote b = (TdApi.InputPageBlockPullQuote) input; return new TdApi.PageBlockPullQuote(b.text, b.credit); }
       case TdApi.InputPageBlockPhoto.CONSTRUCTOR: {
         TdApi.InputPageBlockPhoto b = (TdApi.InputPageBlockPhoto) input; TdApi.InputPhoto p = b.photo;

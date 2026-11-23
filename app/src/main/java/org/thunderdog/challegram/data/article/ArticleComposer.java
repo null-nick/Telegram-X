@@ -73,7 +73,18 @@ public final class ArticleComposer {
         List<TdApi.InputPageBlock> children = blocks(text, entities, entity.offset, end, entity, depth + 1);
         out.add(new TdApi.InputPageBlockBlockQuote(children.toArray(new TdApi.InputPageBlock[0]), new TdApi.RichTextPlain("")));
       } else if (entity.type instanceof TdApi.TextEntityTypeExpandableBlockQuote) {
-        out.add(new TdApi.InputPageBlockExpandableBlockQuote(inline(text, entities, entity.offset, end), new TdApi.RichTextPlain("")));
+        List<TdApi.InputPageBlock> children = blocks(
+          text,
+          entities,
+          entity.offset,
+          end,
+          entity,
+          depth + 1
+        );
+        out.add(new TdApi.InputPageBlockExpandableBlockQuote(
+          children.toArray(new TdApi.InputPageBlock[0]),
+          new TdApi.RichTextPlain("")
+        ));
       } else {
         out.add(new TdApi.InputPageBlockPreformatted(inline(text, entities, entity.offset, end), entity.type instanceof TdApi.TextEntityTypePreCode ? ((TdApi.TextEntityTypePreCode) entity.type).language : ""));
       }

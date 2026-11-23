@@ -71,6 +71,12 @@ public final class ArticleEditorTree {
       case TdApi.InputPageBlockBlockQuote.CONSTRUCTOR: {
         TdApi.InputPageBlockBlockQuote b = (TdApi.InputPageBlockBlockQuote) block; out.add(new Group(() -> b.blocks, value -> b.blocks = value)); break;
       }
+      case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: {
+        TdApi.InputPageBlockExpandableBlockQuote quote =
+          (TdApi.InputPageBlockExpandableBlockQuote) block;
+        out.add(new Group(() -> quote.blocks, value -> quote.blocks = value));
+        break;
+      }
       case TdApi.InputPageBlockDetails.CONSTRUCTOR: {
         TdApi.InputPageBlockDetails b = (TdApi.InputPageBlockDetails) block; out.add(new Group(() -> b.blocks, value -> b.blocks = value)); break;
       }
@@ -96,7 +102,12 @@ public final class ArticleEditorTree {
       case TdApi.InputPageBlockPreformatted.CONSTRUCTOR: { TdApi.InputPageBlockPreformatted b = (TdApi.InputPageBlockPreformatted) block; out.add(new TextField(FieldName.TEXT, b.text, value -> b.text = value)); break; }
       case TdApi.InputPageBlockFooter.CONSTRUCTOR: { TdApi.InputPageBlockFooter b = (TdApi.InputPageBlockFooter) block; out.add(new TextField(FieldName.TEXT, b.footer, value -> b.footer = value)); break; }
       case TdApi.InputPageBlockBlockQuote.CONSTRUCTOR: { TdApi.InputPageBlockBlockQuote b = (TdApi.InputPageBlockBlockQuote) block; out.add(new TextField(FieldName.CREDIT, b.credit, value -> b.credit = value)); break; }
-      case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: { TdApi.InputPageBlockExpandableBlockQuote b = (TdApi.InputPageBlockExpandableBlockQuote) block; out.add(new TextField(FieldName.TEXT, b.text, value -> b.text = value)); out.add(new TextField(FieldName.CREDIT, b.credit, value -> b.credit = value)); break; }
+      case TdApi.InputPageBlockExpandableBlockQuote.CONSTRUCTOR: {
+        TdApi.InputPageBlockExpandableBlockQuote quote =
+          (TdApi.InputPageBlockExpandableBlockQuote) block;
+        out.add(new TextField(FieldName.CREDIT, quote.credit, value -> quote.credit = value));
+        break;
+      }
       case TdApi.InputPageBlockPullQuote.CONSTRUCTOR: { TdApi.InputPageBlockPullQuote b = (TdApi.InputPageBlockPullQuote) block; out.add(new TextField(FieldName.TEXT, b.text, value -> b.text = value)); out.add(new TextField(FieldName.CREDIT, b.credit, value -> b.credit = value)); break; }
       case TdApi.InputPageBlockDetails.CONSTRUCTOR: { TdApi.InputPageBlockDetails b = (TdApi.InputPageBlockDetails) block; out.add(new TextField(FieldName.HEADER, b.header, value -> b.header = value)); break; }
       case TdApi.InputPageBlockTable.CONSTRUCTOR: {
