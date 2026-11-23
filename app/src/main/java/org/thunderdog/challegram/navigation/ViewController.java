@@ -2159,8 +2159,7 @@ public abstract class ViewController<T> implements Future<View>, ThemeChangeList
         }
         Views.updateMediumTypeface(button, text);
 
-        // Don't use Views.setClickable() - it disables focusable states needed for ripple effect
-        button.setClickable(true);
+        Views.setClickable(button);
         footerView.addView(button);
       }
     }
