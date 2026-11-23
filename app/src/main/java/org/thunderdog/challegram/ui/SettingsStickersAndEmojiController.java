@@ -86,13 +86,7 @@ public class SettingsStickersAndEmojiController extends RecyclerViewController<S
           }
         } else if (itemId == R.id.btn_big_reactions) {
           StringBuilder b = new StringBuilder();
-          if (Settings.instance().getBigReactionsInDMs()) {
-            b.append(Lang.getString(R.string.BigReactionsDMs));
-          }
           if (Settings.instance().getBigReactionsInChats()) {
-            if (b.length() > 0) {
-              b.append(Lang.getConcatSeparator());
-            }
             b.append(Lang.getString(R.string.BigReactionsChats));
           }
           if (Settings.instance().getBigReactionsInChannels()) {
@@ -252,11 +246,9 @@ public class SettingsStickersAndEmojiController extends RecyclerViewController<S
     } else if (viewId == R.id.btn_big_reactions) {
       showSettings(R.id.btn_big_reactions, new ListItem[] {
         new ListItem(ListItem.TYPE_INFO, 0, 0, R.string.BigReactionsInfo),
-        new ListItem(ListItem.TYPE_CHECKBOX_OPTION, R.id.btn_bigReactionsDMs, 0, R.string.BigReactionsDMs, R.id.btn_bigReactionsDMs, Settings.instance().getBigReactionsInDMs()),
         new ListItem(ListItem.TYPE_CHECKBOX_OPTION, R.id.btn_bigReactionsChats, 0, R.string.BigReactionsChats, R.id.btn_bigReactionsChats, Settings.instance().getBigReactionsInChats()),
         new ListItem(ListItem.TYPE_CHECKBOX_OPTION, R.id.btn_bigReactionsChannels, 0, R.string.BigReactionsChannels, R.id.btn_bigReactionsChannels, Settings.instance().getBigReactionsInChannels())
       }, (id, result) -> {
-        Settings.instance().setBigReactionsInDMs(result.get(R.id.btn_bigReactionsDMs) == R.id.btn_bigReactionsDMs);
         Settings.instance().setBigReactionsInChannels(result.get(R.id.btn_bigReactionsChannels) == R.id.btn_bigReactionsChannels);
         Settings.instance().setBigReactionsInChats(result.get(R.id.btn_bigReactionsChats) == R.id.btn_bigReactionsChats);
         adapter.updateValuedSettingById(R.id.btn_big_reactions);

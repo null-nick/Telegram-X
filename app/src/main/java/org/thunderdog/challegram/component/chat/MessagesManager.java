@@ -1053,9 +1053,8 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
 
   private boolean useReactionBubblesValue;
   private boolean checkReactionBubbles () {
-    // Check DMs (private chats) first
     if (tdlib.isUserChat(loader.getChatId())) {
-      return Settings.instance().getBigReactionsInDMs();
+      return false;
     }
 
     if (loader.isChannel() && Settings.instance().getBigReactionsInChannels()) {
