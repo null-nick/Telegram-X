@@ -5813,10 +5813,6 @@
   <string name="GiftLinkShareDesc_SendThisLink">send this link</string>
 
 
-  <string name="YouSharedUser">You shared **%1$s**</string>
-  <string name="YouSharedUsers_one">You shared **%1$s user**</string>
-  <string name="YouSharedUsers_other">You shared **%1$s users**</string>
-  <string name="YouSharedChat">You shared **%1$s**</string>
 
   <!-- Giveaway show more popup -->
   <string name="GiveawaySponsors_one">%2$s and %1$s more channel</string>
