@@ -2897,9 +2897,10 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
         if (view != null && view.getParent() != null) {
           scrollOffsetInPixels = calculateOffsetInPixels(view, message.getExtraPadding());
         }
-        // Don't clear scroll position when at bottom - keep it so we can restore to bottom on re-entry.
-        // The readFully flag is still saved in SavedMessageId to indicate user was at the end.
-        if (isBottomSponsored) {
+        if (readFully && scrollOffsetInPixels == 0) {
+          scrollMessageId = scrollMessageChatId = 0;
+          scrollMessageOtherIds = null;
+        } else if (isBottomSponsored) {
           if (message.isSponsoredMessage()) {
             // the bottom VISIBLE message is sponsored - no need to save that data
             scrollMessageId = scrollMessageChatId = scrollOffsetInPixels = 0;
