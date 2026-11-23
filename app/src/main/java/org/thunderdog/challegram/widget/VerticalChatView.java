@@ -244,11 +244,6 @@ public class VerticalChatView extends BaseView implements Destroyable, ChatListe
   }
 
   @Override
-  public void onForumUnreadTopicCountChanged (long chatId, int unreadTopicCount) {
-    updateChat(chatId);
-  }
-
-  @Override
   public void onChatDefaultMessageSenderIdChanged (long chatId, TdApi.MessageSender senderId) {
     updateChat(chatId);
   }

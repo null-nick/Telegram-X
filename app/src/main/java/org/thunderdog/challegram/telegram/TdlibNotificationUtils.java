@@ -331,19 +331,11 @@ public class TdlibNotificationUtils {
   }
 
   static PendingIntent newIntent (int accountId, long forLocalChatId, long specificMessageId) {
-    return newIntent(accountId, forLocalChatId, specificMessageId, 0);
-  }
-
-  static PendingIntent newIntent (int accountId, long forLocalChatId, long specificMessageId, long messageThreadId) {
-    return PendingIntent.getActivity(UI.getContext(), 0, forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId, messageThreadId) : Intents.valueOfMain(accountId), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(true));
+    return PendingIntent.getActivity(UI.getContext(), 0, forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId) : Intents.valueOfMain(accountId), PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(true));
   }
 
   static Intent newCoreIntent (int accountId, long forLocalChatId, long specificMessageId) {
-    return newCoreIntent(accountId, forLocalChatId, specificMessageId, 0);
-  }
-
-  static Intent newCoreIntent (int accountId, long forLocalChatId, long specificMessageId, long messageThreadId) {
-    return forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId, messageThreadId) : Intents.valueOfMain(accountId);
+    return forLocalChatId != 0 ? Intents.valueOfLocalChatId(accountId, forLocalChatId, specificMessageId) : Intents.valueOfMain(accountId);
   }
 
   private static final String KEY_PREFIX_SHORTCUT = "tgx_ns_";

@@ -639,11 +639,6 @@ public class BetterChatView extends BaseView implements Destroyable, RemoveHelpe
   }
 
   @Override
-  public void onForumUnreadTopicCountChanged (long chatId, int unreadTopicCount) {
-    updateChat(chatId);
-  }
-
-  @Override
   public void onUserUpdated (final TdApi.User user) {
     tdlib.uiExecute(() -> {
       if (lastChat != null && lastChat.getUserId() == user.id) {
