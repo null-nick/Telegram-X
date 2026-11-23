@@ -355,4 +355,4 @@ fun Array<MessageWithProperties>?.toMessageIdsMap (): LongSparseArray<LongArray>
   return result
 }
 
-fun ReactionType?.isUnsupported (): Boolean = false
+fun ReactionType?.isUnsupported (): Boolean = this?.constructor == ReactionTypePaid.CONSTRUCTOR
