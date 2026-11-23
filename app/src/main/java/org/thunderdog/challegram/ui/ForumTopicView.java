@@ -566,14 +566,14 @@ public class ForumTopicView extends BaseView implements TdlibEmojiManager.Watche
         if (isSending) {
           // Clock icon for sending messages
           int iconX = (int) (textRight - timeWidth - Screen.dp(4f) - Screen.dp(Icons.CLOCK_SHIFT_X) - Screen.dp(10f));
-          Drawables.draw(canvas, Icons.getClockIcon(ColorId.iconLight), iconX, iconY - Screen.dp(Icons.CLOCK_SHIFT_Y) - Screen.dp(10f), Paints.getIconLightPorterDuffPaint());
+          Icons.drawBitmap(canvas, R.drawable.deproko_baseline_clock_24, iconX, iconY - Screen.dp(Icons.CLOCK_SHIFT_Y) - Screen.dp(10f), Paints.getIconLightPorterDuffPaint());
           statusIconWidth = Screen.dp(14f);
         } else {
           // Single tick for sent, double tick for read
           int iconX = (int) (textRight - timeWidth - Screen.dp(4f) - Screen.dp(Icons.TICKS_SHIFT_X) - Screen.dp(14f));
-          Drawable tickIcon = isMessageUnread ? Icons.getSingleTick(ColorId.ticks) : Icons.getDoubleTick(ColorId.ticks);
+          int tickIcon = isMessageUnread ? R.drawable.deproko_baseline_check_single_24 : R.drawable.deproko_baseline_check_double_24;
           Paint tickPaint = isMessageUnread ? Paints.getTicksPaint() : Paints.getTicksReadPaint();
-          Drawables.draw(canvas, tickIcon, iconX, iconY - Screen.dp(Icons.TICKS_SHIFT_Y) - Screen.dp(10f), tickPaint);
+          Icons.drawBitmap(canvas, tickIcon, iconX, iconY - Screen.dp(Icons.TICKS_SHIFT_Y) - Screen.dp(10f), tickPaint);
           statusIconWidth = Screen.dp(18f);
         }
       }

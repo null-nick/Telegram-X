@@ -130,7 +130,7 @@ public class ForumTopicTabsController extends ViewPagerController<ForumTopicTabs
     }
 
     // Then refresh from network in background
-    tdlib.client().send(new TdApi.GetForumTopics(chatId, "", 0, 0L, 0, 100), result -> {
+    tdlib.client().send(new TdApi.GetForumTopics(chatId, "", 0, false, false, 0, 0L, 0, 100), result -> {
       if (result.getConstructor() == TdApi.ForumTopics.CONSTRUCTOR) {
         TdApi.ForumTopics forumTopics = (TdApi.ForumTopics) result;
         tdlib.ui().post(() -> {
@@ -236,7 +236,7 @@ public class ForumTopicTabsController extends ViewPagerController<ForumTopicTabs
 
     int lastTopicId = topics.isEmpty() ? 0 : topics.get(topics.size() - 1).info.forumTopicId;
 
-    tdlib.client().send(new TdApi.GetForumTopics(chatId, "", 0, 0L, lastTopicId, 50), result -> {
+    tdlib.client().send(new TdApi.GetForumTopics(chatId, "", 0, false, false, 0, 0L, lastTopicId, 50), result -> {
       if (result.getConstructor() == TdApi.ForumTopics.CONSTRUCTOR) {
         TdApi.ForumTopics forumTopics = (TdApi.ForumTopics) result;
         tdlib.ui().post(() -> {

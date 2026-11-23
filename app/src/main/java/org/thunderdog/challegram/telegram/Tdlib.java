@@ -3420,7 +3420,7 @@ public class Tdlib implements TdlibProvider, Settings.SettingsChangeListener, Da
       }
       return;
     }
-    client().send(new TdApi.GetForumTopics(chatId, "", 0, 0, 0, 100), result -> {
+    client().send(new TdApi.GetForumTopics(chatId, "", 0, false, false, 0, 0, 0, 100), result -> {
       if (result.getConstructor() == TdApi.ForumTopics.CONSTRUCTOR) {
         TdApi.ForumTopics topics = (TdApi.ForumTopics) result;
         int unreadCount = 0;

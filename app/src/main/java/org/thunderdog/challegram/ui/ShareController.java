@@ -2093,7 +2093,7 @@ public class ShareController extends TelegramViewController<ShareController.Args
 
   private void showForumTopicPicker (long chatId) {
     // Load forum topics and show a picker popup
-    tdlib.client().send(new TdApi.GetForumTopics(chatId, "", 0, 0, 0, 100), result -> {
+    tdlib.client().send(new TdApi.GetForumTopics(chatId, "", 0, false, false, 0, 0, 0, 100), result -> {
       if (result.getConstructor() == TdApi.ForumTopics.CONSTRUCTOR) {
         TdApi.ForumTopics topics = (TdApi.ForumTopics) result;
         runOnUiThreadOptional(() -> {

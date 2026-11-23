@@ -429,6 +429,7 @@ public class StoryPreviewController extends RecyclerViewController<StoryPreviewC
       content,
       null,  // areas
       null,  // caption
+      null,  // music
       privacy,
       new int[0],  // albumIds
       finalDuration,

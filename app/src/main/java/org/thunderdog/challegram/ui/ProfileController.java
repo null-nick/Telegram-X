@@ -3887,7 +3887,7 @@ public class ProfileController extends ViewController<ProfileController.Args> im
       boolean isForum = toggleForumItem.isSelected();
       // Pass current tabs selection when forum is enabled, false when disabled
       boolean hasForumTabs = isForum && toggleForumTabsItem != null && toggleForumTabsItem.isSelected();
-      changes.add(new TdApi.ToggleSupergroupIsForum(ChatId.toSupergroupId(chat.id), isForum, hasForumTabs));
+      changes.add(new TdApi.ToggleSupergroupIsForum(ChatId.toSupergroupId(chat.id), isForum, hasForumTabs, false));
     }
 
     if (hasSignMessagesChanges || hasShowAuthorsChanges) {
