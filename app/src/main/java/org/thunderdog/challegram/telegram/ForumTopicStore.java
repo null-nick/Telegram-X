@@ -729,6 +729,9 @@ public final class ForumTopicStore {
       new TdApi.GetForumTopics(
         state.key.chatId,
         state.key.query,
+        0,
+        false,
+        false,
         cursor.date,
         cursor.messageId,
         cursor.topicId,

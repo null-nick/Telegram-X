@@ -385,6 +385,9 @@ public final class ForumUnreadCounter {
         new TdApi.GetForumTopics(
           state.chatId,
           "",
+          0,
+          false,
+          false,
           cursor.date,
           cursor.messageId,
           cursor.topicId,

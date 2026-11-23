@@ -608,6 +608,9 @@ public final class ForumTopicActions {
               new TdApi.GetForumTopics(
                 chatId,
                 "",
+                0,
+                false,
+                false,
                 cursor.date,
                 cursor.messageId,
                 cursor.topicId,
