@@ -93,3 +93,9 @@ syntaxUrl: #287BDE
 syntaxInserted: #629755
 syntaxDeleted: #F06A6A
 codeBlockRipple, bubbleIn_codeBlockRipple, bubbleOut_codeBlockRipple: #FFFFFF14
+
+botButtonPrimary: #229AF0
+botButtonDanger: #DB4646
+botButtonSuccess: #40B135
+botButtonText: #FFF
+botButtonRipple: #FFFFFF33

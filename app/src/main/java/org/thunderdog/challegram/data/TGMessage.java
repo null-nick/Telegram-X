@@ -3374,6 +3374,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     } else if (inlineKeyboard != null) {
       inlineKeyboard.clear();
     }
+    performWithViews(this::requestInlineKeyboardEmoji);
   }
 
   public final int getForwardOrImportDate () {
@@ -4546,11 +4547,17 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
 
+  private void requestInlineKeyboardEmoji (MessageView view) {
+    if (inlineKeyboard != null) inlineKeyboard.requestEmoji(view);
+    else view.trimBotButtonEmojis(0);
+  }
+
   public final void requestAllTextMedia (MessageView view) {
     // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
     prepareForumTopicButton(false);
     requestForumTopicMedia(view.getForumTopicReceiver());
     // endregion
+    requestInlineKeyboardEmoji(view);
     requestTextMedia(view.getTextMediaReceiver());
     requestAuthorTextMedia(view.getEmojiStatusReceiver());
 
@@ -6926,6 +6933,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     if (replyData != null)
       replyData.performDestroy();
     messageReactions.performDestroy();
+    if (inlineKeyboard != null) inlineKeyboard.clear();
     setViewAttached(false);
     onMessageContainerDestroyed();
   }

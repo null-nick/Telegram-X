@@ -21,6 +21,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.view.accessibility.AccessibilityNodeInfo;
 // endregion
+import android.util.SparseArray;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
 import android.view.View;
@@ -59,6 +60,7 @@ import org.thunderdog.challegram.navigation.ViewController;
 import org.thunderdog.challegram.player.TGPlayerController;
 import org.thunderdog.challegram.receiver.RefreshRateLimiter;
 import org.thunderdog.challegram.telegram.RightId;
+import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.telegram.TdlibManager;
 import org.thunderdog.challegram.telegram.TdlibUi;
 import org.thunderdog.challegram.theme.Theme;
@@ -121,6 +123,48 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
   private final DoubleImageReceiver replyReceiver;
   private final RefreshRateLimiter refreshRateLimiter, highRefreshRateLimiter;
   private ComplexReceiver footerTextMediaReceiver;
+  private final SparseArray<BotButtonEmoji> botButtonEmojis = new SparseArray<>();
+
+  public void trimBotButtonEmojis (int count) {
+    for (int i = botButtonEmojis.size() - 1; i >= 0; i--) {
+      if (botButtonEmojis.keyAt(i) >= count) {
+        botButtonEmojis.valueAt(i).performDestroy();
+        botButtonEmojis.removeAt(i);
+      }
+    }
+  }
+
+  public void setBotButtonEmoji (int index, Tdlib tdlib, long customEmojiId) {
+    BotButtonEmoji emoji = botButtonEmojis.get(index);
+    if (customEmojiId == 0) {
+      if (emoji != null) {
+        emoji.performDestroy();
+        botButtonEmojis.remove(index);
+      }
+      return;
+    }
+    if (emoji == null) {
+      emoji = new BotButtonEmoji(this);
+      botButtonEmojis.put(index, emoji);
+    }
+    emoji.set(tdlib, customEmojiId);
+    emoji.setAttached(isAttached && getWindowVisibility() == VISIBLE);
+  }
+
+  public void drawBotButtonEmoji (Canvas c, int index, int x, int y, int foreground) {
+    BotButtonEmoji emoji = botButtonEmojis.get(index);
+    if (emoji != null) emoji.draw(c, x, y, foreground);
+  }
+
+  private void attachBotButtonEmojis (boolean attached) {
+    for (int i = 0; i < botButtonEmojis.size(); i++) botButtonEmojis.valueAt(i).setAttached(attached);
+  }
+
+  @Override
+  protected void onWindowVisibilityChanged (int visibility) {
+    super.onWindowVisibilityChanged(visibility);
+    if (botButtonEmojis != null) attachBotButtonEmojis(isAttached && visibility == VISIBLE);
+  }
 
   private ImageReceiver contentReceiver;
   private DoubleImageReceiver previewReceiver;
@@ -188,6 +232,7 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
 
   @Override
   public void performDestroy () {
+    trimBotButtonEmojis(0);
     avatarReceiver.destroy();
     avatarsReceiver.performDestroy();
     giveawayAvatarsReceiver.performDestroy();
@@ -310,6 +355,7 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
   }
 
   public void setMessage (TGMessage message) {
+    if (this.msg != message) trimBotButtonEmojis(0);
     int desiredHeight = message.getHeight();
     int currentHeight = getCurrentHeight();
 
@@ -557,6 +603,7 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
     getMessage().checkHighlightedText();
     if (!isAttached) {
       isAttached = true;
+      attachBotButtonEmojis(getWindowVisibility() == VISIBLE);
       avatarReceiver.attach();
       avatarsReceiver.attach();
       giveawayAvatarsReceiver.attach();
@@ -583,6 +630,7 @@ public class MessageView extends SparseDrawableView implements Destroyable, Draw
   public void onDetachedFromRecyclerView () {
     if (isAttached) {
       isAttached = false;
+      attachBotButtonEmojis(false);
       avatarReceiver.detach();
       avatarsReceiver.detach();
       giveawayAvatarsReceiver.detach();

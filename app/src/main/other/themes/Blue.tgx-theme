@@ -230,3 +230,9 @@ syntaxBuiltin: #006552
 syntaxUrl: #02629C
 syntaxInserted: #207029
 syntaxDeleted: #A12F2F
+
+botButtonPrimary: #229AF0
+botButtonDanger: #DB4646
+botButtonSuccess: #40B135
+botButtonText: #FFF
+botButtonRipple: #FFFFFF33

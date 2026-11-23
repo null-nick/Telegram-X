@@ -92,3 +92,9 @@ syntaxInserted: #629755
 syntaxDeleted: #F06A6A
 codeBlockRipple, bubbleIn_codeBlockRipple: #A8C8EB1F
 bubbleOut_codeBlockRipple: #B4D2F01F
+
+botButtonPrimary: #229AF0
+botButtonDanger: #DB4646
+botButtonSuccess: #40B135
+botButtonText: #FFF
+botButtonRipple: #FFFFFF33
