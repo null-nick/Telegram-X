@@ -20,7 +20,11 @@ import org.drinkless.tdlib.TdApi;
 import org.thunderdog.challegram.data.TGMessage;
 import org.thunderdog.challegram.telegram.Tdlib;
 import org.thunderdog.challegram.ui.MessagesController;
+import org.thunderdog.challegram.ui.ShareController;
 import org.thunderdog.challegram.util.text.Text;
+
+import java.util.ArrayList;
+import java.util.concurrent.TimeUnit;
 
 import tgx.td.data.MessageWithProperties;
 
@@ -46,14 +50,22 @@ public class MessageTextSelection implements Text.SelectionDelegate {
   @Override
   public boolean canQuote () {
     MessagesController controller = message.messagesController();
-    if (controller == null || message.isDestroyed() ||
-      !controller.canWriteMessagesOrWaitingForReply()) {
+    return controller != null && !message.isDestroyed() &&
+      (canQuoteInChat(controller) || canQuoteInAnotherChat());
+  }
+
+  private boolean canQuoteInChat (MessagesController controller) {
+    if (!controller.canWriteMessagesOrWaitingForReply()) {
       return false;
     }
     Tdlib tdlib = controller.tdlib();
     long chatId = controller.getChatId();
     boolean isAllowedToPost = !controller.isChannel() || tdlib.isAdminOrOwner(chatId);
     return isAllowedToPost && tdlib.canSendBasicMessage(chatId);
+  }
+
+  private boolean canQuoteInAnotherChat () {
+    return message.lastMessageProperties().canBeRepliedInAnotherChat;
   }
 
   @Override
@@ -67,6 +79,10 @@ public class MessageTextSelection implements Text.SelectionDelegate {
       new TdApi.RichText[0],
       position
     );
+    if (!canQuoteInChat(controller)) {
+      quoteInAnotherChat(controller, inputQuote);
+      return;
+    }
     controller.showReply(
       new MessageWithProperties(message.getMessage(), message.lastMessageProperties()),
       inputQuote,
@@ -75,6 +91,42 @@ public class MessageTextSelection implements Text.SelectionDelegate {
       true,
       true
     );
+  }
+
+  private void quoteInAnotherChat (MessagesController controller, TdApi.InputTextQuote quote) {
+    Tdlib tdlib = controller.tdlib();
+    MessageWithProperties source = new MessageWithProperties(
+      message.getMessage(),
+      message.lastMessageProperties()
+    );
+    ShareController shareController = new ShareController(controller.context(), tdlib);
+    ShareController.ShareProviderDelegate delegate = new ShareController.ShareProviderDelegate() {
+      @Override
+      public void generateFunctionsForChat (
+        long chatId,
+        TdApi.Chat chat,
+        TdApi.MessageSendOptions sendOptions,
+        ArrayList<TdApi.Function<?>> functions
+      ) {
+        MessagesController.ReplyInfo replyInfo =
+          new MessagesController.ReplyInfo(tdlib, source, quote, 0, "").withTopic(chatId, null);
+        TdApi.DraftMessage draft = new TdApi.DraftMessage(
+          replyInfo.toInputMessageReply(),
+          (int) tdlib.currentTime(TimeUnit.SECONDS),
+          new TdApi.DraftMessageContentText(new TdApi.FormattedText("", null), null),
+          0,
+          null
+        );
+        functions.add(new TdApi.SetChatDraftMessage(chatId, null, draft));
+      }
+
+      @Override
+      public CharSequence generateErrorMessageForChat (long chatId) {
+        return null;
+      }
+    };
+    shareController.setArguments(new ShareController.Args(delegate).setNeedOpenChat(true));
+    shareController.show();
   }
 
   @Override
