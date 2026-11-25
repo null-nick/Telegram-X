@@ -189,6 +189,8 @@ public abstract class PageBlock {
     currentViews.detachFromView(view);
   }
 
+  public void dismissTextSelection () { }
+
   public abstract int getRelatedViewType ();
 
   private int maxWidth;

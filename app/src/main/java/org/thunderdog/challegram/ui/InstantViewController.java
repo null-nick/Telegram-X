@@ -438,6 +438,18 @@ public class InstantViewController extends ViewController<InstantViewController.
   }
 
   @Override
+  public void onBlur () {
+    super.onBlur();
+    for (int i = 0; i < recyclerView.getChildCount(); i++) {
+      View child = recyclerView.getChildAt(i);
+      PageBlock block = child instanceof PageBlockView ? ((PageBlockView) child).getBlock() : null;
+      if (block != null) {
+        block.dismissTextSelection();
+      }
+    }
+  }
+
+  @Override
   public void destroy () {
     super.destroy();
     Views.destroyRecyclerView(recyclerView);

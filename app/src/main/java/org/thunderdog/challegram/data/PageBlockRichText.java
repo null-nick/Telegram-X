@@ -264,6 +264,7 @@ public class PageBlockRichText extends PageBlock {
     super(context, chatLink, quoteLevel);
     this.paddingTop = this.paddingBottom = 16f;
     setText(new TdApi.RichTextBold(new TdApi.RichTextPlain(chatLink.title)), getParagraphProvider(), isOverlay ? TextColorSets.InstantView.CHAT_LINK_OVERLAY : TextColorSets.InstantView.NORMAL, openParameters);
+    text.setTextFlagEnabled(Text.FLAG_SELECTABLE, false);
     this.forceBackground = isOverlay;
     this.backgroundColorId = isOverlay ? ColorId.iv_chatLinkOverlayBackground : ColorId.iv_chatLinkBackground;
     this.clickHelper = new ClickHelper(new ClickHelper.Delegate() {
@@ -474,8 +475,14 @@ public class PageBlockRichText extends PageBlock {
       }
     });
     this.text.setViewProvider(currentViews);
-    if (flags != 0) {
-      this.text.addTextFlags(flags);
+    this.text.addTextFlags(flags | Text.FLAG_SELECTABLE);
+  }
+
+  @Override
+  public void dismissTextSelection () {
+    Text current = text != null ? text.getCurrent() : null;
+    if (current != null) {
+      current.dismissSelection();
     }
   }
 

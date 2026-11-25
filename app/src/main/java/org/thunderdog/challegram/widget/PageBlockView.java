@@ -251,6 +251,7 @@ public class PageBlockView extends BaseView implements Destroyable, InvalidateCo
     }
 
     if (this.block != null) {
+      this.block.dismissTextSelection();
       this.block.detachFromView(this);
       this.block = null;
     }
