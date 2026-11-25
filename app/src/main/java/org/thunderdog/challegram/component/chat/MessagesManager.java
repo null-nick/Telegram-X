@@ -112,7 +112,8 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
   private final MessagesSearchManagerMiddleware searchMiddleware;
 
   private final MessagesLoader loader;
-  private final MessageResize messageResize = new MessageResize(new MessageResize.Messages() {
+  private final MessageResize<TGMessage> messageResize =
+    new MessageResize<>(new MessageResize.Messages<TGMessage>() {
     @Override
     public int getMessageTop (TGMessage message) {
       return MessagesManager.this.getMessageTop(message);
@@ -136,6 +137,21 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     @Override
     public ViewTreeObserver getViewTreeObserver () {
       return controller.getMessagesView().getViewTreeObserver();
+    }
+
+    @Override
+    public String getLogName (TGMessage message) {
+      return String.valueOf(message.getId());
+    }
+
+    @Override
+    public String getLogEdges (TGMessage message) {
+      final int top = getMessageTop(message);
+      final boolean useBubbles = message.useBubbles();
+      final int bubbleTop = top + (useBubbles ? message.getTopContentEdge() : 0);
+      final int bottomEdge =
+        useBubbles ? message.getBottomContentEdge() : message.getHeight();
+      return bubbleTop + " " + (top + bottomEdge) + " view " + top + " " + message.getHeight();
     }
   });
 
@@ -2002,6 +2018,8 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     int anchorIndex = manager.findLastVisibleItemPosition();
     View anchorView = anchorIndex != RecyclerView.NO_POSITION ?
       manager.findViewByPosition(anchorIndex) : null;
+    TGMessage anchor = anchorView instanceof MessageProvider ?
+      ((MessageProvider) anchorView).getMessage() : null;
     final int count = items.size();
     boolean changed = false;
     int topFlags = 0, topTime = 0, topIndex = 0;
@@ -2021,13 +2039,8 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
       topIndex = index;
     }
     changed |= updateMerge(items.get(0), 0, topFlags, topTime, topIndex);
-    if (changed && anchorView != null) {
-      RecyclerView view = controller.getMessagesView();
-      int bottom = anchorView.getTop() + items.get(anchorIndex).getHeight();
-      manager.scrollToPositionWithOffset(
-        anchorIndex,
-        view.getHeight() - view.getPaddingBottom() - bottom
-      );
+    if (changed && anchor != null && anchor == adapter.getMessage(anchorIndex)) {
+      setMessageTop(anchor, anchorView.getTop());
     }
   }
 
@@ -2124,7 +2137,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     }
   }
 
-  public MessageResize messageResize () {
+  public MessageResize<TGMessage> messageResize () {
     return messageResize;
   }
 

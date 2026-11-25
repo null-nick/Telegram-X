@@ -27,9 +27,9 @@ import android.text.TextPaint;
 import android.text.TextUtils;
 import android.view.HapticFeedbackConstants;
 import android.view.MotionEvent;
+import android.view.VelocityTracker;
 import android.view.View;
 import android.view.ViewConfiguration;
-import android.view.VelocityTracker;
 import android.view.ViewGroup;
 import android.view.ViewParent;
 import android.widget.Toast;
@@ -1778,7 +1778,7 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
       (codePoint >= 0x0D00 && codePoint <= 0x0D7F /*Malayalam*/) ||
       (codePoint >= 0x0600 && codePoint <= 0x06FF /*Arabic*/) ||
       (codePoint >= 0x0590 && codePoint <= 0x05FF /*Hebrew*/) ||
-      (codePoint >= 0xFF00 && codePoint <= 0xFF00 /*Halfwidth and Fullwidth Forms*/);
+      (codePoint >= 0xFF00 && codePoint <= 0xFFEF /*Halfwidth and Fullwidth Forms*/);
   }
 
   public static boolean needsFill (int codePoint) {
@@ -1912,12 +1912,13 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
 
   public TextPaint getTextPaint (@Nullable TextEntity entity) {
     boolean forceBold = (textFlags & FLAG_ALL_BOLD) != 0;
+    boolean fakeBold = (textFlags & FLAG_FAKE_BOLD) != 0;
     float baselineShift = entity != null ? entity.getBaselineShift() : 0f;
     TextPaint paint;
     if (entity != null) {
-      paint = entity.getTextPaint(textStyleProvider, forceBold);
+      paint = entity.getTextPaint(textStyleProvider, forceBold, fakeBold);
     } else if (forceBold) {
-      paint = (textFlags & FLAG_FAKE_BOLD) != 0 ? textStyleProvider.getFakeBoldPaint() : textStyleProvider.getBoldPaint();
+      paint = fakeBold ? textStyleProvider.getFakeBoldPaint() : textStyleProvider.getBoldPaint();
     } else {
       paint = textStyleProvider.getTextPaint();
     }
@@ -2272,10 +2273,25 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
       return true;
     }
     final int blockId = entity.getQuoteId();
-    if (blockSwitches != null && blockSwitches.isChosen(blockId)) {
+    if (blockSwitches == null) {
+      return isLongCodeBlock(entity);
+    }
+    if (blockSwitches.isChosen(blockId)) {
       return !blockSwitches.isChosenOn(blockId);
     }
-    return isLongCodeBlock(entity);
+    switch (blockSwitches.getCodeWrapping()) {
+      case BlockSwitches.CODE_WRAPPING_ENABLED:
+        return false;
+      case BlockSwitches.CODE_WRAPPING_DISABLED:
+        return true;
+      default:
+        return isLongCodeBlock(entity);
+    }
+  }
+
+  public int getCollapsedQuoteLineCount () {
+    return blockSwitches != null ? blockSwitches.getCollapsedQuoteLineCount() :
+      Config.EXPANDABLE_QUOTE_COLLAPSED_LINE_COUNT;
   }
 
   public boolean canSwitchCodeBlock (TextEntity entity) {
@@ -4638,8 +4654,10 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
           if (pressedQuote.isCopyButtonPressed()) {
             // A tooltip at the icon in place of a toast, also where the system shows its own panel
             // of the clipboard
-            UI.copyText(getCode(pressedQuote.entity), 0);
             final QuoteBackground copiedBlock = pressedQuote;
+            final TextEntity copiedEntity = copiedBlock.entity;
+            final String code = getCode(copiedEntity);
+            UI.copyText(TD.toCopyText(code, copiedEntity.getCodeBlockType()), 0);
             UI.getContext(view.getContext()).tooltipManager()
               .builder(view, viewProvider)
               .locate((targetView, outRect) -> copiedBlock.getCopyButtonBounds(outRect))
@@ -5692,7 +5710,7 @@ public class Text implements Runnable, Emoji.CountLimiter, CounterTextPart, List
     final int firstLine = foundLine != -1 ? quote.findShownFirstLine(foundLine) : 0;
     if (firstLine > 0) {
       shownStart = quote.findLinePart(firstLine);
-      shownEnd = quote.findLinePart(firstLine + Config.EXPANDABLE_QUOTE_COLLAPSED_LINE_COUNT);
+      shownEnd = quote.findLinePart(firstLine + getCollapsedQuoteLineCount());
     }
     int shownStartChar = Integer.MAX_VALUE, hiddenStart = Integer.MAX_VALUE, hiddenWidth = 0;
     for (int i = start; i < end; i++) {

@@ -330,22 +330,51 @@ public class TdlibNotificationUtils {
     return tdlib.context().notificationIcons().put(tdlib.id(), chatId, key, createdBitmap);
   }
 
-  static PendingIntent newIntent (int accountId, long forLocalChatId, long specificMessageId) {
-    // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
-    return newIntent(accountId, forLocalChatId, specificMessageId, null);
+  @Nullable
+  static PendingIntent newActivityIntent (int requestCode, Intent intent, int flags) {
+    // MIUI and HyperOS throw when the app has too many of them
+    try {
+      return PendingIntent.getActivity(AppContext.get(), requestCode, intent, flags);
+    } catch (Throwable t) {
+      Log.e("Unable to create activity intent", t);
+      return null;
+    }
   }
 
+  @Nullable
+  static PendingIntent newBroadcastIntent (int requestCode, Intent intent) {
+    int flags = Intents.mutabilityFlags(true);
+    try {
+      return PendingIntent.getBroadcast(AppContext.get(), requestCode, intent, flags);
+    } catch (Throwable t) {
+      Log.e("Unable to create broadcast intent", t);
+      return null;
+    }
+  }
+
+  @Nullable
   static PendingIntent newIntent (
+    int notificationId,
+    int accountId,
+    long forLocalChatId,
+    long specificMessageId
+  ) {
+    return newIntent(notificationId, accountId, forLocalChatId, specificMessageId, null);
+  }
+
+  @Nullable
+  static PendingIntent newIntent (
+    int notificationId,
     int accountId,
     long forLocalChatId,
     long specificMessageId,
     @Nullable TdApi.MessageTopic topic
   ) {
-    return PendingIntent.getActivity(
-      UI.getContext(),
-      0,
+    // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+    return newActivityIntent(
+      notificationId,
       newCoreIntent(accountId, forLocalChatId, specificMessageId, topic),
-      PendingIntent.FLAG_ONE_SHOT | Intents.mutabilityFlags(true)
+      Intents.mutabilityFlags(true)
     );
     // endregion
   }

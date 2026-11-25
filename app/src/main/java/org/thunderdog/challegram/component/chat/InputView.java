@@ -1351,10 +1351,39 @@ public class InputView extends NoClipEditText implements InlineSearchContext.Cal
     this.isSettingText = true;
     this.settingByUserAction = byUserAction;
     setText(text);
+    if (text instanceof Spanned spanned) {
+      restoreSpans(spanned);
+      if (byUserAction && spanChangeListener != null) {
+        spanChangeListener.onSpansChanged(this);
+      }
+    }
     if (moveCursor) {
       setSelection(text != null ? text.length() : 0);
     }
     this.isSettingText = false;
+  }
+
+  private void restoreSpans (Spanned text) {
+    // EmojiFilter cuts spans that go past an emoji, e.g. a quote, at its end
+    final Editable editable = getText();
+    if (editable == null || !TextUtils.equals(editable, text)) {
+      return;
+    }
+    boolean restoredQuote = false;
+    for (Object span : text.getSpans(0, text.length(), Object.class)) {
+      final int start = editable.getSpanStart(span);
+      final int end = editable.getSpanEnd(span);
+      final int textStart = text.getSpanStart(span);
+      final int textEnd = text.getSpanEnd(span);
+      if (start != -1 && (start != textStart || end != textEnd)) {
+        editable.setSpan(span, textStart, textEnd, text.getSpanFlags(span));
+        restoredQuote |= QuoteSpan.isQuoteSpan(span);
+      }
+    }
+    if (restoredQuote) {
+      invalidateQuotes(true);
+      resetFontMetricsCache();
+    }
   }
 
   public String getInput () {
@@ -1777,7 +1806,7 @@ public class InputView extends NoClipEditText implements InlineSearchContext.Cal
         new ExternalEmojiFilter(),
         new CodePointCountFilter(maxCodePointCount),
         new EmojiFilter(this),
-        new CharacterStyleFilter(true),
+        newStyleFilter(),
         new FinalNewLineFilter(this)
       });
     } else {
@@ -1785,10 +1814,21 @@ public class InputView extends NoClipEditText implements InlineSearchContext.Cal
         new PreserveCustomEmojiFilter(),
         new ExternalEmojiFilter(),
         new EmojiFilter(this),
-        new CharacterStyleFilter(true),
+        newStyleFilter(),
         new FinalNewLineFilter(this)
       });
     }
+  }
+
+  private InputFilter newStyleFilter () {
+    return new CharacterStyleFilter(true) {
+      @Override
+      protected boolean shouldRemoveSpan (Spanned spanned, Object span) {
+        // A message or a draft keeps its own links, the guard is for pastes
+        return super.shouldRemoveSpan(spanned, span) &&
+          !(isSettingText && TD.canConvertToEntityType(span));
+      }
+    };
   }
 
   public final void setNoPersonalizedLearning (boolean noPersonalizedLearning) {
