@@ -224,12 +224,13 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
   private void buildContent () {
     final ContentPreview content = this.content;
     int width = getContentWidth(false);
+    final boolean isMultiline = isMessageComponent() && !Td.isEmpty(quote) && quote.isManual;
 
     //noinspection UnsafeOptInUsageError
     Text trimmedContent = new Text.Builder(content != null ? content.buildText(true) : Lang.getString(R.string.LoadingMessage), width, isMessageComponent() ? TGMessage.getTextStyleProvider() : getTextStyleProvider(), getContentColorSet())
-      .singleLine()
+      .maxLineCount(isMultiline ? MAX_QUOTE_LINE_COUNT : 1)
       .textFlags(Text.FLAG_CUSTOM_LONG_PRESS)
-      .ignoreNewLines().ignoreContinuousNewLines()
+      .ignoreNewLines(!isMultiline).ignoreContinuousNewLines()
       .entities(
         content != null && !Td.isEmpty(content.formattedText) ? TextEntity.valueOf(tdlib, content.formattedText.text, content.formattedText.entities, null) : null,
         (text, specificMedia) -> {
@@ -252,12 +253,16 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
       .viewProvider(viewProvider)
       .build();
 
+    final int extraHeight = isMultiline ?
+      Math.max(0, trimmedContent.getLineCount() - 1) * trimmedContent.getLineHeight() : 0;
     if (Looper.myLooper() == Looper.getMainLooper()) {
       this.trimmedContent = trimmedContent;
+      this.extraHeight = extraHeight;
     } else {
       final Text __trimmedContent = trimmedContent;
       UI.post(() -> {
         ReplyComponent.this.trimmedContent = __trimmedContent;
+        ReplyComponent.this.extraHeight = extraHeight;
       });
     }
     if (trimmedContent.hasMedia()) {
@@ -307,7 +312,8 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
   public int lastX, lastY;
 
   public boolean isInside (float x, float y, boolean needWhite) {
-    return x >= lastX && x <= lastX + width(needWhite) && y >= lastY && y <= lastY + mHeight;
+    return x >= lastX && x <= lastX + width(needWhite) &&
+      y >= lastY && y <= lastY + mHeight + extraHeight;
   }
 
   private boolean hasPreview () {
@@ -422,7 +428,7 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
       int padding = Screen.dp(8f);
       int paddingHorizontal = Screen.dp(12f);
       rectF.top = startY - padding;
-      rectF.bottom = startY + mHeight + padding;
+      rectF.bottom = startY + mHeight + extraHeight + padding;
       rectF.left = startX - paddingHorizontal;
       rectF.right = startX + width;
       float mergeRadius = Theme.getBubbleMergeRadius();
@@ -480,10 +486,11 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
         trimmedContent.draw(c, startX + textLeft, startX + textLeft + trimmedContent.getWidth(), 0, startY + Screen.dp(22f), null, 1f, textMediaReceiver);
       }
 
+      int lineBottom = startY + mHeight + extraHeight;
       if (rtl) {
-        rectF.set(endX - lineWidth, startY, endX, startY + mHeight);
+        rectF.set(endX - lineWidth, startY, endX, lineBottom);
       } else {
-        rectF.set(startX, startY, startX + lineWidth, startY + mHeight);
+        rectF.set(startX, startY, startX + lineWidth, lineBottom);
       }
       c.drawRoundRect(rectF, lineWidth / 2f, lineWidth / 2f, Paints.fillingPaint(lineColor));
 
@@ -1162,8 +1169,12 @@ public class ReplyComponent implements Client.ResultHandler, Destroyable {
 
   private static int mHeight;
 
-  public static int height () {
-    return mHeight + Screen.dp(10f);
+  private static final int MAX_QUOTE_LINE_COUNT = 5;
+
+  private int extraHeight;
+
+  public int height () {
+    return mHeight + extraHeight + Screen.dp(10f);
   }
 
   public static void reset () {

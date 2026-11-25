@@ -1259,7 +1259,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
   }
 
   private int getBubbleReplyOffset () {
-    return ReplyComponent.height() + Screen.dp(useBubble() ? 3f : 6f) - (useForward() ? Screen.dp(9f) : 0);
+    return replyData.height() + Screen.dp(useBubble() ? 3f : 6f) - (useForward() ? Screen.dp(9f) : 0);
   }
 
   public void rebuildLayout () {
@@ -1343,7 +1343,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
     updateContentPositions(true);
     if (allowMessageHorizontalExtend()) {
       if (replyData != null && !alignReplyHorizontally()) {
-        pContentY += ReplyComponent.height();
+        pContentY += replyData.height();
       }
       buildHeader();
       buildForward();
@@ -1356,7 +1356,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
       }
     } else {
       if (replyData != null) {
-        pContentY += ReplyComponent.height();
+        pContentY += replyData.height();
       }
       buildContent(pContentMaxWidth);
       buildHeader();
@@ -2602,7 +2602,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
           lineBottom = height;
           mergeBottom = true;
         } else {
-          lineBottom = forwardY + getForwardHeight() + (replyData != null ? ReplyComponent.height() : 0);
+          lineBottom = forwardY + getForwardHeight() + (replyData != null ? replyData.height() : 0);
           mergeBottom = false;
         }
       }
@@ -2638,18 +2638,18 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
           endX = getInternalBubbleEndX();
           if (alignReplyHorizontally()) {
             startX -= getContentWidth();
-            top = topContentEdge + (bottomContentEdge - topContentEdge) / 2 - ReplyComponent.height() / 2;
+            top = topContentEdge + (bottomContentEdge - topContentEdge) / 2 - replyData.height() / 2;
           }
         } else {
           startX = getInternalBubbleStartX();
           endX = getInternalBubbleEndX();
           if (alignReplyHorizontally()) {
             startX += getContentWidth();
-            top = topContentEdge + (bottomContentEdge - topContentEdge) / 2 - ReplyComponent.height() / 2;
+            top = topContentEdge + (bottomContentEdge - topContentEdge) / 2 - replyData.height() / 2;
           }
         }
       } else {
-        top = pContentY - ReplyComponent.height();
+        top = pContentY - replyData.height();
         startX = useFullWidth() ? pRealContentX : pContentX;
         endX = viewWidth - startX;
       }
@@ -3352,8 +3352,8 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
       pTicksLeft = currentWidth - Screen.dp(15f);
 
       if (replyData != null && !alignReplyHorizontally()) {
-        pClockTop += ReplyComponent.height();
-        pTicksTop += ReplyComponent.height();
+        pClockTop += replyData.height();
+        pTicksTop += replyData.height();
       }
     }
   }
@@ -10255,7 +10255,7 @@ public abstract class TGMessage implements InvalidateContentProvider, TdlibDeleg
       outRect.left = replyData.getLastX();
       outRect.top = replyData.getLastY();
       outRect.right = outRect.left + replyData.width(!useBubble());
-      outRect.bottom = outRect.top + ReplyComponent.height();
+      outRect.bottom = outRect.top + replyData.height();
     };
   }
 
