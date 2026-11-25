@@ -96,6 +96,7 @@ public class MessagesLoader implements Client.ResultHandler {
   private int knownTotalMessageCount = -1;
   private MessageId scrollMessageId;
   private int scrollHighlightMode;
+  private @Nullable TdApi.InputTextQuote scrollHighlightQuote;
   private TdlibMessageViewer.Viewport viewport;
 
   public static final int SPECIAL_MODE_NONE = 0;
@@ -625,6 +626,7 @@ public class MessagesLoader implements Client.ResultHandler {
   public void reuse () {
     scrollMessageId = null;
     scrollHighlightMode = 0;
+    scrollHighlightQuote = null;
 
     knownTotalMessageCount = -1;
 
@@ -1148,7 +1150,12 @@ public class MessagesLoader implements Client.ResultHandler {
     load(startMessageId, 0, CHUNK_SIZE_SMALL, MODE_INITIAL, true, true, true);
   }
 
-  public void loadFromMessage (MessageId messageId, final int highlightMode, boolean force) {
+  public void loadFromMessage (
+    MessageId messageId,
+    final int highlightMode,
+    boolean force,
+    @Nullable TdApi.InputTextQuote quote
+  ) {
     // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
     if (ForumHistory.isForum(
       topicId
@@ -1162,6 +1169,7 @@ public class MessagesLoader implements Client.ResultHandler {
     canLoadTop = canLoadBottom = force;
     scrollMessageId = messageId;
     scrollHighlightMode = highlightMode;
+    scrollHighlightQuote = quote;
 
     load(messageId, CHUNK_SEARCH_OFFSET, CHUNK_SIZE_SEARCH, force ? MODE_INITIAL : MODE_REPEAT_INITIAL, false, true, true);
   }
@@ -1706,6 +1714,7 @@ public class MessagesLoader implements Client.ResultHandler {
         case MessagesManager.HIGHLIGHT_MODE_NORMAL:
         case MessagesManager.HIGHLIGHT_MODE_NORMAL_NEXT: {
           scrollItem.highlight(false);
+          scrollItem.highlightQuote(scrollHighlightQuote);
           break;
         }
         case MessagesManager.HIGHLIGHT_MODE_UNREAD:

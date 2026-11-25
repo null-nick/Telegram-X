@@ -952,7 +952,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     pinnedMessagesBar.setMessageListener(new PinnedMessagesBar.MessageListener() {
       @Override
       public void onMessageClick (PinnedMessagesBar view, TdApi.Message message, TdApi.InputTextQuote quote) {
-        highlightMessage(new MessageId(message.chatId, message.id));
+        highlightMessage(new MessageId(message.chatId, message.id), quote);
       }
 
       @Override
@@ -2195,7 +2195,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
       viewScheduledMessages(false);
     } else if (viewId == R.id.msg_bottomReply) {
       if (reply != null) {
-        highlightMessage(reply.toMessageId());
+        highlightMessage(reply.toMessageId(), reply.quote);
       }
     } else if (viewId == R.id.btn_mute) {
       if (chat != null) {
@@ -2705,6 +2705,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     public final TdApi.ChatList chatList;
     public final MessageId highlightMessageId;
     public final int highlightMode;
+    public @Nullable TdApi.InputTextQuote highlightQuote;
 
     public final boolean inPreviewMode;
     public final int previewMode;
@@ -3691,7 +3692,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     this.previewSearchQuery = args.searchQuery;
     this.previewSearchSender = args.searchSender;
     this.previewSearchFilter = args.searchFilter;
-    this.manager.setHighlightMessageId(args.highlightMessageId, args.highlightMode);
+    manager.setHighlightMessageId(args.highlightMessageId, args.highlightMode, args.highlightQuote);
     this.inPreviewMode = args.inPreviewMode;
     this.previewMode = args.previewMode;
     this.openKeyboard = args.openKeyboard;
@@ -7772,37 +7773,57 @@ public class MessagesController extends ViewController<MessagesController.Argume
   }
 
   public void highlightMessage (MessageId messageId) {
-    if (inPreviewSearchMode()) {
-      tdlib.ui().openMessage(this, getChatId(), messageId, null);
-      return;
-    }
-    // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
-    highlightMessageInTopic(messageId, null);
-    // endregion
+    highlightMessage(messageId, (TdApi.InputTextQuote) null);
+  }
+
+  public void highlightMessage (MessageId messageId, @Nullable TdApi.InputTextQuote quote) {
+    highlightMessage(messageId, (long[]) null, quote);
   }
 
   public void highlightMessage (MessageId messageId, MessageId fromMessageId) {
+    highlightMessage(messageId, fromMessageId, null);
+  }
+
+  public void highlightMessage (
+    MessageId messageId,
+    MessageId fromMessageId,
+    @Nullable TdApi.InputTextQuote quote
+  ) {
     if (inOnlyFoundMode()) {
       manager.setHighlightMessageId(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL);
       onSetSearchFilteredShowMode(false);
       return;
     }
     long[] returnToMessageIds = manager.extendReturnToMessageIdStack(fromMessageId);
-    highlightMessage(messageId, returnToMessageIds);
+    highlightMessage(messageId, returnToMessageIds, quote);
   }
 
   public void highlightMessage (MessageId messageId, long[] returnToMessageIds) {
-    if (inPreviewSearchMode()) {
-      tdlib.ui().openMessage(this, getChatId(), messageId, null);
-      // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
-      return;
-    }
-    highlightMessageInTopic(messageId, returnToMessageIds);
+    highlightMessage(messageId, returnToMessageIds, null);
   }
 
+  public void highlightMessage (
+    MessageId messageId,
+    long[] returnToMessageIds,
+    @Nullable TdApi.InputTextQuote quote
+  ) {
+    if (inPreviewSearchMode()) {
+      tdlib.ui().openMessage(this, getChatId(), messageId, null);
+      return;
+    }
+    // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
+    highlightMessageInTopic(messageId, returnToMessageIds, quote);
+    // endregion
+  }
+
+  // region @MadeByLLM("gpt-6-astra", id = "forum-topics", ref = "PR #1095")
   private Object forumHighlightRequest;
 
-  private void highlightMessageInTopic (MessageId messageId, @Nullable long[] returnToMessageIds) {
+  private void highlightMessageInTopic (
+    MessageId messageId,
+    @Nullable long[] returnToMessageIds,
+    @Nullable TdApi.InputTextQuote quote
+  ) {
     Object request = forumHighlightRequest = new Object();
     ForumTopicContext forum = forumTopicContext;
     if (forum != null && !areScheduledOnly() && messageId.getMessageId() > 0 &&
@@ -7828,7 +7849,8 @@ public class MessagesController extends ViewController<MessagesController.Argume
               messageId,
               MessagesManager.HIGHLIGHT_MODE_NORMAL,
               returnToMessageIds,
-              pagerScrollPosition == 0
+              pagerScrollPosition == 0,
+              quote
             );
             showMessagesListIfNeeded();
           } else {
@@ -7836,11 +7858,44 @@ public class MessagesController extends ViewController<MessagesController.Argume
           }
         })
       );
-      // endregion
       return;
     }
-    manager.highlightMessage(messageId, MessagesManager.HIGHLIGHT_MODE_NORMAL, returnToMessageIds, pagerScrollPosition == 0);
+    manager.highlightMessage(
+      messageId,
+      MessagesManager.HIGHLIGHT_MODE_NORMAL,
+      returnToMessageIds,
+      pagerScrollPosition == 0,
+      quote
+    );
     showMessagesListIfNeeded();
+  }
+  // endregion
+
+  private static final int MAX_QUOTE_LENGTH = 1024;
+
+  private static @Nullable TdApi.InputTextQuote truncateQuote (@Nullable TdApi.InputTextQuote quote) {
+    if (quote == null || Td.isEmpty(quote.text) || quote.text.text.length() <= MAX_QUOTE_LENGTH) {
+      return quote;
+    }
+    String text = quote.text.text;
+    int end = MAX_QUOTE_LENGTH;
+    if (Character.isHighSurrogate(text.charAt(end - 1))) {
+      end--;
+    }
+    List<TdApi.TextEntity> entities = new ArrayList<>();
+    if (quote.text.entities != null) {
+      for (TdApi.TextEntity entity : quote.text.entities) {
+        if (entity.offset < end) {
+          int length = Math.min(entity.length, end - entity.offset);
+          entities.add(new TdApi.TextEntity(entity.offset, length, entity.type));
+        }
+      }
+    }
+    TdApi.FormattedText trimmedText = new TdApi.FormattedText(
+      text.substring(0, end),
+      entities.toArray(new TdApi.TextEntity[0])
+    );
+    return new TdApi.InputTextQuote(trimmedText, quote.richTexts, quote.position);
   }
 
   public static class ReplyInfo {
@@ -7859,7 +7914,7 @@ public class MessagesController extends ViewController<MessagesController.Argume
     public ReplyInfo (Tdlib tdlib, MessageWithProperties message, @Nullable TdApi.InputTextQuote quote, int checklistTaskId, String pollOptionId, long inChatId, @Nullable TdApi.MessageTopic inTopicId) {
       this.tdlib = tdlib;
       this.message = message;
-      this.quote = quote;
+      this.quote = truncateQuote(quote);
       this.checklistTaskId = checklistTaskId;
       this.pollOptionId = pollOptionId;
       this.inChatId = inChatId;
@@ -8152,12 +8207,18 @@ public class MessagesController extends ViewController<MessagesController.Argume
           new TdlibUi.ChatOpenParameters().keepStack().highlightMessage(message)
         );
       } else {
-        highlightMessage(new MessageId(message.chatId, message.id));
+        highlightMessage(new MessageId(message.chatId, message.id), quote);
       }
       // endregion
     } else {
       if (anotherChatHint != null && anotherChatHint.isVisible()) {
-        tdlib.ui().openMessage(this, message.chatId, new MessageId(message.chatId, message.id), new TdlibUi.UrlOpenParameters().controller(this));
+        tdlib.ui().openMessage(
+          this,
+          message.chatId,
+          new MessageId(message.chatId, message.id),
+          new TdlibUi.UrlOpenParameters().controller(this),
+          quote
+        );
         return;
       }
       anotherChatHint = context()

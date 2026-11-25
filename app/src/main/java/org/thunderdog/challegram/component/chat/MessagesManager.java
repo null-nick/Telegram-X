@@ -15,6 +15,7 @@
 package org.thunderdog.challegram.component.chat;
 
 import android.content.res.Configuration;
+import android.graphics.Rect;
 import android.view.View;
 import android.view.ViewTreeObserver;
 import android.view.ViewGroup;
@@ -630,6 +631,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     highlightMode = 0;
     tdlib.settings().removePinnedMessageDismissListener(this);
     highlightMessageId = null;
+    highlightQuote = null;
     hasScrolled = false;
     lastViewedMentionMessageId = 0;
     lastViewedReactionMessageId = 0;
@@ -707,7 +709,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
       // endregion
     }
     if (highlightMessageId != null) {
-      loadFromMessage(highlightMessageId, highlightMode, true);
+      loadFromMessage(highlightMessageId, highlightMode, true, highlightQuote);
     } else {
       loadFromStart();
     }
@@ -906,7 +908,7 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
           );
         }
         if (highlightMessageId != null) {
-          loadFromMessage(highlightMessageId, highlightMode, true);
+          loadFromMessage(highlightMessageId, highlightMode, true, highlightQuote);
         } else {
           loadFromStart();
         }
@@ -978,10 +980,19 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
   }
 
   public void resetByMessage (MessageId highlightMessageId, int highlightMode) {
+    resetByMessage(highlightMessageId, highlightMode, null);
+  }
+
+  public void resetByMessage (
+    MessageId highlightMessageId,
+    int highlightMode,
+    @Nullable TdApi.InputTextQuote quote
+  ) {
     clearHeaderMessage();
     this.highlightMessageId = highlightMessageId;
     this.highlightMode = highlightMode;
-    loadFromMessage(highlightMessageId, highlightMode, false);
+    this.highlightQuote = quote;
+    loadFromMessage(highlightMessageId, highlightMode, false, quote);
   }
 
   public void loadFromStart () {
@@ -1296,11 +1307,16 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     viewMessages(false);
   }
 
-  private void loadFromMessage (MessageId messageId, int highlightMode, boolean force) {
+  private void loadFromMessage (
+    MessageId messageId,
+    int highlightMode,
+    boolean force,
+    @Nullable TdApi.InputTextQuote quote
+  ) {
     if (force) {
       adapter.reset(null);
     }
-    loader.loadFromMessage(messageId, highlightMode, force);
+    loader.loadFromMessage(messageId, highlightMode, force, quote);
     viewMessages(false);
   }
 
@@ -3226,9 +3242,19 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
 
   private MessageId highlightMessageId;
   private int highlightMode;
+  private @Nullable TdApi.InputTextQuote highlightQuote;
   public void setHighlightMessageId (MessageId messageId, int highlightMode) {
+    setHighlightMessageId(messageId, highlightMode, null);
+  }
+
+  public void setHighlightMessageId (
+    MessageId messageId,
+    int highlightMode,
+    @Nullable TdApi.InputTextQuote quote
+  ) {
     this.highlightMessageId = messageId;
     this.highlightMode = highlightMode;
+    this.highlightQuote = quote;
   }
 
   // Empty text
@@ -3653,6 +3679,14 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
       height -= offset;
     }
 
+    Rect quoteBounds = scrollMessage.refreshQuoteHighlightBounds();
+    if (quoteBounds != null) {
+      int quoteOffset = getQuoteScrollOffset(quoteBounds, height, fullHeight);
+      scrollToPositionWithOffset(index, quoteOffset, smooth, isPlayingRoundMessage);
+      wasScrollByUser = false;
+      return;
+    }
+
     if (highlightMode == HIGHLIGHT_MODE_UNREAD || highlightMode == HIGHLIGHT_MODE_UNREAD_NEXT || fullHeight + scrollMessage.findTopEdge() >= height) {
       scrollToPositionWithOffset(index, height - fullHeight, smooth, isPlayingRoundMessage);
       wasScrollByUser = false;
@@ -3670,6 +3704,14 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
       scrollToPositionWithOffsetImpl(index, (int) ((float) height * .5f - itemHeight));
     }
     context.showScrollButton(animateScrollButton);*/
+  }
+
+  private static int getQuoteScrollOffset (Rect quoteBounds, int height, int fullHeight) {
+    int margin = Screen.dp(64f);
+    int centeredOffset = height / 2 - fullHeight + quoteBounds.centerY();
+    int minOffset = margin + quoteBounds.bottom - fullHeight;
+    int maxOffset = height - margin + quoteBounds.top - fullHeight;
+    return Math.min(Math.max(centeredOffset, minOffset), maxOffset);
   }
 
   public boolean isAtVeryBottom () {
@@ -3751,6 +3793,16 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
   }
 
   public void highlightMessage (MessageId messageId, int highlightMode, long[] returnToMessageIds, boolean allowSmooth) {
+    highlightMessage(messageId, highlightMode, returnToMessageIds, allowSmooth, null);
+  }
+
+  public void highlightMessage (
+    MessageId messageId,
+    int highlightMode,
+    long[] returnToMessageIds,
+    boolean allowSmooth,
+    @Nullable TdApi.InputTextQuote quote
+  ) {
     if (isEventLog()) {
       return;
     }
@@ -3765,13 +3817,14 @@ public class MessagesManager implements Client.ResultHandler, MessagesSearchMana
     }
     int index = adapter.indexOfMessageContainer(messageId);
     if (index == -1) {
-      resetByMessage(messageId, highlightMode);
+      resetByMessage(messageId, highlightMode, quote);
     } else {
       if ((highlightMode == HIGHLIGHT_MODE_UNREAD_NEXT || highlightMode == HIGHLIGHT_MODE_NORMAL_NEXT) && index > 0) {
         index--;
       }
       TGMessage msg = adapter.getMessage(index);
       msg.highlight(true);
+      msg.highlightQuote(quote);
       scrollToMessage(index, msg, highlightMode, allowSmooth, false);
     }
   }
